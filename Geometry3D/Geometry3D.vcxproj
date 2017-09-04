@@ -153,12 +153,14 @@
     <ClInclude Include="Box.hpp" />
     <ClInclude Include="Camera.hpp" />
     <ClInclude Include="CoordinateFrame.hpp" />
+    <ClInclude Include="kdTree.hpp" />
     <ClInclude Include="Plane.hpp" />
     <ClInclude Include="Point.hpp" />
     <ClInclude Include="Ray.hpp" />
     <ClInclude Include="Sphere.hpp" />
     <ClInclude Include="Triangle.hpp" />
     <ClInclude Include="TriangleMesh.hpp" />
+    <ClInclude Include="util.hpp" />
     <ClInclude Include="Vector.hpp" />
     <ClInclude Include="Vector4.hpp" />
     <ClInclude Include="Vertex.hpp" />

@@ -57,6 +57,12 @@
     <ClInclude Include="CoordinateFrame.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="util.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="kdTree.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="test_geometry.cpp">

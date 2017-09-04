@@ -10,6 +10,7 @@ class Ray {
 public:
     Point<F> origin;
     Vector<F> direction;
+    Vector<F> inverse_direction;
 
     Ray<F>(const Point<F>&  new_origin,
            const Vector<F>& new_direction);
@@ -23,7 +24,9 @@ public:
 template <typename F>
 Ray<F>::Ray(const Point<F>&  new_origin,
             const Vector<F>& new_direction)
-    : origin(new_origin), direction(new_direction) {}
+    : origin(new_origin),
+      direction(new_direction),
+      inverse_direction(1.0f/new_direction) {}
 
 template <typename F>
 Point<F> Ray<F>::operator()(F distance) const

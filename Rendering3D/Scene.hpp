@@ -74,6 +74,9 @@ private:
 protected:
     
     Point _camera_position;
+    
+    Point2 _image_lower_corner;
+    Point2 _image_upper_corner;
 
     Point2 _getPerspectiveProjected(const arma::Col<F>& vertex) const;
 
@@ -128,6 +131,9 @@ void Scene<F>::_setConstants()
 {
     _image_width = static_cast<F>(_image.getWidth());
     _image_height = static_cast<F>(_image.getHeight());
+    
+    _image_lower_corner.moveTo(0, 0);
+    _image_upper_corner.moveTo(_image_width, _image_height);
 
     _inverse_image_width = 1/_image_width;
     _inverse_image_height = 1/_image_height;
@@ -162,6 +168,8 @@ Scene<F>& Scene<F>::renderDirect()
     for (size_t i = 0; i < _objects.size(); i++)
     {
         TriangleMesh& mesh = _objects[i];
+
+        mesh.use_omp = use_omp;
 
         if (n_splits > 0)
             mesh.splitFaces(n_splits);
@@ -203,31 +211,40 @@ Scene<F>& Scene<F>::rayTrace()
     size_t n_objects = _objects.size();
     size_t n_triangles;
     int x, y, obj_idx, face_idx;
+    F x_pos, y_pos;
     F closest_distance;
     Radiance pixel_radiance;
     
     #pragma omp parallel for default(shared) \
                              private(obj_idx) \
                              shared(n_objects) \
+                             schedule(dynamic) \
                              if (use_omp)
     for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
     {
-        _objects[obj_idx].applyTransformation(_transformation_to_camera_system)
-                         .computeNormals()
-                         .computeAABB();
+        TriangleMesh& mesh = _objects[obj_idx];
+        mesh.applyTransformation(_transformation_to_camera_system);
+        mesh.computeNormals();
+        mesh.clipNearPlaneAt(-_near_plane_distance);
+        mesh.computeAABB();
+        mesh.computeFaceBoundingRectangles(*this);
+        mesh.computeFaceBoundingBoxes();
     }
 
     _lights.applyTransformation(_transformation_to_camera_system);
     
     #pragma omp parallel for default(shared) \
-                             private(x, y, obj_idx, face_idx, n_triangles, closest_distance, pixel_radiance) \
+                             private(x, y, x_pos, y_pos, obj_idx, face_idx, n_triangles, closest_distance, pixel_radiance) \
                              shared(image_height, image_width, n_objects) \
+                             schedule(dynamic) \
                              if (use_omp)
     for (y = 0; y < image_height; y++) {
         for (x = 0; x < image_width; x++)
         {
-            const Ray& eye_ray = _getEyeRay(static_cast<F>(x) + 0.5f,
-                                            static_cast<F>(y) + 0.5f);
+            x_pos = static_cast<F>(x) + 0.5f;
+            y_pos = static_cast<F>(y) + 0.5f;
+
+            const Ray& eye_ray = _getEyeRay(x_pos, y_pos);
                 
             closest_distance = _far_plane_distance;
 
@@ -241,7 +258,7 @@ Scene<F>& Scene<F>::rayTrace()
 
                     for (face_idx = 0; face_idx < n_triangles; face_idx++)
                     {
-                        if (mesh.sampleRayTriangle(*this, x, y, eye_ray, face_idx, pixel_radiance, closest_distance))
+                        if (mesh.sampleRadianceFromFace(*this, x, y, x_pos, y_pos, eye_ray, face_idx, pixel_radiance, closest_distance))
                         {
                             _image.setRadiance(x, y, pixel_radiance);
                         }
@@ -263,9 +280,6 @@ Scene<F>& Scene<F>::rasterize()
     size_t n_triangles;
     int x, y, obj_idx, face_idx, vertex_idx;
     int x_min, x_max, y_min, y_max;
-
-    Point2 image_lower_corner = Point2::origin();
-    Point2 image_upper_corner(_image_width, _image_height);
 
     F alpha, beta, gamma;
     Point2 pixel_center;
@@ -295,7 +309,7 @@ Scene<F>& Scene<F>::rasterize()
         
     #pragma omp parallel for default(shared) \
                              private(x, y, obj_idx, face_idx, vertex_idx, n_triangles, x_min, x_max, y_min, y_max, pixel_center, alpha, beta, gamma, inverse_depths, vertices, normals, material, interpolated_inverse_depth, depth) \
-                             shared(n_objects, image_lower_corner, image_upper_corner) \
+                             shared(n_objects) \
                              if (use_omp)
     for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
     {
@@ -307,7 +321,7 @@ Scene<F>& Scene<F>::rasterize()
         {
             Triangle2& projected_triangle = mesh.getProjectedFace(*this, face_idx);
 
-            const AxisAlignedRectangle& aabb = projected_triangle.getAABB(image_lower_corner, image_upper_corner);
+            const AxisAlignedRectangle& aabb = projected_triangle.getAABB(_image_lower_corner, _image_upper_corner);
 
             x_min = static_cast<int>(aabb.lower_corner.x + 0.5f);
             x_max = static_cast<int>(aabb.upper_corner.x + 0.5f);
@@ -375,7 +389,7 @@ Scene<F>& Scene<F>::rasterize()
 }
 
 template <typename F>
-Scene<F>& Scene<F>::generateGround(F plane_height, F horizon_position, const BlinnPhongMaterial<F>& material)
+Scene<F>& Scene<F>::generateGround(F plane_height, F plane_depth, const BlinnPhongMaterial<F>& material)
 {
     assert(horizon_position >= 0 && horizon_position < 1);
 
@@ -438,7 +452,6 @@ Radiance Scene<F>::_getRadiance(const Point&  surface_point,
     size_t n_samples;
     size_t n, s;
     Vector direction_to_source;
-    float normalization_factor;
     F distance_to_source;
 
     for (n = 0; n < n_lights; n++)
@@ -446,7 +459,6 @@ Radiance Scene<F>::_getRadiance(const Point&  surface_point,
         const Light<F>* light = _lights.getLight(n);
         
         n_samples = light->getNumberOfSamples();
-        normalization_factor = 0.0f;
 
         for (s = 0; s < n_samples; s++)
         {
@@ -470,11 +482,10 @@ Radiance Scene<F>::_getRadiance(const Point&  surface_point,
                 const Color& scattering_density = material->getScatteringDensity(surface_normal, direction_to_source, scatter_direction);
             
                 radiance += surface_normal.dot(direction_to_source)*scattering_density*biradiance;
-                normalization_factor += 1.0f;
             }
         }
 
-        if (normalization_factor > 0.0f) radiance /= normalization_factor;
+        radiance /= static_cast<float>(n_samples);
     }
 
     return radiance;
@@ -492,7 +503,6 @@ bool Scene<F>::_evaluateVisibility(const Point& surface_point,
     size_t n_objects = _objects.size();
     size_t n_triangles;
     size_t obj_idx, face_idx;
-    F alpha, beta, gamma;
 
     for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
     {
@@ -504,7 +514,7 @@ bool Scene<F>::_evaluateVisibility(const Point& surface_point,
 
             for (face_idx = 0; face_idx < n_triangles; face_idx++)
             {
-                if (mesh.evaluateRayFaceIntersection(shadow_ray, face_idx, alpha, beta, gamma) < distance_to_source)
+                if (mesh.evaluateRayFaceWithAABBIntersection(shadow_ray, face_idx) < distance_to_source)
                 {
                     return false;
                 }

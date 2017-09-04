@@ -11,6 +11,7 @@ class AxisAlignedRectangle {
 public:
     Point<F> lower_corner, upper_corner;
 
+    AxisAlignedRectangle<F>();
     AxisAlignedRectangle<F>(const Point<F>& new_lower_corner,
                             const Point<F>& new_upper_corner);
 
@@ -25,11 +26,18 @@ public:
     AxisAlignedRectangle<F>& setHeight(F new_height);
     AxisAlignedRectangle<F>& setDimensions(F new_width, F new_height);
 
+    bool contains(F x, F y) const;
+
     AxisAlignedRectangle<F>& translate(F dx, F dy);
     AxisAlignedRectangle<F>& translate(const Vector<F>& displacement);
 
     AxisAlignedRectangle<F>& validateOrientation();
 };
+
+template <typename F>
+AxisAlignedRectangle<F>::AxisAlignedRectangle()
+    : lower_corner(Point<F>::min()),
+      upper_corner(Point<F>::max()) {}
 
 template <typename F>
 AxisAlignedRectangle<F>::AxisAlignedRectangle(const Point<F>& new_lower_corner,
@@ -95,6 +103,15 @@ template <typename F>
 AxisAlignedRectangle<F>& AxisAlignedRectangle<F>::setDimensions(F new_width, F new_height)
 {
     return setWidth(new_width).setHeight(new_height);
+}
+
+template <typename F>
+bool AxisAlignedRectangle<F>::contains(F x, F y) const
+{
+    return (x >= lower_corner.x &&
+            x <= upper_corner.x &&
+            y >= lower_corner.y &&
+            y <= upper_corner.y);
 }
 
 template <typename F>

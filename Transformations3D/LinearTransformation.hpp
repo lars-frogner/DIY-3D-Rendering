@@ -54,6 +54,7 @@ public:
     LinearTransformation<F>();
     
     static LinearTransformation<F> scaling(F scale_x, F scale_y, F scale_z);
+    static LinearTransformation<F> scaling(F scale);
     static LinearTransformation<F> rotationAboutAxis(const Vector& axis, F angle);
     static LinearTransformation<F> rotationFromVectorToVector(const Vector& from_vector,
                                                               const Vector& to_vector);
@@ -106,6 +107,12 @@ LinearTransformation<F> LinearTransformation<F>::scaling(F scale_x, F scale_y, F
     transformation._matrix(2, 2) = scale_z;
 
     return transformation;
+}
+
+template <typename F>
+LinearTransformation<F> LinearTransformation<F>::scaling(F scale)
+{
+    return scaling(scale, scale, scale);
 }
 
 template <typename F>

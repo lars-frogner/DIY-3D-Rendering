@@ -34,6 +34,9 @@ public:
 
     Color& clamp();
     
+    float getMin() const;
+    float getMax() const;
+    
     std::string toString() const;
 };
 

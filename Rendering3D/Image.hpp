@@ -18,6 +18,8 @@ private:
     std::vector<float> _pixel_values;
     std::vector<F> _depth_buffer;
 
+    const F _eps_barycentric = -1.e-7f;
+
 public:
     
     Image<F>(size_t n_cols, size_t n_rows);
@@ -154,31 +156,24 @@ void Image<F>::drawTriangle(const Vertex& v0, const Vertex& v1, const Vertex& v2
             dxp = x - x0_i; dyp = y - y0_i;
 
             factor = 1/static_cast<F>(dx1*dy2 - dx2*dy1);
+
             beta = (dxp*dy2 - dx2*dyp)*factor;
+            gamma = (dx1*dyp - dxp*dy1)*factor;
+            alpha = 1 - beta - gamma;
 
-            if (beta >= 0 && beta <= 1)
+            if (alpha > _eps_barycentric && beta > _eps_barycentric && gamma > _eps_barycentric)
             {
-                gamma = (dx1*dyp - dxp*dy1)*factor;
+                idx = y*_n_cols + x;
+                z = alpha*v0.z + beta*v1.z + gamma*v2.z;
 
-                if (gamma >= 0 && gamma <= 1)
+                if (z > _depth_buffer[idx])
                 {
-                    alpha = 1 - beta - gamma;
+                    _depth_buffer[idx] = z;
 
-                    if (alpha >= 0 && alpha <= 1)
-                    {
-                        idx = y*_n_cols + x;
-                        z = alpha*v0.z + beta*v1.z + gamma*v2.z;
-
-                        if (z > _depth_buffer[idx])
-                        {
-                            _depth_buffer[idx] = z;
-
-                            idx *= 3;
-                            _pixel_values[idx] = alpha*v0.color.r + beta*v1.color.r + gamma*v2.color.r;
-                            _pixel_values[idx + 1] = alpha*v0.color.g + beta*v1.color.g + gamma*v2.color.g;
-                            _pixel_values[idx + 2] = alpha*v0.color.b + beta*v1.color.b + gamma*v2.color.b;
-                        }
-                    }
+                    idx *= 3;
+                    _pixel_values[idx] = alpha*v0.color.r + beta*v1.color.r + gamma*v2.color.r;
+                    _pixel_values[idx + 1] = alpha*v0.color.g + beta*v1.color.g + gamma*v2.color.g;
+                    _pixel_values[idx + 2] = alpha*v0.color.b + beta*v1.color.b + gamma*v2.color.b;
                 }
             }
         }

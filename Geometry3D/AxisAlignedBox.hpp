@@ -13,11 +13,11 @@ class Sphere;
 template <typename F>
 class AxisAlignedBox {
 
-private:
-    Point<F> _lower_corner, _upper_corner;
-    Vector<F> _span;
-
 public:
+    Point<F> lower_corner, upper_corner;
+
+    AxisAlignedBox<F>();
+
     AxisAlignedBox<F>(const Point<F>& new_lower_corner,
                       const Point<F>& new_upper_corner);
     
@@ -27,17 +27,12 @@ public:
     AxisAlignedBox<F>(const Point<F>&  new_lower_corner,
                       F width, F height, F depth);
 
-    const Point<F>& getLowerCorner() const;
-    const Point<F>& getUpperCorner() const;
     const Vector<F>& getSpan() const;
     Point<F> getCenter() const;
     F getWidth() const;
     F getHeight() const;
     F getDepth() const;
 
-    AxisAlignedBox<F>& setLowerCorner(const Point<F>& new_lower_corner);
-    AxisAlignedBox<F>& setUpperCorner(const Point<F>& new_upper_corner);
-    AxisAlignedBox<F>& setLowerAndUpperCorner(const Point<F>& new_lower_corner, const Point<F>& new_upper_corner);
     AxisAlignedBox<F>& setSpan(const Vector<F>& new_span);
     AxisAlignedBox<F>& setCenter(const Point<F>& center);
     AxisAlignedBox<F>& setWidth(F new_width);
@@ -56,156 +51,115 @@ public:
 };
 
 template <typename F>
+AxisAlignedBox<F>::AxisAlignedBox()
+    : lower_corner(Point<F>::min()),
+      upper_corner(Point<F>::max()) {}
+
+template <typename F>
 AxisAlignedBox<F>::AxisAlignedBox(const Point<F>& new_lower_corner,
                                   const Point<F>& new_upper_corner)
-    : _lower_corner(new_lower_corner),
-      _upper_corner(new_upper_corner),
-      _span(new_upper_corner - new_lower_corner) {}
+    : lower_corner(new_lower_corner),
+      upper_corner(new_upper_corner) {}
 
 template <typename F>
 AxisAlignedBox<F>::AxisAlignedBox(const Point<F>&  new_lower_corner,
                                   const Vector<F>& new_span)
-    : _lower_corner(new_lower_corner),
-      _upper_corner(new_lower_corner + new_span),
-      _span(new_span) {}
+    : lower_corner(new_lower_corner),
+      upper_corner(new_lower_corner + new_span) {}
 
 template <typename F>
 AxisAlignedBox<F>::AxisAlignedBox(const Point<F>&  new_lower_corner,
                                   F width, F height, F depth)
-    : _span(Vector<F>(width, height, depth)),
-      _lower_corner(new_lower_corner),
-      _upper_corner(Vector<F>(new_lower_corner).translate(width, height, depth)) {}
-
-template <typename F>
-const Point<F>& AxisAlignedBox<F>::getLowerCorner() const
-{
-    return _lower_corner;
-}
-
-template <typename F>
-const Point<F>& AxisAlignedBox<F>::getUpperCorner() const
-{
-    return _upper_corner;
-}
+    : lower_corner(new_lower_corner),
+      upper_corner(Vector<F>(new_lower_corner).translate(width, height, depth)) {}
 
 template <typename F>
 const Vector<F>& AxisAlignedBox<F>::getSpan() const
 {
-    return _span;
+    return upper_corner - lower_corner;
 }
 
 template <typename F>
 Point<F> AxisAlignedBox<F>::getCenter() const
 {
-    return _lower_corner + _span*0.5;
+    return lower_corner + getSpan()*0.5;
 }
 
 template <typename F>
 F AxisAlignedBox<F>::getWidth() const
 {
-    return _span.x;
+    return getSpan().x;
 }
 
 template <typename F>
 F AxisAlignedBox<F>::getHeight() const
 {
-    return _span.y;
+    return getSpan().y;
 }
 
 template <typename F>
 F AxisAlignedBox<F>::getDepth() const
 {
-    return _span.z;
-}
-
-template <typename F>
-AxisAlignedBox<F>& AxisAlignedBox<F>::setLowerCorner(const Point<F>& new_lower_corner)
-{
-    _lower_corner = new_lower_corner;
-    _span = _upper_corner - new_lower_corner;
-    return *this;
-}
-
-template <typename F>
-AxisAlignedBox<F>& AxisAlignedBox<F>::setUpperCorner(const Point<F>& new_upper_corner)
-{
-    _upper_corner = new_upper_corner;
-    _span = new_upper_corner - _lower_corner;
-    return *this;
-}
-
-template <typename F>
-AxisAlignedBox<F>& AxisAlignedBox<F>::setLowerAndUpperCorner(const Point<F>& new_lower_corner,
-                                                             const Point<F>& new_upper_corner)
-{
-    _lower_corner = new_lower_corner;
-    _upper_corner = new_upper_corner;
-    _span = new_upper_corner - new_lower_corner;
-    return *this;
+    return getSpan().z;
 }
 
 template <typename F>
 AxisAlignedBox<F>& AxisAlignedBox<F>::setSpan(const Vector<F>& new_span)
 {
-    _span = new_span;
-    _upper_corner = _lower_corner + new_span;
+    upper_corner = lower_corner + new_span;
     return *this;
 }
 
 template <typename F>
 AxisAlignedBox<F>& AxisAlignedBox<F>::setCenter(const Point<F>& center)
 {
-    const Vector<F>& half_span = _span*0.5;
-    _lower_corner = center - half_span;
-    _upper_corner = center + half_span;
+    const Vector<F>& half_span = getSpan()*0.5;
+    lower_corner = center - half_span;
+    upper_corner = center + half_span;
     return *this;
 }
 
 template <typename F>
 AxisAlignedBox<F>& AxisAlignedBox<F>::setWidth(F new_width)
 {
-    _upper_corner.x += new_width - _span.x;
-    _span.x = new_width;
+    upper_corner.x += new_width - getSpan().x;
     return *this;
 }
 
 template <typename F>
 AxisAlignedBox<F>& AxisAlignedBox<F>::setHeight(F new_height)
 {
-    _upper_corner.y += new_height - _span.y;
-    _span.y = new_height;
+    upper_corner.y += new_height - getSpan().y;
     return *this;
 }
 
 template <typename F>
 AxisAlignedBox<F>& AxisAlignedBox<F>::setDepth(F new_depth)
 {
-    _upper_corner.z += new_depth - _span.z;
-    _span.z = new_depth;
+    upper_corner.z += new_depth - getSpan().z;
     return *this;
 }
 
 template <typename F>
 AxisAlignedBox<F>& AxisAlignedBox<F>::setDimensions(F new_width, F new_height, F new_depth)
 {
-    _span.setComponents(new_width, new_height, new_depth);
-    _upper_corner = _lower_corner + _span;
+    upper_corner = lower_corner + Vector<F>(new_width, new_height, new_depth);
     return *this;
 }
 
 template <typename F>
 AxisAlignedBox<F>& AxisAlignedBox<F>::translate(F dx, F dy, F dz)
 {
-    _lower_corner.translate(dx, dy, dz);
-    _upper_corner.translate(dx, dy, dz);
+    lower_corner.translate(dx, dy, dz);
+    upper_corner.translate(dx, dy, dz);
     return *this;
 }
 
 template <typename F>
 AxisAlignedBox<F>& AxisAlignedBox<F>::translate(const Vector<F>& displacement)
 {
-    _lower_corner += displacement;
-    _upper_corner += displacement;
+    lower_corner += displacement;
+    upper_corner += displacement;
     return *this;
 }
 
@@ -213,28 +167,28 @@ template <typename F>
 bool AxisAlignedBox<F>::evaluateRayIntersection(const Ray<F>& ray, F upper_distance_limit) const
 {
     F min_dist, max_dist, min_dist_temp, max_dist_temp;
-    const Vector<F>& inverse_direction = 1.0f/ray.direction;
+    const Vector<F>& inverse_direction = ray.inverse_direction;
 
     if (inverse_direction.x >= 0)
     {
-        min_dist = (_lower_corner.x - ray.origin.x)*inverse_direction.x;
-        max_dist = (_upper_corner.x - ray.origin.x)*inverse_direction.x;
+        min_dist = (lower_corner.x - ray.origin.x)*inverse_direction.x;
+        max_dist = (upper_corner.x - ray.origin.x)*inverse_direction.x;
     }
     else
     {
-        min_dist = (_upper_corner.x - ray.origin.x)*inverse_direction.x;
-        max_dist = (_lower_corner.x - ray.origin.x)*inverse_direction.x;
+        min_dist = (upper_corner.x - ray.origin.x)*inverse_direction.x;
+        max_dist = (lower_corner.x - ray.origin.x)*inverse_direction.x;
     }
 
     if (inverse_direction.y >= 0)
     {
-        min_dist_temp = (_lower_corner.y - ray.origin.y)*inverse_direction.y;
-        max_dist_temp = (_upper_corner.y - ray.origin.y)*inverse_direction.y;
+        min_dist_temp = (lower_corner.y - ray.origin.y)*inverse_direction.y;
+        max_dist_temp = (upper_corner.y - ray.origin.y)*inverse_direction.y;
     }
     else
     {
-        min_dist_temp = (_upper_corner.y - ray.origin.y)*inverse_direction.y;
-        max_dist_temp = (_lower_corner.y - ray.origin.y)*inverse_direction.y;
+        min_dist_temp = (upper_corner.y - ray.origin.y)*inverse_direction.y;
+        max_dist_temp = (lower_corner.y - ray.origin.y)*inverse_direction.y;
     }
 
     if (min_dist > max_dist_temp || min_dist_temp > max_dist)
@@ -248,13 +202,13 @@ bool AxisAlignedBox<F>::evaluateRayIntersection(const Ray<F>& ray, F upper_dista
 
     if (inverse_direction.z >= 0)
     {
-        min_dist_temp = (_lower_corner.z - ray.origin.z)*inverse_direction.z;
-        max_dist_temp = (_upper_corner.z - ray.origin.z)*inverse_direction.z;
+        min_dist_temp = (lower_corner.z - ray.origin.z)*inverse_direction.z;
+        max_dist_temp = (upper_corner.z - ray.origin.z)*inverse_direction.z;
     }
     else
     {
-        min_dist_temp = (_upper_corner.z - ray.origin.z)*inverse_direction.z;
-        max_dist_temp = (_lower_corner.z - ray.origin.z)*inverse_direction.z;
+        min_dist_temp = (upper_corner.z - ray.origin.z)*inverse_direction.z;
+        max_dist_temp = (lower_corner.z - ray.origin.z)*inverse_direction.z;
     }
 
     if (min_dist > max_dist_temp || min_dist_temp > max_dist)
@@ -272,22 +226,23 @@ bool AxisAlignedBox<F>::evaluateRayIntersection(const Ray<F>& ray, F upper_dista
 template <typename F>
 Sphere<F> AxisAlignedBox<F>::getBoundingSphere() const
 {
-    const Vector<F>& radius_vector = _span*0.5;
-    return Sphere<F>(_lower_corner + radius_vector,
+    const Vector<F>& radius_vector = getSpan()*0.5;
+    return Sphere<F>(lower_corner + radius_vector,
                      radius_vector.getLength());
 }
 
 template <typename F>
 AxisAlignedBox<F>& AxisAlignedBox<F>::validateOrientation()
 {
-    bool width_is_negative = _span.x < 0;
-    bool height_is_negative = _span.y < 0;
-    bool depth_is_negative = _span.z < 0;
+    const Vector<f>& span = getSpan();
+
+    bool width_is_negative = span.x < 0;
+    bool height_is_negative = span.y < 0;
+    bool depth_is_negative = span.z < 0;
 
     if (width_is_negative && height_is_negative && depth_is_negative)
     {
-        _lower_corner.swap(_upper_corner);
-        _span = -_span;
+        lower_corner.swap(upper_corner);
     }
     else
     {

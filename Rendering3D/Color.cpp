@@ -141,6 +141,16 @@ Color& Color::clamp()
     return *this;
 }
 
+float Color::getMin() const
+{
+    return std::min(r, std::min(g, b));
+}
+
+float Color::getMax() const
+{
+    return std::max(r, std::max(g, b));
+}
+
 Color operator*(float factor, const Color& color)
 {
     return color*factor;
