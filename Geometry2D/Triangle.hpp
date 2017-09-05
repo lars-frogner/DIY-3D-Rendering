@@ -40,9 +40,11 @@ public:
 
     Triangle<F>& precomputeBarycentricQuantities();
     
-    AxisAlignedRectangle<F> getAABB() const;
-    AxisAlignedRectangle<F> getAABB(const Point<F>& lower_corner_limit,
+    AxisAlignedRectangle<F> getAABR() const;
+    AxisAlignedRectangle<F> getAABR(const Point<F>& lower_corner_limit,
                                     const Point<F>& upper_corner_limit) const;
+
+    Point<F> getCentroid() const;
 
     std::string toString() const;
 };
@@ -138,7 +140,7 @@ Triangle<F>& Triangle<F>::precomputeBarycentricQuantities()
 }
 
 template <typename F>
-AxisAlignedRectangle<F> Triangle<F>::getAABB() const
+AxisAlignedRectangle<F> Triangle<F>::getAABR() const
 {
     Point<F> min_point = _A;
     Point<F> max_point = min_point;
@@ -152,7 +154,7 @@ AxisAlignedRectangle<F> Triangle<F>::getAABB() const
 }
 
 template <typename F>
-AxisAlignedRectangle<F> Triangle<F>::getAABB(const Point<F>& lower_corner_limit,
+AxisAlignedRectangle<F> Triangle<F>::getAABR(const Point<F>& lower_corner_limit,
                                              const Point<F>& upper_corner_limit) const
 {
     Point<F> min_point = _A;
@@ -167,6 +169,12 @@ AxisAlignedRectangle<F> Triangle<F>::getAABB(const Point<F>& lower_corner_limit,
     max_point.useSmallestCoordinates(upper_corner_limit);
 
     return AxisAlignedRectangle<F>(min_point, max_point);
+}
+
+template <typename F>
+Point<F> Triangle<F>::getCentroid() const
+{
+    return _A + ((_B - _A) + (_C - _A))/3;
 }
 
 template <typename F>

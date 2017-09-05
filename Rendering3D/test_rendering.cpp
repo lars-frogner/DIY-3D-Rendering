@@ -107,6 +107,7 @@ int main(int argc, char *argv[])
 
 
     TriangleMesh teapot = TriangleMesh::file("teapot2.obj");
+    //TriangleMesh cup = TriangleMesh::file("Coffee_Cup.obj");
     TriangleMesh table_top = TriangleMesh::box(Box(Point(-0.5f, 0.0f, -0.5f), 1.0f, 0.1f, 1.0f)); table_top.setMaterial(diffuse_brown);
     TriangleMesh table_leg = TriangleMesh::box(Box(Point(-0.5f, 0.0f, -0.5f), 1.0f, 15.0f, 1.0f)); table_leg.setMaterial(diffuse_brown);
     TriangleMesh ground = TriangleMesh::sheet(Point(-50.0f, 0.0f, 5.0e3f),
@@ -190,11 +191,15 @@ int main(int argc, char *argv[])
                       Point(-1.9f, -1.0f, 0.0f),
                       Point(1.6f, -0.5f, 0.0f));
 
-    TriangleMesh mesh = TriangleMesh::triangle(triangle);
+    TriangleMesh mesh = TriangleMesh::triangle(triangle);*/
+    
+    /*TriangleMesh mesh = TriangleMesh::box(Box(Point(-0.5f, -0.5f, -0.5f),
+                                                  1, 1, 1));
 
-    SceneGraph scene_graph(AffineTransformation::translation(-0.3f, 0.0f, -5.0f));
-    scene_graph.addObject(mesh.withMaterial(blue_material))
-               ->addTransformation(AffineTransformation::translation(0.5f, -1.0f, 0.0f))
+    SceneGraph scene_graph(AffineTransformation::translation(0.0f, -0.4f, -3.0f));
+    scene_graph.addTransformation(LinearTransformation::rotationFromZToX(0.5f))
+               ->addObject(mesh.withMaterial(blue_material));*/
+               /*->addTransformation(AffineTransformation::translation(0.5f, -1.0f, 0.0f))
                ->addTransformation(LinearTransformation::rotationFromYToZ(M_PI_4))
                ->addObject(mesh.withMaterial(red_material));*/
 
@@ -215,17 +220,17 @@ int main(int argc, char *argv[])
     scene_graph.addTransformation(LinearTransformation::rotationFromYToZ(-static_cast<float>(M_PI_2)))
                ->addObject(mesh.withMaterial(sphere_material));*/
 
-    Camera camera(Ray(Point(0.9f, 1.0f, 0.3f), Vector(-0.4f, -0.37f, -1.0f)),
+    Camera camera(Ray(Point(0.8f, 0.8f, 0.0f), Vector(-0.4f, -0.3f, -1.0f)),
                   Vector(0.0f, 1.0f, 0),
                   0.1f, 100,
                   45);
 
-    RectangularAreaLight light_sheet(Point(0.0f, 0.5f, 0.0f),
-                                     Vector(0.0f, 0.0f, -1.0f),
-                                     Vector(0.5f, 0, 0),
-                                     0.5f,
-                                     Power::grey(50.0f),
-                                     200);
+    RectangularAreaLight light_sheet(Point(2.2f, 0.6f, 0.4f),
+                                     Point(0.0f, 1.0f, -2.0f),
+                                     Vector(0.15f, 0, 0),
+                                     0.15f,
+                                     Power::grey(30.0f),
+                                     500);
 
     HemisphereAreaLight light_dome(Point::origin(),
                                    Vector(0, 0, -1),
@@ -237,10 +242,10 @@ int main(int argc, char *argv[])
                                      Power::grey(100.0f));
 
     OmnidirectionalLight light_point2(Point(0.0f, 4.0f, -2.0f),
-                                     Power::grey(10.0f));
+                                      Power::grey(10.0f));
 
-    DirectionalLight light_rays(Vector(0.0f, -1.0f, 0.3f),
-                                Biradiance::grey(0.02f));
+    DirectionalLight light_rays(Vector(0.5f, 0.0f, -1.0f),
+                                Biradiance::grey(0.1f));
 
     LightContainer lights;
     //lights.addLight(light_rays);

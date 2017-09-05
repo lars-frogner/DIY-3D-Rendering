@@ -54,10 +54,11 @@ public:
     Triangle<F>& translate(const Vector<F>& displacement);
 
     Triangle<F>& computeNormals();
-
+    
     Plane<F> getPlane() const;
     Plane<F> getPlaneNoBasis() const;
     AxisAlignedBox<F> getAABB() const;
+    Point<F> getCentroid() const;
 
     std::string toString() const;
 };
@@ -244,6 +245,12 @@ AxisAlignedBox<F> Triangle<F>::getAABB() const
     max_point.useLargestCoordinates(_C);
 
     return AxisAlignedBox<F>(min_point, max_point);
+}
+
+template <typename F>
+Point<F> Triangle<F>::getCentroid() const
+{
+    return _A + ((_B - _A) + (_C - _A))/3;
 }
 
 template <typename F>

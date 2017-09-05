@@ -30,5 +30,8 @@
     <ClInclude Include="AxisAlignedRectangle.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="BoundingAreaHierarchy.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

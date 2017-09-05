@@ -18,9 +18,11 @@
 #include "Sphere.hpp"
 #include "AxisAlignedBox.hpp"
 #include "Vertex.hpp"
+#include "BoundingVolumeHierarchy.hpp"
 #include "../Geometry2D/Point.hpp"
 #include "../Geometry2D/Triangle.hpp"
 #include "../Geometry2D/AxisAlignedRectangle.hpp"
+#include "../Geometry2D/BoundingAreaHierarchy.hpp"
 #include "../Transformations3D/LinearTransformation.hpp"
 #include "../Transformations3D/AffineTransformation.hpp"
 #include "../Transformations3D/ProjectiveTransformation.hpp"
@@ -48,6 +50,8 @@ private:
     typedef Geometry2D::Point<F> Point2;
     typedef Geometry2D::Triangle<F> Triangle2;
     typedef Geometry2D::AxisAlignedRectangle<F> AxisAlignedRectangle;
+    typedef Geometry2D::AABRContainer<F> AABRContainer;
+    typedef Geometry2D::BoundingAreaHierarchy<F> BoundingAreaHierarchy;
     typedef Transformations3D::LinearTransformation<F> LinearTransformation;
     typedef Transformations3D::AffineTransformation<F> AffineTransformation;
     typedef Transformations3D::ProjectiveTransformation<F> ProjectiveTransformation;
@@ -77,8 +81,8 @@ private:
     std::vector<Color> _colors;
 
     AxisAlignedBox<F> _aabb;
-    std::vector<AxisAlignedRectangle> _face_bounding_rectangles;
-    std::vector< AxisAlignedBox<F> > _face_bounding_boxes;
+    BoundingAreaHierarchy _bounding_area_hierarchy;
+    BoundingVolumeHierarchy<F> _bounding_volume_hierarchy;
     
     bool _is_homogenized;
     bool _has_normals;
@@ -158,16 +162,18 @@ public:
     void getVertexAttributes(size_t face_idx, Point<F> vertices[3], Vector<F> normals[3], Material*& material) const;
 
     TriangleMesh<F>& computeAABB();
-    TriangleMesh<F>& computeFaceBoundingRectangles(const Scene& scene);
-    TriangleMesh<F>& computeFaceBoundingBoxes();
+    TriangleMesh<F>& computeBoundingAreaHierarchy(const Scene& scene);
+    TriangleMesh<F>& computeBoundingVolumeHierarchy();
     
-    bool evaluateRayAABBIntersection(const Ray<F>& ray, F upper_distance_limit) const;
+    std::vector<size_t> getIntersectedFaceIndices(const Ray<F>& ray) const;
+    std::vector<size_t> getIntersectedFaceIndices(const Point2& pixel_center) const;
+    F evaluateRayIntersection(const Ray<F>& ray) const;
+    
+    bool evaluateRayAABBIntersection(const Ray<F>& ray) const;
     F evaluateRayFaceIntersectionNonOptimized(const Ray<F>& ray, size_t face_idx, F& alpha, F& beta, F& gamma) const;
     F evaluateRayFaceIntersection(const Ray<F>& ray, size_t face_idx, F& alpha, F& beta, F& gamma) const;
-    F evaluateRayFaceWithAABBIntersection(const Ray<F>& ray, size_t face_idx) const;
+    F evaluateRayFaceIntersectionDistanceOnly(const Ray<F>& ray, size_t face_idx) const;
     bool sampleRadianceFromFace(const Scene& scene,
-                                size_t x, size_t y,
-                                F x_pos, F y_pos,
                                 const Ray<F>& ray,
                                 size_t face_idx,
                                 Radiance& pixel_radiance,
@@ -188,6 +194,7 @@ public:
     TriangleMesh<F>& drawEdges(Image& image, float luminance);
     TriangleMesh<F>& drawFaces(Image& image);
     TriangleMesh<F>& drawFaces(Image& image, Color color);
+    const TriangleMesh<F>& drawBoundingAreaHierarchy(Image& image, float luminance) const;
 
     Point<F> getVertex(size_t idx) const;
     Triangle<F> getFace(size_t idx) const;
@@ -1246,41 +1253,111 @@ void TriangleMesh<F>::getVertexAttributes(size_t face_idx, Point<F> vertices[3],
 template <typename F>
 TriangleMesh<F>& TriangleMesh<F>::computeAABB()
 {
-    _aabb = AxisAlignedBox<F>(Point<F>(_vertices.row(0).min(), _vertices.row(1).min(), _vertices.row(2).min()),
-                              Point<F>(_vertices.row(0).max(), _vertices.row(1).max(), _vertices.row(2).max()));
+    _aabb.lower_corner = Point<F>::max();
+    _aabb.upper_corner = Point<F>::min();
+    
+    size_t n_faces = getNumberOfFaces();
+    size_t i, j, k;
+    F x, y, z;
+
+    for (size_t face_idx = 0; face_idx < n_faces; face_idx++)
+    {
+        i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+
+        x = _vertices(0, i), y = _vertices(1, i), z = _vertices(2, i);
+        if      (x < _aabb.lower_corner.x) _aabb.lower_corner.x = x;
+        else if (x > _aabb.upper_corner.x) _aabb.upper_corner.x = x;
+        if      (y < _aabb.lower_corner.y) _aabb.lower_corner.y = y;
+        else if (y > _aabb.upper_corner.y) _aabb.upper_corner.y = y;
+        if      (z < _aabb.lower_corner.z) _aabb.lower_corner.z = z;
+        else if (z > _aabb.upper_corner.z) _aabb.upper_corner.z = z;
+
+        x = _vertices(0, j), y = _vertices(1, j), z = _vertices(2, j);
+        if      (x < _aabb.lower_corner.x) _aabb.lower_corner.x = x;
+        else if (x > _aabb.upper_corner.x) _aabb.upper_corner.x = x;
+        if      (y < _aabb.lower_corner.y) _aabb.lower_corner.y = y;
+        else if (y > _aabb.upper_corner.y) _aabb.upper_corner.y = y;
+        if      (z < _aabb.lower_corner.z) _aabb.lower_corner.z = z;
+        else if (z > _aabb.upper_corner.z) _aabb.upper_corner.z = z;
+
+        x = _vertices(0, k), y = _vertices(1, k), z = _vertices(2, k);
+        if      (x < _aabb.lower_corner.x) _aabb.lower_corner.x = x;
+        else if (x > _aabb.upper_corner.x) _aabb.upper_corner.x = x;
+        if      (y < _aabb.lower_corner.y) _aabb.lower_corner.y = y;
+        else if (y > _aabb.upper_corner.y) _aabb.upper_corner.y = y;
+        if      (z < _aabb.lower_corner.z) _aabb.lower_corner.z = z;
+        else if (z > _aabb.upper_corner.z) _aabb.upper_corner.z = z;
+    }
+
     return *this;
 }
 
 template <typename F>
-TriangleMesh<F>& TriangleMesh<F>::computeFaceBoundingRectangles(const Scene& scene)
+TriangleMesh<F>& TriangleMesh<F>::computeBoundingAreaHierarchy(const Scene& scene)
 {
     size_t n_triangles = getNumberOfFaces();
-    _face_bounding_rectangles.resize(n_triangles);
+    std::vector< AABRContainer > objects(n_triangles);
+
+    AxisAlignedRectangle aabr(Point2::max(), Point2::min());
 
     for (size_t face_idx = 0; face_idx < n_triangles; face_idx++)
     {
-        _face_bounding_rectangles[face_idx] = getProjectedFace(scene, face_idx).getAABB(scene._image_lower_corner, scene._image_upper_corner);
+        const Triangle2& projected_face = getProjectedFace(scene, face_idx);
+        objects[face_idx].aabr = projected_face.getAABR();
+        aabr.merge(objects[face_idx].aabr);
+        objects[face_idx].centroid = projected_face.getCentroid();
+        objects[face_idx].id = face_idx;
     }
+
+    _bounding_area_hierarchy = BoundingAreaHierarchy(aabr, objects);
+
+    objects.clear();
     return *this;
 }
 
 template <typename F>
-TriangleMesh<F>& TriangleMesh<F>::computeFaceBoundingBoxes()
+TriangleMesh<F>& TriangleMesh<F>::computeBoundingVolumeHierarchy()
 {
     size_t n_triangles = getNumberOfFaces();
-    _face_bounding_boxes.resize(n_triangles);
+    std::vector< AABBContainer<F> > objects(n_triangles);
 
     for (size_t face_idx = 0; face_idx < n_triangles; face_idx++)
     {
-        _face_bounding_boxes[face_idx] = getFace(face_idx).getAABB();
+        const Triangle<F>& face = getFace(face_idx);
+        objects[face_idx].aabb = face.getAABB();
+        objects[face_idx].centroid = face.getCentroid();
+        objects[face_idx].id = face_idx;
     }
+
+    _bounding_volume_hierarchy = BoundingVolumeHierarchy<F>(_aabb, objects);
+
+    objects.clear();
+
     return *this;
 }
 
 template <typename F>
-bool TriangleMesh<F>::evaluateRayAABBIntersection(const Ray<F>& ray, F upper_distance_limit) const
+bool TriangleMesh<F>::evaluateRayAABBIntersection(const Ray<F>& ray) const
 {
-    return _aabb.evaluateRayIntersection(ray, upper_distance_limit);
+    return _aabb.evaluateRayIntersection(ray) < _INFINITY;
+}
+
+template <typename F>
+std::vector<size_t> TriangleMesh<F>::getIntersectedFaceIndices(const Ray<F>& ray) const
+{
+    return _bounding_volume_hierarchy.getIntersectedObjectIDs(ray);
+}
+
+template <typename F>
+std::vector<size_t> TriangleMesh<F>::getIntersectedFaceIndices(const Point2& pixel_center) const
+{
+    return _bounding_area_hierarchy.getIntersectedObjectIDs(pixel_center);
+}
+
+template <typename F>
+F TriangleMesh<F>::evaluateRayIntersection(const Ray<F>& ray) const
+{
+    return _bounding_volume_hierarchy.evaluateRayIntersection(*this, ray);
 }
 
 template <typename F>
@@ -1359,14 +1436,9 @@ F TriangleMesh<F>::evaluateRayFaceIntersection(const Ray<F>& ray, size_t face_id
 }
 
 template <typename F>
-F TriangleMesh<F>::evaluateRayFaceWithAABBIntersection(const Ray<F>& ray, size_t face_idx) const
+F TriangleMesh<F>::evaluateRayFaceIntersectionDistanceOnly(const Ray<F>& ray, size_t face_idx) const
 {
     // Bootleneck for ray tracing
-
-    assert(_face_bounding_boxes.size() == getNumberOfFaces());
-
-    if (!_face_bounding_boxes[face_idx].evaluateRayIntersection(ray, _INFINITY))
-        return _INFINITY;
 
     size_t i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
 
@@ -1410,19 +1482,10 @@ F TriangleMesh<F>::evaluateRayFaceWithAABBIntersection(const Ray<F>& ray, size_t
 }
 
 template <typename F>
-bool TriangleMesh<F>::sampleRadianceFromFace(const Scene& scene, size_t x, size_t y, F x_pos, F y_pos, const Ray<F>& ray, size_t face_idx, Radiance& pixel_radiance, F& closest_distance) const
+bool TriangleMesh<F>::sampleRadianceFromFace(const Scene& scene, const Ray<F>& ray, size_t face_idx, Radiance& pixel_radiance, F& closest_distance) const
 {
     assert(_has_normals);
     assert(_has_material);
-    assert(_face_bounding_rectangles.size() == getNumberOfFaces());
-
-    const AxisAlignedRectangle& _face_bounding_rectangle = _face_bounding_rectangles[face_idx];
-    
-    if (x_pos < _face_bounding_rectangle.lower_corner.x ||
-        x_pos > _face_bounding_rectangle.upper_corner.x ||
-        y_pos < _face_bounding_rectangle.lower_corner.y ||
-        y_pos > _face_bounding_rectangle.upper_corner.y)
-        return false;
 
     F alpha, beta, gamma;
     F distance = evaluateRayFaceIntersection(ray, face_idx, alpha, beta, gamma);
@@ -1568,7 +1631,6 @@ TriangleMesh<F>& TriangleMesh<F>::_clip(size_t component, F limit, int sign)
 
     for (size_t idx = 0; idx < n_faces; idx++)
     {
-
         i = _faces(0, idx); j = _faces(1, idx); k = _faces(2, idx);
         
         A[0] = _vertices(0, i); A[1] = _vertices(1, i); A[2] = _vertices(2, i);
@@ -1755,13 +1817,13 @@ TriangleMesh<F>& TriangleMesh<F>::drawEdges(Image& image, float luminance)
         i = _faces(0, idx); j = _faces(1, idx); k = _faces(2, idx);
 
         image.drawLine(_vertices(0, i), _vertices(1, i),
-                          _vertices(0, j), _vertices(1, j), luminance);
+                       _vertices(0, j), _vertices(1, j), luminance);
 
         image.drawLine(_vertices(0, j), _vertices(1, j),
-                          _vertices(0, k), _vertices(1, k), luminance);
+                       _vertices(0, k), _vertices(1, k), luminance);
         
         image.drawLine(_vertices(0, k), _vertices(1, k),
-                          _vertices(0, i), _vertices(1, i), luminance);
+                       _vertices(0, i), _vertices(1, i), luminance);
     }
 
     return *this;
@@ -1810,6 +1872,13 @@ TriangleMesh<F>& TriangleMesh<F>::drawFaces(Image& image, Color color)
                            Vertex<F>(_vertices(0, k), _vertices(1, k), _vertices(2, k), color));
     }
     
+    return *this;
+}
+
+template <typename F>
+const TriangleMesh<F>& TriangleMesh<F>::drawBoundingAreaHierarchy(Image& image, float luminance) const
+{
+    _bounding_area_hierarchy.draw(image, luminance);
     return *this;
 }
 

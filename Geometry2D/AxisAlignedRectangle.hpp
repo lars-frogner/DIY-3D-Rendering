@@ -1,5 +1,6 @@
 #pragma once
 #include "assert.h"
+#include <vector>
 #include "Point.hpp"
 #include "Vector.hpp"
 
@@ -20,16 +21,24 @@ public:
     F getWidth() const;
     F getHeight() const;
 
+    std::vector< AxisAlignedRectangle<F> > getQuadrants() const;
+
     AxisAlignedRectangle<F>& setSpan(const Vector<F>& new_span);
     AxisAlignedRectangle<F>& setCenter(const Point<F>& center);
     AxisAlignedRectangle<F>& setWidth(F new_width);
     AxisAlignedRectangle<F>& setHeight(F new_height);
     AxisAlignedRectangle<F>& setDimensions(F new_width, F new_height);
 
-    bool contains(F x, F y) const;
+    bool containsInclusive(const Point<F>& point) const;
+    bool containsUpperExclusive(const Point<F>& point) const;
 
     AxisAlignedRectangle<F>& translate(F dx, F dy);
     AxisAlignedRectangle<F>& translate(const Vector<F>& displacement);
+    AxisAlignedRectangle<F> getTranslated(F dx, F dy) const;
+    AxisAlignedRectangle<F> getTranslated(const Vector<F>& displacement) const;
+    
+    AxisAlignedRectangle<F>& merge(const AxisAlignedRectangle<F>& other);
+
 
     AxisAlignedRectangle<F>& validateOrientation();
 };
@@ -70,6 +79,23 @@ F AxisAlignedRectangle<F>::getHeight() const
 }
 
 template <typename F>
+std::vector< AxisAlignedRectangle<F> > AxisAlignedRectangle<F>::getQuadrants() const
+{
+    std::vector< AxisAlignedRectangle<F> > quadrants;
+
+    const Vector<F>& half_span = getSpan()*0.5f;
+
+    AxisAlignedRectangle<F> aar(lower_corner, lower_corner + half_span);
+
+    quadrants.push_back(aar);
+    quadrants.push_back(aar.getTranslated(half_span.x, 0));
+    quadrants.push_back(aar.getTranslated(0, half_span.y));
+    quadrants.push_back(aar.getTranslated(half_span));
+
+    return quadrants;
+}
+
+template <typename F>
 AxisAlignedRectangle<F>& AxisAlignedRectangle<F>::setSpan(const Vector<F>& new_span)
 {
     upper_corner = lower_corner + new_span;
@@ -106,12 +132,21 @@ AxisAlignedRectangle<F>& AxisAlignedRectangle<F>::setDimensions(F new_width, F n
 }
 
 template <typename F>
-bool AxisAlignedRectangle<F>::contains(F x, F y) const
+bool AxisAlignedRectangle<F>::containsInclusive(const Point<F>& point) const
 {
-    return (x >= lower_corner.x &&
-            x <= upper_corner.x &&
-            y >= lower_corner.y &&
-            y <= upper_corner.y);
+    return (point.x >= lower_corner.x &&
+            point.x <= upper_corner.x &&
+            point.y >= lower_corner.y &&
+            point.y <= upper_corner.y);
+}
+
+template <typename F>
+bool AxisAlignedRectangle<F>::containsUpperExclusive(const Point<F>& point) const
+{
+    return (point.x >= lower_corner.x &&
+            point.x < upper_corner.x &&
+            point.y >= lower_corner.y &&
+            point.y < upper_corner.y);
 }
 
 template <typename F>
@@ -127,6 +162,27 @@ AxisAlignedRectangle<F>& AxisAlignedRectangle<F>::translate(const Vector<F>& dis
 {
     lower_corner += displacement;
     upper_corner += displacement;
+    return *this;
+}
+
+template <typename F>
+AxisAlignedRectangle<F> AxisAlignedRectangle<F>::getTranslated(F dx, F dy) const
+{
+    return AxisAlignedRectangle<F>(*this).translate(dx, dy);
+}
+
+template <typename F>
+AxisAlignedRectangle<F> AxisAlignedRectangle<F>::getTranslated(const Vector<F>& displacement) const
+{
+    return AxisAlignedRectangle<F>(*this).translate(displacement);
+}
+
+template <typename F>
+AxisAlignedRectangle<F>& AxisAlignedRectangle<F>::merge(const AxisAlignedRectangle<F>& other)
+{
+    lower_corner.useSmallestCoordinates(other.lower_corner);
+    upper_corner.useLargestCoordinates(other.upper_corner);
+
     return *this;
 }
 
@@ -148,5 +204,13 @@ AxisAlignedRectangle<F>& AxisAlignedRectangle<F>::validateOrientation()
     }
     return *this;
 }
+
+template <typename F>
+struct AABRContainer
+{
+    AxisAlignedRectangle<F> aabr;
+    Point<F> centroid;
+    size_t id;
+};
 
 } // Geometry2D

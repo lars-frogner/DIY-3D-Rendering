@@ -65,7 +65,7 @@ private:
 
     void _setConstants();
 
-    Ray _getEyeRay(F x, F y) const;
+    Ray _getEyeRay(const Point2& pixel_center) const;
 
     bool _evaluateVisibility(const Point& surface_point,
                              const Vector& direction_to_source,
@@ -133,7 +133,7 @@ void Scene<F>::_setConstants()
     _image_height = static_cast<F>(_image.getHeight());
     
     _image_lower_corner.moveTo(0, 0);
-    _image_upper_corner.moveTo(_image_width, _image_height);
+    _image_upper_corner.moveTo(_image_width - 1, _image_height - 1);
 
     _inverse_image_width = 1/_image_width;
     _inverse_image_height = 1/_image_height;
@@ -209,10 +209,10 @@ Scene<F>& Scene<F>::rayTrace()
     size_t image_width = _image.getWidth();
     size_t image_height = _image.getHeight();
     size_t n_objects = _objects.size();
-    size_t n_triangles;
-    int x, y, obj_idx, face_idx;
-    F x_pos, y_pos;
+    int x, y, obj_idx;
+    std::vector<size_t>::const_iterator iter;
     F closest_distance;
+    Point2 pixel_center;
     Radiance pixel_radiance;
     
     #pragma omp parallel for default(shared) \
@@ -227,24 +227,23 @@ Scene<F>& Scene<F>::rayTrace()
         mesh.computeNormals();
         mesh.clipNearPlaneAt(-_near_plane_distance);
         mesh.computeAABB();
-        mesh.computeFaceBoundingRectangles(*this);
-        mesh.computeFaceBoundingBoxes();
+        mesh.computeBoundingAreaHierarchy(*this);
+        mesh.computeBoundingVolumeHierarchy();
     }
 
     _lights.applyTransformation(_transformation_to_camera_system);
     
     #pragma omp parallel for default(shared) \
-                             private(x, y, x_pos, y_pos, obj_idx, face_idx, n_triangles, closest_distance, pixel_radiance) \
+                             private(x, y, pixel_center, obj_idx, iter, closest_distance, pixel_radiance) \
                              shared(image_height, image_width, n_objects) \
                              schedule(dynamic) \
                              if (use_omp)
     for (y = 0; y < image_height; y++) {
         for (x = 0; x < image_width; x++)
         {
-            x_pos = static_cast<F>(x) + 0.5f;
-            y_pos = static_cast<F>(y) + 0.5f;
+            pixel_center.moveTo(static_cast<F>(x) + 0.5f, static_cast<F>(y) + 0.5f);
 
-            const Ray& eye_ray = _getEyeRay(x_pos, y_pos);
+            const Ray& eye_ray = _getEyeRay(pixel_center);
                 
             closest_distance = _far_plane_distance;
 
@@ -252,21 +251,23 @@ Scene<F>& Scene<F>::rayTrace()
             {
                 const TriangleMesh& mesh = _objects[obj_idx];
 
-                if (mesh.evaluateRayAABBIntersection(eye_ray, _far_plane_distance))
-                {
-                    n_triangles = mesh.getNumberOfFaces();
+                const std::vector<size_t>& intersected_faces = mesh.getIntersectedFaceIndices(pixel_center);
 
-                    for (face_idx = 0; face_idx < n_triangles; face_idx++)
+                for (iter = intersected_faces.begin(); iter != intersected_faces.end(); ++iter)
+                {
+                    if (mesh.sampleRadianceFromFace(*this, eye_ray, *iter, pixel_radiance, closest_distance))
                     {
-                        if (mesh.sampleRadianceFromFace(*this, x, y, x_pos, y_pos, eye_ray, face_idx, pixel_radiance, closest_distance))
-                        {
-                            _image.setRadiance(x, y, pixel_radiance);
-                        }
+                        _image.setRadiance(x, y, pixel_radiance);
                     }
                 }
             }
         }
     }
+    
+    /*for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
+    {
+        _objects[obj_idx].drawBoundingAreaHierarchy(_image, edge_brightness);
+    }*/
 
     _image.gammaEncode(1.0f);
 
@@ -375,11 +376,6 @@ Scene<F>& Scene<F>::rasterize()
                     }
                 }
             }
-
-            /*_image.setRadiance(x_min, y_min, Radiance::white());
-            _image.setRadiance(x_max-1, y_min, Radiance::white());
-            _image.setRadiance(x_max-1, y_max-1, Radiance::white());
-            _image.setRadiance(x_min, y_max-1, Radiance::white());*/
         }
     }
 
@@ -419,15 +415,15 @@ Scene<F>& Scene<F>::generateGround(F plane_height, F plane_depth, const BlinnPho
 }
 
 template <typename F>
-Geometry3D::Ray<F> Scene<F>::_getEyeRay(F x, F y) const
+Geometry3D::Ray<F> Scene<F>::_getEyeRay(const Point2& pixel_center) const
 {
-    Vector unit_vector_from_camera_origin_to_pixel((x*_inverse_image_width - 0.5f)*_image_width_at_unit_distance_from_camera,
-                                                   (y*_inverse_image_height - 0.5f)*_image_height_at_unit_distance_from_camera,
+    Vector unit_vector_from_camera_origin_to_pixel((pixel_center.x*_inverse_image_width - 0.5f)*_image_width_at_unit_distance_from_camera,
+                                                   (pixel_center.y*_inverse_image_height - 0.5f)*_image_height_at_unit_distance_from_camera,
                                                    -1);
 
     unit_vector_from_camera_origin_to_pixel.normalize();
 
-    return Ray((unit_vector_from_camera_origin_to_pixel*_near_plane_distance).toPoint(), unit_vector_from_camera_origin_to_pixel);
+    return Ray((unit_vector_from_camera_origin_to_pixel*_near_plane_distance).toPoint(), unit_vector_from_camera_origin_to_pixel, _far_plane_distance);
 }
 
 template <typename F>
@@ -498,36 +494,21 @@ bool Scene<F>::_evaluateVisibility(const Point& surface_point,
 {
     const F ray_origin_offset = 1e-4f;
     
-    Ray shadow_ray(surface_point + direction_to_source*ray_origin_offset, direction_to_source);
+    Ray shadow_ray(surface_point + direction_to_source*ray_origin_offset, direction_to_source, _INFINITY);
 
     size_t n_objects = _objects.size();
-    size_t n_triangles;
-    size_t obj_idx, face_idx;
+    size_t obj_idx;
+    std::vector<size_t>::const_iterator iter;
 
     for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
     {
         const TriangleMesh& mesh = _objects[obj_idx];
 
-        if (mesh.evaluateRayAABBIntersection(shadow_ray, _INFINITY))
-        {
-            n_triangles = mesh.getNumberOfFaces();
-
-            for (face_idx = 0; face_idx < n_triangles; face_idx++)
-            {
-                if (mesh.evaluateRayFaceWithAABBIntersection(shadow_ray, face_idx) < distance_to_source)
-                {
-                    return false;
-                }
-            }
-        }
+        if (mesh.evaluateRayIntersection(shadow_ray) < _INFINITY)
+            return false;
     }
 
     return true;
 }
 
 } // Rendering3D
-
-/*
-transformation to cframe
-transform lights
-modify eye ray and projected vertex*/

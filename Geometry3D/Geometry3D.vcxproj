@@ -150,10 +150,10 @@
   <ItemGroup>
     <ClInclude Include="affine_combinations.hpp" />
     <ClInclude Include="AxisAlignedBox.hpp" />
+    <ClInclude Include="BoundingVolumeHierarchy.hpp" />
     <ClInclude Include="Box.hpp" />
     <ClInclude Include="Camera.hpp" />
     <ClInclude Include="CoordinateFrame.hpp" />
-    <ClInclude Include="kdTree.hpp" />
     <ClInclude Include="Plane.hpp" />
     <ClInclude Include="Point.hpp" />
     <ClInclude Include="Ray.hpp" />

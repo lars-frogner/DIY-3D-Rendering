@@ -56,7 +56,7 @@ Point<F> Point<F>::origin()
 template <typename F>
 Point<F> Point<F>::min()
 {
-    F min = std::numeric_limits<F>::min();
+    F min = -std::numeric_limits<F>::max();
     return Point<F>(min, min);
 }
 

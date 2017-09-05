@@ -60,7 +60,7 @@
     <ClInclude Include="util.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="kdTree.hpp">
+    <ClInclude Include="BoundingVolumeHierarchy.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

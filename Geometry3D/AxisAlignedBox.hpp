@@ -1,4 +1,6 @@
 #pragma once
+#include <vector>
+#include <limits>
 #include "assert.h"
 #include "Point.hpp"
 #include "Vector.hpp"
@@ -12,6 +14,9 @@ class Sphere;
 
 template <typename F>
 class AxisAlignedBox {
+
+private:
+    F _INFINITY = std::numeric_limits<F>::infinity();
 
 public:
     Point<F> lower_corner, upper_corner;
@@ -27,11 +32,13 @@ public:
     AxisAlignedBox<F>(const Point<F>&  new_lower_corner,
                       F width, F height, F depth);
 
-    const Vector<F>& getSpan() const;
+    Vector<F> getSpan() const;
     Point<F> getCenter() const;
     F getWidth() const;
     F getHeight() const;
     F getDepth() const;
+
+    std::vector< AxisAlignedBox<F> > getOctants() const;
 
     AxisAlignedBox<F>& setSpan(const Vector<F>& new_span);
     AxisAlignedBox<F>& setCenter(const Point<F>& center);
@@ -42,8 +49,14 @@ public:
 
     AxisAlignedBox<F>& translate(F dx, F dy, F dz);
     AxisAlignedBox<F>& translate(const Vector<F>& displacement);
+    AxisAlignedBox<F> getTranslated(F dx, F dy, F dz) const;
+    AxisAlignedBox<F> getTranslated(const Vector<F>& displacement) const;
+    
+    AxisAlignedBox<F>& merge(const AxisAlignedBox<F>& other);
 
-    bool evaluateRayIntersection(const Ray<F>& ray, F upper_distance_limit) const;
+    F evaluateRayIntersection(const Ray<F>& ray) const;
+    
+    bool containsUpperExclusive(const Point<F>& point) const;
 
     Sphere<F> getBoundingSphere() const;
 
@@ -74,7 +87,7 @@ AxisAlignedBox<F>::AxisAlignedBox(const Point<F>&  new_lower_corner,
       upper_corner(Vector<F>(new_lower_corner).translate(width, height, depth)) {}
 
 template <typename F>
-const Vector<F>& AxisAlignedBox<F>::getSpan() const
+Vector<F> AxisAlignedBox<F>::getSpan() const
 {
     return upper_corner - lower_corner;
 }
@@ -101,6 +114,27 @@ template <typename F>
 F AxisAlignedBox<F>::getDepth() const
 {
     return getSpan().z;
+}
+
+template <typename F>
+std::vector< AxisAlignedBox<F> > AxisAlignedBox<F>::getOctants() const
+{
+    std::vector< AxisAlignedBox<F> > octants;
+
+    const Vector<F>& half_span = getSpan()*0.5f;
+
+    AxisAlignedBox<F> aab(lower_corner, lower_corner + half_span);
+
+    octants.push_back(aab);
+    octants.push_back(aab.getTranslated(half_span.x, 0, 0));
+    octants.push_back(aab.getTranslated(0, half_span.y, 0));
+    octants.push_back(aab.getTranslated(half_span.x, half_span.y, 0));
+    octants.push_back(aab.getTranslated(0, 0, half_span.z));
+    octants.push_back(aab.getTranslated(half_span.x, 0, half_span.z));
+    octants.push_back(aab.getTranslated(0, half_span.y, half_span.z));
+    octants.push_back(aab.getTranslated(half_span));
+
+    return octants;
 }
 
 template <typename F>
@@ -164,7 +198,28 @@ AxisAlignedBox<F>& AxisAlignedBox<F>::translate(const Vector<F>& displacement)
 }
 
 template <typename F>
-bool AxisAlignedBox<F>::evaluateRayIntersection(const Ray<F>& ray, F upper_distance_limit) const
+AxisAlignedBox<F> AxisAlignedBox<F>::getTranslated(F dx, F dy, F dz) const
+{
+    return AxisAlignedBox<F>(*this).translate(dx, dy, dz);
+}
+
+template <typename F>
+AxisAlignedBox<F> AxisAlignedBox<F>::getTranslated(const Vector<F>& displacement) const
+{
+    return AxisAlignedBox<F>(*this).translate(displacement);
+}
+
+template <typename F>
+AxisAlignedBox<F>& AxisAlignedBox<F>::merge(const AxisAlignedBox<F>& other)
+{
+    lower_corner.useSmallestCoordinates(other.lower_corner);
+    upper_corner.useLargestCoordinates(other.upper_corner);
+
+    return *this;
+}
+
+template <typename F>
+F AxisAlignedBox<F>::evaluateRayIntersection(const Ray<F>& ray) const
 {
     F min_dist, max_dist, min_dist_temp, max_dist_temp;
     const Vector<F>& inverse_direction = ray.inverse_direction;
@@ -192,7 +247,7 @@ bool AxisAlignedBox<F>::evaluateRayIntersection(const Ray<F>& ray, F upper_dista
     }
 
     if (min_dist > max_dist_temp || min_dist_temp > max_dist)
-        return false;
+        return _INFINITY;
 
     if (min_dist_temp > min_dist)
         min_dist = min_dist_temp;
@@ -212,7 +267,7 @@ bool AxisAlignedBox<F>::evaluateRayIntersection(const Ray<F>& ray, F upper_dista
     }
 
     if (min_dist > max_dist_temp || min_dist_temp > max_dist)
-        return false;
+        return _INFINITY;
 
     if (min_dist_temp > min_dist)
         min_dist = min_dist_temp;
@@ -220,7 +275,21 @@ bool AxisAlignedBox<F>::evaluateRayIntersection(const Ray<F>& ray, F upper_dista
     if (max_dist_temp < max_dist)
         max_dist = max_dist_temp;
 
-    return (max_dist >= 0 && min_dist < upper_distance_limit);
+    if (max_dist >= 0 && min_dist < ray.max_distance)
+        return min_dist;
+    else
+        return _INFINITY;
+}
+
+template <typename F>
+bool AxisAlignedBox<F>::containsUpperExclusive(const Point<F>& point) const
+{
+    return (point.x >= lower_corner.x &&
+            point.x < upper_corner.x &&
+            point.y >= lower_corner.y &&
+            point.y < upper_corner.y &&
+            point.z >= lower_corner.z &&
+            point.z < upper_corner.z);
 }
 
 template <typename F>
@@ -252,5 +321,13 @@ AxisAlignedBox<F>& AxisAlignedBox<F>::validateOrientation()
     }
     return *this;
 }
+
+template <typename F>
+struct AABBContainer
+{
+    AxisAlignedBox<F> aabb;
+    Point<F> centroid;
+    size_t id;
+};
 
 } // Geometry3D

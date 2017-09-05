@@ -40,6 +40,13 @@ public:
                             F height,
                             const Power& new_power,
                             size_t new_n_samples);
+    
+    RectangularAreaLight<F>(const Point& new_center,
+                            const Point& point_in_direction,
+                            const Vector& new_width_vector,
+                            F height,
+                            const Power& new_power,
+                            size_t new_n_samples);
 
     CoordinateFrame getCoordinateFrame() const;
     F getSurfaceArea() const;
@@ -65,6 +72,24 @@ RectangularAreaLight<F>::RectangularAreaLight(const Point& new_center,
     : _width_vector(new_width_vector),
       _direction(new_direction.getNormalized()),
       _height_vector(height*new_direction.getUnitNormalWith(new_width_vector)),
+      _width(new_width_vector.getLength()),
+      _height(height),
+      _power(new_power),
+      _n_samples(new_n_samples)
+{
+    _origin = new_center - (_width_vector + _height_vector)/2;
+}
+
+template <typename F>
+RectangularAreaLight<F>::RectangularAreaLight(const Point& new_center,
+                                              const Point& point_in_direction,
+                                              const Vector& new_width_vector,
+                                              F height,
+                                              const Power& new_power,
+                                              size_t new_n_samples)
+    : _width_vector(new_width_vector),
+      _direction((point_in_direction - new_center).getNormalized()),
+      _height_vector(height*(point_in_direction - new_center).getNormalized().getUnitNormalWith(new_width_vector)),
       _width(new_width_vector.getLength()),
       _height(height),
       _power(new_power),
