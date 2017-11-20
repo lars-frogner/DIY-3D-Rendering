@@ -87,13 +87,17 @@ void BVHNode<F>::_insertObject(const AABBContainer<F>& object)
 
     for (size_t i = 0; i < 8; i++)
     {
-        if (_octants[i].containsUpperExclusive(object.centroid))
+        if (_octants[i].containsInclusive(object.centroid))
         {
-            if (_child_nodes[i])
-                _child_nodes[i]->_insertObject(object);
-            else
-                _child_nodes[i] = node_ptr(new BVHNode<F>(_octants[i], object));
-                _has_children = true;
+			if (_child_nodes[i])
+			{
+				_child_nodes[i]->_insertObject(object);
+			}
+			else
+			{
+				_child_nodes[i] = node_ptr(new BVHNode<F>(_octants[i], object));
+				_has_children = true;
+			}
 
             inserted = true;
             break;
@@ -139,8 +143,10 @@ std::vector<size_t> BVHNode<F>::_getIntersectedObjectIDs(const Ray<F>& ray) cons
         }
     }
 
-    if (_object.aabb.evaluateRayIntersection(ray) < _INFINITY)
-        object_ids.push_back(_object.id);
+	if (_object.aabb.evaluateRayIntersection(ray) < _INFINITY)
+	{
+		object_ids.push_back(_object.id);
+	}
     
     return object_ids;
 }
@@ -156,8 +162,10 @@ BoundingVolumeHierarchy<F>::BoundingVolumeHierarchy(const AxisAlignedBox<F>& bou
 
     _root_node = node_ptr(new BVHNode<F>(bounding_volume, objects[0]));
 
-    for (size_t i = 1; i < n_objects; i++)
-        _root_node->_insertObject(objects[i]);
+	for (size_t i = 1; i < n_objects; i++)
+	{
+		_root_node->_insertObject(objects[i]);
+	}
 
     _root_node->_computeBoundingVolumes();
 }
@@ -171,8 +179,10 @@ F BoundingVolumeHierarchy<F>::evaluateRayIntersection(const TriangleMesh<F>& mes
     F distance = _root_node->_aabb.evaluateRayIntersection(ray);
 
     // Return immediately if the ray doesn't intersect the root bounding box
-    if (distance == _INFINITY)
-        return distance;
+	if (distance == _INFINITY)
+	{
+		return distance;
+	}
     
     F smallest_true_intersection_distance = _INFINITY;
     std::priority_queue< BVHQueueElement<F> > priority_queue;
@@ -194,8 +204,10 @@ F BoundingVolumeHierarchy<F>::evaluateRayIntersection(const TriangleMesh<F>& mes
         distance = mesh.evaluateRayFaceIntersectionDistanceOnly(ray, current_node->_object.id);
 
         // If it is smaller than all the previous ones, store it as new smallest intersection distance
-        if (distance < smallest_true_intersection_distance)
-            smallest_true_intersection_distance = distance;
+		if (distance < smallest_true_intersection_distance)
+		{
+			smallest_true_intersection_distance = distance;
+		}
 
         // Loop through child nodes
         for (iter = (current_node->_child_nodes).begin(); iter != (current_node->_child_nodes).end(); ++iter)
@@ -204,8 +216,10 @@ F BoundingVolumeHierarchy<F>::evaluateRayIntersection(const TriangleMesh<F>& mes
             distance = (*iter)->_aabb.evaluateRayIntersection(ray);
 
             // If there was an itersection, add the child node to the priority list
-            if (distance < _INFINITY)
-                priority_queue.push(BVHQueueElement<F>(*iter, distance));
+			if (distance < _INFINITY)
+			{
+				priority_queue.push(BVHQueueElement<F>(*iter, distance));
+			}
         }
     }
 

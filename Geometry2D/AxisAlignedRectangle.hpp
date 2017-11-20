@@ -83,14 +83,23 @@ std::vector< AxisAlignedRectangle<F> > AxisAlignedRectangle<F>::getQuadrants() c
 {
     std::vector< AxisAlignedRectangle<F> > quadrants;
 
-    const Vector<F>& half_span = getSpan()*0.5f;
+	quadrants.reserve(4);
 
-    AxisAlignedRectangle<F> aar(lower_corner, lower_corner + half_span);
+	const Point<F>& center = getCenter();
 
-    quadrants.push_back(aar);
-    quadrants.push_back(aar.getTranslated(half_span.x, 0));
-    quadrants.push_back(aar.getTranslated(0, half_span.y));
-    quadrants.push_back(aar.getTranslated(half_span));
+	quadrants.push_back(*this);
+	quadrants[0].upper_corner = center;
+
+	quadrants.push_back(*this);
+	quadrants[1].lower_corner.x = center.x;
+	quadrants[1].upper_corner.y = center.y;
+
+	quadrants.push_back(*this);
+	quadrants[2].lower_corner.y = center.y;
+	quadrants[2].upper_corner.x = center.x;
+
+	quadrants.push_back(*this);
+	quadrants[3].lower_corner = center;
 
     return quadrants;
 }

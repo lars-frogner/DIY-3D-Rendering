@@ -21,6 +21,8 @@ private:
     const F _eps_barycentric = -1.e-7f;
 
 public:
+
+	bool use_omp = false;
     
     Image<F>(size_t n_cols, size_t n_rows);
 
@@ -39,6 +41,7 @@ public:
     Image<F>& setBackgroundColor(const Color& color);
 
     Image<F>& gammaEncode(float normalization);
+	Image<F>& gammaEncodeApprox(float normalization);
     Image<F>& stretch();
 
     void drawLine(F x0, F y0, F x1, F y1, float luminance);
@@ -48,7 +51,8 @@ public:
 template <typename F>
 Image<F>::Image(size_t n_cols, size_t n_rows)
     : _n_cols(n_cols), _n_rows(n_rows), _size(n_rows*n_cols),
-      _pixel_values(3*n_rows*n_cols, 0) {}
+      _pixel_values(3*n_rows*n_cols, 0),
+	  _depth_buffer(n_rows*n_cols, -1) {}
 
 template <typename F>
 void Image<F>::drawLine(F x0, F y0, F x1, F y1, float luminance)
@@ -136,8 +140,11 @@ void Image<F>::drawTriangle(const Vertex& v0, const Vertex& v1, const Vertex& v2
     int y_min = std::min(y0_i, std::min(y1_i, y2_i));
     int y_max = std::max(y0_i, std::max(y1_i, y2_i));
 
-    assert(x_min >= 0 && x_max < _n_cols);
-    assert(y_min >= 0 && y_max < _n_rows);
+	if (x_min < 0 || x_max >= _n_cols || y_min < 0 || y_max >= _n_rows)
+		return;
+
+    //assert(x_min >= 0 && x_max < _n_cols);
+    //assert(y_min >= 0 && y_max < _n_rows);
 
     int dx1 = x1_i - x0_i, dy1 = y1_i - y0_i;
     int dx2 = x2_i - x0_i, dy2 = y2_i - y0_i;
@@ -215,29 +222,73 @@ Image<F>& Image<F>::setDepth(size_t x, size_t y, F depth)
 template <typename F>
 Image<F>& Image<F>::initializeDepthBuffer(F initial_value)
 {
-    _depth_buffer.resize(_size, initial_value);
+	int idx;
+
+    #pragma omp parallel for default(shared) \
+                             private(idx) \
+                             shared(initial_value) \
+                             schedule(static) \
+                             if (use_omp)
+	for (idx = 0; idx < _size; idx++)
+	{
+		_depth_buffer[idx] = initial_value;
+	}
+
     return *this;
 }
 
 template <typename F>
 Image<F>& Image<F>::setBackgroundColor(const Color& color)
 {
-    for (size_t idx = 0; idx < 3*_size; idx += 3)
+	int idx;
+
+    #pragma omp parallel for default(shared) \
+                             private(idx) \
+                             shared(color) \
+                             schedule(static) \
+                             if (use_omp)
+    for (idx = 0; idx < 3*_size; idx += 3)
     {
         _pixel_values[idx]     = color.r;
         _pixel_values[idx + 1] = color.g;
         _pixel_values[idx + 2] = color.b;
     }
+
     return *this;
 }
 
 template <typename F>
 Image<F>& Image<F>::gammaEncode(float normalization)
 {
+	int idx;
     float inverse_gamma = 1.0f/2.2f;
-    for (size_t idx = 0; idx < 3*_size; idx++)
+
+    #pragma omp parallel for default(shared) \
+                             private(idx) \
+                             shared(normalization, inverse_gamma) \
+                             schedule(static) \
+                             if (use_omp)
+    for (idx = 0; idx < 3*_size; idx++)
     {
         _pixel_values[idx] = pow(std::min(1.0f, std::max(0.0f, _pixel_values[idx]*normalization)), inverse_gamma);
+    }
+
+    return *this;
+}
+
+template <typename F>
+Image<F>& Image<F>::gammaEncodeApprox(float normalization)
+{
+	int idx;
+
+    #pragma omp parallel for default(shared) \
+                             private(idx) \
+                             shared(normalization) \
+                             schedule(static) \
+                             if (use_omp)
+    for (idx = 0; idx < 3*_size; idx++)
+    {
+        _pixel_values[idx] = sqrt(std::min(1.0f, std::max(0.0f, _pixel_values[idx]*normalization)));
     }
 
     return *this;

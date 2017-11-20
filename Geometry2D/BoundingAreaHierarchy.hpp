@@ -67,13 +67,17 @@ void BAHNode<F>::_insertObject(const AABRContainer<F>& object)
 
     for (size_t i = 0; i < 4; i++)
     {
-        if (_quadrants[i].containsUpperExclusive(object.centroid))
+        if (_quadrants[i].containsInclusive(object.centroid))
         {
-            if (_child_nodes[i])
-                _child_nodes[i]->_insertObject(object);
-            else
-                _child_nodes[i] = node_ptr(new BAHNode<F>(_quadrants[i], object));
-                _has_children = true;
+			if (_child_nodes[i])
+			{
+				_child_nodes[i]->_insertObject(object);
+			}
+			else
+			{
+				_child_nodes[i] = node_ptr(new BAHNode<F>(_quadrants[i], object));
+				_has_children = true;
+			}
 
             inserted = true;
             break;
@@ -119,8 +123,10 @@ std::vector<size_t> BAHNode<F>::_getIntersectedObjectIDs(const Point<F>& point) 
         }
     }
 
-    if (_object.aabr.containsInclusive(point))
-        object_ids.push_back(_object.id);
+	if (_object.aabr.containsInclusive(point))
+	{
+		object_ids.push_back(_object.id);
+	}
     
     return object_ids;
 }
@@ -153,8 +159,10 @@ BoundingAreaHierarchy<F>::BoundingAreaHierarchy(const AxisAlignedRectangle<F>& b
 
     _root_node = node_ptr(new BAHNode<F>(bounding_area, objects[0]));
 
-    for (size_t i = 1; i < n_objects; i++)
-        _root_node->_insertObject(objects[i]);
+	for (size_t i = 1; i < n_objects; i++)
+	{
+		_root_node->_insertObject(objects[i]);
+	}
 
     _root_node->_computeBoundingAreas();
 }

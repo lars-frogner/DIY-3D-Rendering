@@ -55,7 +55,10 @@ public:
     AxisAlignedBox<F>& merge(const AxisAlignedBox<F>& other);
 
     F evaluateRayIntersection(const Ray<F>& ray) const;
-    
+	bool intersects(const AxisAlignedBox<F>& other) const;
+	bool encloses(const AxisAlignedBox<F>& other) const;
+
+	bool containsInclusive(const Point<F>& point) const;
     bool containsUpperExclusive(const Point<F>& point) const;
 
     Sphere<F> getBoundingSphere() const;
@@ -121,18 +124,45 @@ std::vector< AxisAlignedBox<F> > AxisAlignedBox<F>::getOctants() const
 {
     std::vector< AxisAlignedBox<F> > octants;
 
-    const Vector<F>& half_span = getSpan()*0.5f;
+	octants.reserve(8);
 
-    AxisAlignedBox<F> aab(lower_corner, lower_corner + half_span);
+	const Point<F>& center = getCenter();
 
-    octants.push_back(aab);
-    octants.push_back(aab.getTranslated(half_span.x, 0, 0));
-    octants.push_back(aab.getTranslated(0, half_span.y, 0));
-    octants.push_back(aab.getTranslated(half_span.x, half_span.y, 0));
-    octants.push_back(aab.getTranslated(0, 0, half_span.z));
-    octants.push_back(aab.getTranslated(half_span.x, 0, half_span.z));
-    octants.push_back(aab.getTranslated(0, half_span.y, half_span.z));
-    octants.push_back(aab.getTranslated(half_span));
+	octants.push_back(*this);
+	octants[0].upper_corner = center;
+
+	octants.push_back(*this);
+	octants[1].lower_corner.x = center.x;
+	octants[1].upper_corner.y = center.y;
+	octants[1].upper_corner.z = center.z;
+
+	octants.push_back(*this);
+	octants[2].lower_corner.y = center.y;
+	octants[2].upper_corner.x = center.x;
+	octants[2].upper_corner.z = center.z;
+
+	octants.push_back(*this);
+	octants[3].lower_corner.x = center.x;
+	octants[3].lower_corner.y = center.y;
+	octants[3].upper_corner.z = center.z;
+
+	octants.push_back(*this);
+	octants[4].lower_corner.z = center.z;
+	octants[4].upper_corner.x = center.x;
+	octants[4].upper_corner.y = center.y;
+
+	octants.push_back(*this);
+	octants[5].lower_corner.x = center.x;
+	octants[5].lower_corner.z = center.z;
+	octants[5].upper_corner.y = center.y;
+
+	octants.push_back(*this);
+	octants[6].lower_corner.y = center.y;
+	octants[6].lower_corner.z = center.z;
+	octants[6].upper_corner.x = center.x;
+
+	octants.push_back(*this);
+	octants[7].lower_corner = center;
 
     return octants;
 }
@@ -279,6 +309,38 @@ F AxisAlignedBox<F>::evaluateRayIntersection(const Ray<F>& ray) const
         return min_dist;
     else
         return _INFINITY;
+}
+
+template <typename F>
+bool AxisAlignedBox<F>::intersects(const AxisAlignedBox<F>& other) const
+{
+	const Point<F>& center_this = getCenter();
+	const Point<F>& center_other = other.getCenter();
+	const Vector<F>& span_this = getSpan();
+	const Vector<F>& span_other = other.getSpan();
+
+	return (2*abs(center_this.x - center_other.x) < (span_this.x + span_other.x)) &&
+		   (2*abs(center_this.y - center_other.y) < (span_this.y + span_other.y)) &&
+		   (2*abs(center_this.z - center_other.z) < (span_this.z + span_other.z));
+}
+
+template <typename F>
+bool AxisAlignedBox<F>::encloses(const AxisAlignedBox<F>& other) const
+{
+	return (lower_corner.x < other.lower_corner.x) && (upper_corner.x > other.upper_corner.x) &&
+		   (lower_corner.y < other.lower_corner.y) && (upper_corner.y > other.upper_corner.y) &&
+		   (lower_corner.z < other.lower_corner.z) && (upper_corner.z > other.upper_corner.z);
+}
+
+template <typename F>
+bool AxisAlignedBox<F>::containsInclusive(const Point<F>& point) const
+{
+	return (point.x >= lower_corner.x &&
+			point.x <= upper_corner.x &&
+			point.y >= lower_corner.y &&
+			point.y <= upper_corner.y &&
+			point.z >= lower_corner.z &&
+			point.z <= upper_corner.z);
 }
 
 template <typename F>

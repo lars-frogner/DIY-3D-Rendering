@@ -133,14 +133,14 @@ void Triangle<F>::getBarycentricCoordinatesInside(const Point<F> X,
     lie inside the triangle.
     */
 
-    const F eps = -1.e-4f;
+    const F eps = -1.e-3f;
 
     gamma = _AB_normal.dot(X - _B);
-    assert(gamma >= eps);
+    //assert(gamma >= eps);
     beta = _AC_normal.dot(X - _C);
-    assert(beta >= eps);
+    //assert(beta >= eps);
     alpha = 1 - (beta + gamma);
-    assert(alpha >= eps);
+    //assert(alpha >= eps);
 }
 
 template <typename F>

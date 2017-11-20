@@ -46,10 +46,11 @@ private:
 
     const F _INFINITY = std::numeric_limits<F>::infinity();
 
-    std::vector<TriangleMesh> _objects;
-    LightContainer<F> _lights;
     Camera _camera;
     Image<F> _image;
+
+	LightContainer<F> _lights;
+	std::vector<TriangleMesh> _objects;
     
     F _image_width, _image_height;
     F _inverse_image_width, _inverse_image_height;
@@ -63,7 +64,10 @@ private:
 
     F _near_plane_distance, _far_plane_distance;
 
-    void _setConstants();
+	ProjectiveTransformation _perspective_transformation;
+	AffineTransformation _windowing_transformation;
+
+    void _computeViewData();
 
     Ray _getEyeRay(const Point2& pixel_center) const;
 
@@ -83,51 +87,44 @@ protected:
     Radiance _getRadiance(const Point&  surface_point,
                           const Vector& surface_normal,
                           const Vector& scatter_direction,
-                          const Material<F>* material,
-                          bool ignore_visibility) const;
+                          const Material<F>* material) const;
 
 public:
 
     size_t n_splits = 0;
-    bool use_direct_lighting = true;
-    bool remove_hidden_faces = true;
-    bool perform_clipping = true;
-    bool draw_faces = true;
-    bool draw_edges = false;
+	bool gamma_encode = true;
     bool use_omp = true;
 
     Color face_color = Color::white();
-    float edge_brightness = 0.0f;
+	Color bg_color = Color::black();
+    float edge_brightness = 0.6f;
 
-    Scene<F>(SceneGraph<F>& scene_graph,
-             const LightContainer<F>& new_lights,
-             const Camera& new_camera,
+    Scene<F>(const Camera& new_camera,
              const Image<F>& new_image);
 
+	void transformCameraLookRay(const AffineTransformation& transformation);
+
+	const Camera& getCamera() const;
     const Image<F>& getImage() const;
     
     Scene<F>& generateGround(F plane_height, F horizon_position, const BlinnPhongMaterial<F>& material);
 
-    Scene<F>& renderDirect();
-    Scene<F>& rayTrace();
-    Scene<F>& rasterize();
+    Scene<F>& renderDirect(const std::vector<TriangleMesh>& objects, const LightContainer<F>& lights);
+    Scene<F>& rayTrace(const std::vector<TriangleMesh>& objects, const LightContainer<F>& lights);
+    Scene<F>& rasterize(const std::vector<TriangleMesh>& objects, const LightContainer<F>& lights);
 };
 
 template <typename F>
-Scene<F>::Scene(SceneGraph<F>& scene_graph,
-                const LightContainer<F>& new_lights,
-                const Camera& new_camera,
+Scene<F>::Scene(const Camera& new_camera,
                 const Image<F>& new_image)
-    : _objects(SceneGraph<F>::getTransformedObjects(scene_graph)),
-      _lights(new_lights),
-      _camera(new_camera),
+    : _camera(new_camera),
       _image(new_image)
 {
-    _setConstants();
+	_computeViewData();
 }
 
 template <typename F>
-void Scene<F>::_setConstants()
+void Scene<F>::_computeViewData()
 {
     _image_width = static_cast<F>(_image.getWidth());
     _image_height = static_cast<F>(_image.getHeight());
@@ -144,11 +141,29 @@ void Scene<F>::_setConstants()
     _inverse_image_width_at_unit_distance_from_camera = 1/_image_width_at_unit_distance_from_camera;
     _inverse_image_height_at_unit_distance_from_camera = 1/_image_height_at_unit_distance_from_camera;
 
+	_camera_position = _camera.getPosition();
+
     _transformation_to_camera_system = AffineTransformation::toCoordinateFrame(_camera.getCoordinateFrame());
     _transformation_from_camera_system = _transformation_to_camera_system.getInverse();
 
     _near_plane_distance = _camera.getNearPlaneDistance();
     _far_plane_distance = _camera.getFarPlaneDistance();
+
+	_perspective_transformation = _camera.getWorldToParallelViewVolumeTransformation(_image.getAspectRatio());
+	_windowing_transformation = _camera.getWindowingTransformation(_image.getWidth(), _image.getAspectRatio());
+}
+
+template <typename F>
+void Scene<F>::transformCameraLookRay(const AffineTransformation& transformation)
+{
+	_camera.transformLookRay(transformation);
+	_computeViewData();
+}
+
+template <typename F>
+const Geometry3D::Camera<F>& Scene<F>::getCamera() const
+{
+	return _camera;
 }
 
 template <typename F>
@@ -158,62 +173,132 @@ const Image<F>& Scene<F>::getImage() const
 }
 
 template <typename F>
-Scene<F>& Scene<F>::renderDirect()
+Scene<F>& Scene<F>::renderDirect(const std::vector<TriangleMesh>& objects, const LightContainer<F>& lights)
 {
-    const ProjectiveTransformation& perspective_transformation = _camera.getWorldToParallelViewVolumeTransformation(_image.getAspectRatio());
-    const AffineTransformation& windowing_transformation = _camera.getWindowingTransformation(_image.getWidth(), _image.getAspectRatio());
+	size_t n_objects = objects.size();
+	int obj_idx;
 
-    _image.initializeDepthBuffer(-1);
+	_objects = objects;
+	_lights = LightContainer<F>(lights);
 
-    for (size_t i = 0; i < _objects.size(); i++)
+	_image.use_omp = use_omp;
+	
+	_image.setBackgroundColor(bg_color);
+    _image.initializeDepthBuffer(-1.0);
+	
+    #pragma omp parallel for default(shared) \
+                             private(obj_idx) \
+                             shared(n_objects) \
+                             schedule(dynamic) \
+                             if (use_omp)
+    for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
     {
-        TriangleMesh& mesh = _objects[i];
+        TriangleMesh& mesh = _objects[obj_idx];
 
-        mesh.use_omp = use_omp;
+		mesh.uses_omp = use_omp;
 
         if (n_splits > 0)
             mesh.splitFaces(n_splits);
 
-        if (use_direct_lighting)
-            mesh.computeNormals()
-                .shadeVerticesDirect(*this);
+		if (mesh.casts_shadows)
+			mesh.computeAABB()
+				.computeBoundingVolumeHierarchy();
+	}
 
-        mesh.applyTransformation(perspective_transformation)
-            .homogenizeVertices();
-        
-        if (remove_hidden_faces)
-            mesh.removeBackwardFacingFaces();
-        
-        if (perform_clipping)
-            mesh.computeAABB()
-                .performClipping();
+    for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
+    {
+        TriangleMesh& mesh = _objects[obj_idx];
 
-        mesh.applyWindowingTransformation(windowing_transformation);
+        if (mesh.uses_direct_lighting)
+            mesh.shadeVerticesDirect(*this);
+	}
 
-        if (draw_faces)
-            if (use_direct_lighting)
+    #pragma omp parallel for default(shared) \
+                             private(obj_idx) \
+                             shared(n_objects) \
+                             schedule(dynamic) \
+                             if (use_omp)
+	for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
+	{
+		TriangleMesh& mesh = _objects[obj_idx];
+
+		mesh.applyTransformation(_perspective_transformation);
+
+		if (mesh.perform_clipping && mesh.allZAbove(0))
+		{
+			mesh.is_visible = false;
+			continue;
+		}
+		
+		if (mesh.perform_clipping)
+			mesh.clipNearPlane();
+
+		mesh.homogenizeVertices();
+
+		if (mesh.remove_hidden_faces)
+			mesh.removeBackwardFacingFaces();
+
+		if (mesh.perform_clipping)
+		{
+			mesh.computeAABB();
+
+			if (mesh.isInsideParallelViewVolume())
+			{
+				mesh.clipNonNearPlanes();
+			}
+			else
+			{
+				mesh.is_visible = false;
+				continue;
+			}
+		}
+
+		mesh.applyWindowingTransformation(_windowing_transformation);
+	}
+
+	for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
+	{
+		const TriangleMesh& mesh = _objects[obj_idx];
+
+		if (!mesh.is_visible)
+			continue;
+
+        if (mesh.render_faces)
+            if (mesh.uses_direct_lighting)
                 mesh.drawFaces(_image);
             else
                 mesh.drawFaces(_image, face_color);
 
-        if (draw_edges)
+        if (mesh.render_edges)
             mesh.drawEdges(_image, edge_brightness);
     }
+
+	if (gamma_encode)
+		_image.gammaEncodeApprox(1.0f);
+
+	_objects.clear();
 
     return *this;
 }
 
 template <typename F>
-Scene<F>& Scene<F>::rayTrace()
+Scene<F>& Scene<F>::rayTrace(const std::vector<TriangleMesh>& objects, const LightContainer<F>& lights)
 {
     size_t image_width = _image.getWidth();
     size_t image_height = _image.getHeight();
-    size_t n_objects = _objects.size();
+    size_t n_objects = objects.size();
     int x, y, obj_idx;
     std::vector<size_t>::const_iterator iter;
     F closest_distance;
     Point2 pixel_center;
     Radiance pixel_radiance;
+
+	_objects = objects;
+	_lights = LightContainer<F>(lights);
+
+	_image.use_omp = use_omp;
+
+	_image.setBackgroundColor(bg_color);
     
     #pragma omp parallel for default(shared) \
                              private(obj_idx) \
@@ -224,11 +309,30 @@ Scene<F>& Scene<F>::rayTrace()
     {
         TriangleMesh& mesh = _objects[obj_idx];
         mesh.applyTransformation(_transformation_to_camera_system);
-        mesh.computeNormals();
-        mesh.clipNearPlaneAt(-_near_plane_distance);
-        mesh.computeAABB();
-        mesh.computeBoundingAreaHierarchy(*this);
-        mesh.computeBoundingVolumeHierarchy();
+
+		mesh.computeNormals();
+
+		if (mesh.perform_clipping && mesh.allZAbove(-_near_plane_distance))
+		{
+			mesh.is_visible = false;
+
+			if (mesh.casts_shadows)
+				mesh.computeAABB()
+					.computeBoundingVolumeHierarchy();
+
+			continue;
+		}
+
+		if (mesh.perform_clipping)
+	        mesh.clipNearPlaneAt(-_near_plane_distance);
+
+		mesh.computeAABB();
+		mesh.computeBoundingAreaHierarchy(*this);
+
+		if (mesh.casts_shadows)
+			mesh.computeBoundingVolumeHierarchy();
+
+		mesh.is_visible = true;
     }
 
     _lights.applyTransformation(_transformation_to_camera_system);
@@ -251,33 +355,45 @@ Scene<F>& Scene<F>::rayTrace()
             {
                 const TriangleMesh& mesh = _objects[obj_idx];
 
-                const std::vector<size_t>& intersected_faces = mesh.getIntersectedFaceIndices(pixel_center);
+				if (mesh.is_visible)
+				{
+					const std::vector<size_t>& intersected_faces = mesh.getIntersectedFaceIndices(pixel_center);
 
-                for (iter = intersected_faces.begin(); iter != intersected_faces.end(); ++iter)
-                {
-                    if (mesh.sampleRadianceFromFace(*this, eye_ray, *iter, pixel_radiance, closest_distance))
-                    {
-                        _image.setRadiance(x, y, pixel_radiance);
-                    }
-                }
+					for (iter = intersected_faces.begin(); iter != intersected_faces.end(); ++iter)
+					{
+						if (mesh.sampleRadianceFromFace(*this, eye_ray, *iter, pixel_radiance, closest_distance))
+						{
+							_image.setRadiance(x, y, pixel_radiance);
+						}
+					}
+				}
             }
         }
     }
     
-    /*for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
+    for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
     {
-        _objects[obj_idx].drawBoundingAreaHierarchy(_image, edge_brightness);
-    }*/
+		const TriangleMesh& mesh = _objects[obj_idx];
 
-    _image.gammaEncode(1.0f);
+		if (mesh.render_edges)
+			mesh.drawEdges(_image, edge_brightness);
+
+		//mesh.drawBoundingAreaHierarchy(_image, edge_brightness);
+    }
+
+	if (gamma_encode)
+		_image.gammaEncodeApprox(1.0f);
+
+	_objects.clear();
 
     return *this;
 }
 
 template <typename F>
-Scene<F>& Scene<F>::rasterize()
+Scene<F>& Scene<F>::rasterize(const std::vector<TriangleMesh>& objects, const LightContainer<F>& lights)
 {
-    size_t n_objects = _objects.size();
+
+	size_t n_objects = objects.size();
     size_t n_triangles;
     int x, y, obj_idx, face_idx, vertex_idx;
     int x_min, x_max, y_min, y_max;
@@ -292,6 +408,12 @@ Scene<F>& Scene<F>::rasterize()
     F interpolated_inverse_depth;
     F depth;
 
+	_objects = objects;
+	_lights = LightContainer<F>(lights);
+
+	_image.use_omp = use_omp;
+
+	_image.setBackgroundColor(bg_color);
     _image.initializeDepthBuffer(_far_plane_distance);
     
     #pragma omp parallel for default(shared) \
@@ -300,7 +422,7 @@ Scene<F>& Scene<F>::rasterize()
                              if (use_omp)
     for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
     {
-        _objects[obj_idx].applyTransformation(_transformation_to_camera_system)
+		_objects[obj_idx].applyTransformation(_transformation_to_camera_system)
                          .computeNormals()
                          .clipNearPlaneAt(-_near_plane_distance)
                          .computeAABB();
@@ -363,8 +485,7 @@ Scene<F>& Scene<F>::rasterize()
                             const Radiance& radiance = _getRadiance(surface_point,
                                                                     surface_normal,
                                                                     displacement_to_camera/depth,
-                                                                    material,
-                                                                    false);
+                                                                    material);
 
                             #pragma omp critical
                             if (depth < _image.getDepth(x, y))
@@ -379,7 +500,10 @@ Scene<F>& Scene<F>::rasterize()
         }
     }
 
-    _image.gammaEncode(1.0f);
+	if (gamma_encode)
+		_image.gammaEncodeApprox(1.0f);
+
+	_objects.clear();
 
     return *this;
 }
@@ -439,8 +563,7 @@ template <typename F>
 Radiance Scene<F>::_getRadiance(const Point&  surface_point,
                                 const Vector& surface_normal,
                                 const Vector& scatter_direction,
-                                const Material<F>* material,
-                                bool ignore_visibility) const
+                                const Material<F>* material) const
 {
     Radiance radiance = Color::black();
 
@@ -472,7 +595,7 @@ Radiance Scene<F>::_getRadiance(const Point&  surface_point,
                 direction_to_source /= distance_to_source;
             }
 
-            if (ignore_visibility || _evaluateVisibility(surface_point, direction_to_source, distance_to_source))
+            if (_evaluateVisibility(surface_point, direction_to_source, distance_to_source))
             {
                 const Biradiance& biradiance = light->getBiradiance(source_point, surface_point);
                 const Color& scattering_density = material->getScatteringDensity(surface_normal, direction_to_source, scatter_direction);
@@ -504,7 +627,7 @@ bool Scene<F>::_evaluateVisibility(const Point& surface_point,
     {
         const TriangleMesh& mesh = _objects[obj_idx];
 
-        if (mesh.evaluateRayIntersection(shadow_ray) < _INFINITY)
+        if (mesh.casts_shadows && mesh.evaluateRayIntersection(shadow_ray) < _INFINITY)
             return false;
     }
 

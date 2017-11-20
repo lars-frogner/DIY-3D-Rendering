@@ -19,7 +19,7 @@ private:
 
     std::vector<Light<F>*> _lights;
     
-    friend void _swap(LightContainer<F>& first, LightContainer<F>& second);
+    static void _swap(LightContainer<F>& first, LightContainer<F>& second);
 
 public:
     LightContainer<F>();
@@ -73,12 +73,12 @@ LightContainer<F>::~LightContainer()
 template <typename F>
 LightContainer<F>& LightContainer<F>::operator=(LightContainer<F> other)
 {
-    _swap(*this, other);
+	LightContainer<F>::_swap(*this, other);
     return *this;
 }
 
 template <typename F>
-void _swap(LightContainer<F>& first, LightContainer<F>& second)
+void LightContainer<F>::_swap(LightContainer<F>& first, LightContainer<F>& second)
 {
     std::swap(first._lights, second._lights);
 }

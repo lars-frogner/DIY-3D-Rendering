@@ -22,7 +22,7 @@
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{15228454-E5C8-4B22-8426-6AC8697A4A6F}</ProjectGuid>
     <RootNamespace>Rendering</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
     <ProjectName>Rendering3D</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -157,6 +157,7 @@
     <ClCompile Include="test_rendering.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Animator.hpp" />
     <ClInclude Include="BlinnPhongMaterial.hpp" />
     <ClInclude Include="Color.hpp" />
     <ClInclude Include="DirectionalLight.hpp" />
@@ -169,6 +170,7 @@
     <ClInclude Include="Scene.hpp" />
     <ClInclude Include="SceneGraph.hpp" />
     <ClInclude Include="Image.hpp" />
+    <ClInclude Include="Simulator.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

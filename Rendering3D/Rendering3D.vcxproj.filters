@@ -59,5 +59,11 @@
     <ClInclude Include="DirectionalLight.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Animator.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Simulator.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

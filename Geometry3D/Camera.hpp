@@ -36,8 +36,11 @@ public:
               F new_near_plane_distance,
               F new_far_plane_distance,
               F new_field_of_view);
+
+	void transformLookRay(const AffineTransformation& transformation);
     
     const Point<F>& getPosition() const;
+	const Vector<F>& getLookDirection() const;
     F getFieldOfView() const;
     F getNearPlaneDistance() const;
     F getFarPlaneDistance() const;
@@ -81,9 +84,22 @@ CoordinateFrame<F> Camera<F>::_getCoordinateFrame() const
 }
 
 template <typename F>
+void Camera<F>::transformLookRay(const AffineTransformation& transformation)
+{
+	_look_ray = transformation*_look_ray;
+	_coordinate_frame = _getCoordinateFrame();
+}
+
+template <typename F>
 const Point<F>& Camera<F>::getPosition() const
 {
     return _look_ray.origin;
+}
+
+template <typename F>
+const Vector<F>& Camera<F>::getLookDirection() const
+{
+	return _look_ray.direction;
 }
 
 template <typename F>

@@ -74,6 +74,8 @@ public:
 
     Vector normalTransform(const Vector& normal) const;
 
+	void setToIdentity();
+
     AffineTransformation<F> getInverse() const;
     const arma::Mat<F>& getMatrix() const;
     const arma::Mat<F>& getNormalTransformMatrix() const;
@@ -270,6 +272,13 @@ Geometry3D::Vector<F> AffineTransformation<F>::normalTransform(const Vector& nor
     return Vector(_normal_transform_matrix(0, 0)*normal.x + _normal_transform_matrix(0, 1)*normal.y + _normal_transform_matrix(0, 2)*normal.z,
                   _normal_transform_matrix(1, 0)*normal.x + _normal_transform_matrix(1, 1)*normal.y + _normal_transform_matrix(1, 2)*normal.z,
                   _normal_transform_matrix(2, 0)*normal.x + _normal_transform_matrix(2, 1)*normal.y + _normal_transform_matrix(2, 2)*normal.z);
+}
+
+template <typename F>
+void AffineTransformation<F>::setToIdentity()
+{
+	_matrix.eye();
+	_normal_transform_matrix.eye();
 }
 
 template <typename F>

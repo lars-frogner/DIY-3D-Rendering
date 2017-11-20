@@ -112,7 +112,20 @@ private:
                                   F limit);
 
 public:
-    bool use_omp = false;
+    bool uses_omp = true;
+
+	bool is_dynamic = false;
+	
+    bool uses_direct_lighting = true;
+	bool casts_shadows = false;
+	
+    bool render_faces = true;
+    bool render_edges = false;
+
+    bool remove_hidden_faces = true;
+    bool perform_clipping = true;
+	
+	bool is_visible = true;
 
     TriangleMesh<F>();
     TriangleMesh<F>(size_t n_vertices, F vertex_array[],
@@ -121,10 +134,12 @@ public:
                     const TriangleMesh<F>& mesh_2);
     TriangleMesh<F>(const TriangleMesh<F>& other);
     ~TriangleMesh<F>();
+	TriangleMesh<F> TriangleMesh<F>::operator=(const TriangleMesh<F>& other);
     
     static TriangleMesh<F> file(const std::string& filename);
     static TriangleMesh<F> triangle(const Triangle<F>& triangle_obj);
     static TriangleMesh<F> box(const Box<F>& box_obj);
+    static TriangleMesh<F> room(const Box<F>& box_obj);
     static TriangleMesh<F> sheet(const Point<F>& origin,
                                  const Vector<F>& width_vector,
                                  const Vector<F>& height_vector);
@@ -178,7 +193,10 @@ public:
                                 size_t face_idx,
                                 Radiance& pixel_radiance,
                                 F& closest_distance) const;
-    
+
+	bool allZAbove(F z_low) const;
+	bool isInsideParallelViewVolume() const;
+
     TriangleMesh<F>& clipNearPlaneAt(F z_near);
     TriangleMesh<F>& clipLeftPlane();
     TriangleMesh<F>& clipRightPlane();
@@ -187,13 +205,13 @@ public:
     TriangleMesh<F>& clipNearPlane();
     TriangleMesh<F>& clipFarPlane();
 
-    TriangleMesh<F>& performClipping();
+    TriangleMesh<F>& clipNonNearPlanes();
 
     TriangleMesh<F>& removeBackwardFacingFaces();
 
-    TriangleMesh<F>& drawEdges(Image& image, float luminance);
-    TriangleMesh<F>& drawFaces(Image& image);
-    TriangleMesh<F>& drawFaces(Image& image, Color color);
+	const TriangleMesh<F>& drawEdges(Image& image, float luminance) const;
+	const TriangleMesh<F>& drawFaces(Image& image) const;
+	const TriangleMesh<F>& drawFaces(Image& image, Color color) const;
     const TriangleMesh<F>& drawBoundingAreaHierarchy(Image& image, float luminance) const;
 
     Point<F> getVertex(size_t idx) const;
@@ -216,7 +234,16 @@ template <typename F>
 TriangleMesh<F>::TriangleMesh()
     : _is_homogenized(true),
       _has_normals(false),
-      _has_material(false) {}
+      _has_material(false),
+	  uses_omp(true),
+	  is_dynamic(false),
+	  uses_direct_lighting(true),
+	  casts_shadows(false),
+	  render_faces(true),
+	  render_edges(false),
+	  remove_hidden_faces(true),
+	  perform_clipping(true),
+	  is_visible(true) {}
 
 template <typename F>
 TriangleMesh<F>::TriangleMesh(size_t n_vertices, F vertex_array[],
@@ -225,7 +252,16 @@ TriangleMesh<F>::TriangleMesh(size_t n_vertices, F vertex_array[],
       _faces(face_array, 3, n_faces),
       _is_homogenized(true),
       _has_normals(false),
-      _has_material(false)
+      _has_material(false),
+	  uses_omp(true),
+	  is_dynamic(false),
+	  uses_direct_lighting(true),
+	  casts_shadows(false),
+	  render_faces(true),
+	  render_edges(false),
+	  remove_hidden_faces(true),
+	  perform_clipping(true),
+	  is_visible(true)
 {
     _vertices.rows(0, 2) = arma::Mat<F>(vertex_array, 3, n_vertices);
 }
@@ -237,7 +273,16 @@ TriangleMesh<F>::TriangleMesh(const TriangleMesh<F>& mesh_1,
       _faces(arma::join_cols(mesh_1._faces, mesh_2._faces + mesh_2.getNumberOfVertices())),
       _is_homogenized(mesh_1._is_homogenized && mesh_2._is_homogenized),
       _has_normals(false),
-      _has_material(false) {}
+      _has_material(false),
+	  uses_omp(true),
+	  is_dynamic(false),
+	  uses_direct_lighting(true),
+	  casts_shadows(false),
+	  render_faces(true),
+	  render_edges(false),
+	  remove_hidden_faces(true),
+	  perform_clipping(true),
+	  is_visible(true) {}
 
 template <typename F>
 TriangleMesh<F>::TriangleMesh(const TriangleMesh<F>& other)
@@ -248,7 +293,16 @@ TriangleMesh<F>::TriangleMesh(const TriangleMesh<F>& other)
       _aabb(other._aabb),
       _is_homogenized(other._is_homogenized),
       _has_normals(other._has_normals),
-      _has_material(other._has_material)
+      _has_material(other._has_material),
+	  uses_omp(other.uses_omp),
+	  is_dynamic(other.is_dynamic),
+	  uses_direct_lighting(other.uses_direct_lighting),
+	  casts_shadows(other.casts_shadows),
+	  render_faces(other.render_faces),
+	  render_edges(other.render_edges),
+	  remove_hidden_faces(other.remove_hidden_faces),
+	  perform_clipping(other.perform_clipping),
+	  is_visible(other.is_visible)
 {
     if (other._material)
     {
@@ -261,6 +315,12 @@ template <typename F>
 TriangleMesh<F>::~TriangleMesh()
 {
     if (_material) delete _material;
+}
+
+template <typename F>
+TriangleMesh<F> TriangleMesh<F>::operator=(const TriangleMesh<F>& other)
+{
+	return TriangleMesh<F>(other);
 }
 
 template <typename F>
@@ -765,6 +825,41 @@ TriangleMesh<F> TriangleMesh<F>::box(const Box<F>& box_obj)
 }
 
 template <typename F>
+TriangleMesh<F> TriangleMesh<F>::room(const Box<F>& box_obj)
+{
+    TriangleMesh<F> room_mesh;
+    room_mesh._is_homogenized = true;
+    room_mesh._has_normals = false;
+    room_mesh._has_material = false;
+
+    const std::vector< Point<F> >& corners = box_obj.getCorners();
+
+    F x0 = corners[0].x, y0 = corners[0].y, z0 = corners[0].z;
+    F x1 = corners[1].x, y1 = corners[1].y, z1 = corners[1].z;
+    F x2 = corners[2].x, y2 = corners[2].y, z2 = corners[2].z;
+    F x3 = corners[3].x, y3 = corners[3].y, z3 = corners[3].z;
+    F x4 = corners[4].x, y4 = corners[4].y, z4 = corners[4].z;
+    F x5 = corners[5].x, y5 = corners[5].y, z5 = corners[5].z;
+    F x6 = corners[6].x, y6 = corners[6].y, z6 = corners[6].z;
+    F x7 = corners[7].x, y7 = corners[7].y, z7 = corners[7].z;
+
+    room_mesh._vertices = {{x0, x0, x0, x1, x1, x1, x2, x2, x2, x3, x3, x3, x4, x4, x4, x5, x5, x5, x6, x6, x6, x7, x7, x7},
+                           {y0, y0, y0, y1, y1, y1, y2, y2, y2, y3, y3, y3, y4, y4, y4, y5, y5, y5, y6, y6, y6, y7, y7, y7},
+                           {z0, z0, z0, z1, z1, z1, z2, z2, z2, z3, z3, z3, z4, z4, z4, z5, z5, z5, z6, z6, z6, z7, z7, z7},
+                           { 1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1}};
+
+    /*room_mesh._faces = {{0, 3, 12, 21,  1, 13, 19, 22,  2, 11,  5, 17},
+                        {9, 9, 15, 15,  4,  4,  7,  7, 14, 14,  8,  8},
+                        {3, 6, 21, 18, 13, 16, 22, 10, 11, 23, 17, 20}};*/
+
+    room_mesh._faces = {{0, 3, 12, 21,  1, 13, 19, 22,  2, 11,  5, 17},
+                        {3, 6, 21, 18, 13, 16, 22, 10, 11, 23, 17, 20},
+                        {9, 9, 15, 15,  4,  4,  7,  7, 14, 14,  8,  8}};
+
+    return room_mesh;
+}
+
+template <typename F>
 TriangleMesh<F> TriangleMesh<F>::sheet(const Point<F>& origin, const Vector<F>& width_vector, const Vector<F>& height_vector)
 {
     TriangleMesh<F> sheet_mesh;
@@ -1185,7 +1280,8 @@ TriangleMesh<F>& TriangleMesh<F>::shadeVerticesDirect(const Scene& scene)
     #pragma omp parallel for default(shared) \
                              private(idx, vertex_point, normal_vector) \
                              shared(scene, n_vertices) \
-                             if (use_omp)
+							 schedule(static) \
+                             if (uses_omp)
     for (idx = 0; idx < n_vertices; idx++)
     {
         vertex_point.x = _vertices(0, idx);
@@ -1201,8 +1297,7 @@ TriangleMesh<F>& TriangleMesh<F>::shadeVerticesDirect(const Scene& scene)
         const Radiance& radiance = scene._getRadiance(vertex_point,
                                                       normal_vector,
                                                       scatter_direction,
-                                                      _material,
-                                                      true).clamp();
+                                                      _material).clamp();
 
         _colors[idx] = radiance;
     }
@@ -1214,6 +1309,8 @@ template <typename F>
 TriangleMesh<F>& TriangleMesh<F>::homogenizeVertices()
 {
     const arma::Row<F>& norm_vals = 1/_vertices.row(3);
+	if (arma::any(_vertices.row(2) > 0 && norm_vals < 0))
+		std::cout << _vertices(0, 0) << std::endl;
     _vertices.each_row(arma::uvec({0, 1, 2})) %= norm_vals;
     _vertices.row(3).ones();
 
@@ -1506,10 +1603,22 @@ bool TriangleMesh<F>::sampleRadianceFromFace(const Scene& scene, const Ray<F>& r
     pixel_radiance = scene._getRadiance(intersection_point,
                                         interpolated_normal,
                                         -ray.direction,
-                                        _material,
-                                        false);
+                                        _material);
 
     return true;
+}
+
+template <typename F>
+bool TriangleMesh<F>::allZAbove(F z_low) const
+{
+	return arma::all(_vertices.row(2) > z_low);
+}
+
+template <typename F>
+bool TriangleMesh<F>::isInsideParallelViewVolume() const
+{
+	AxisAlignedBox<F> parallel_view_volume(Point<F>(-1, -1, -1), Point<F>(1, 1, 0));
+	return (_aabb.intersects(parallel_view_volume)) && (!_aabb.encloses(parallel_view_volume));
 }
 
 template <typename F>
@@ -1550,7 +1659,6 @@ TriangleMesh<F>& TriangleMesh<F>::clipTopPlane()
 template <typename F>
 TriangleMesh<F>& TriangleMesh<F>::clipNearPlane()
 {
-    assert(_is_homogenized);
     return _clip(2, 0, 1); // Clip away points with z > 0
 }
 
@@ -1562,7 +1670,7 @@ TriangleMesh<F>& TriangleMesh<F>::clipFarPlane()
 }
 
 template <typename F>
-TriangleMesh<F>& TriangleMesh<F>::performClipping()
+TriangleMesh<F>& TriangleMesh<F>::clipNonNearPlanes()
 {
     const Point<F>& lower_corner = _aabb.lower_corner;
     const Point<F>& upper_corner = _aabb.upper_corner;
@@ -1572,7 +1680,6 @@ TriangleMesh<F>& TriangleMesh<F>::performClipping()
     if (lower_corner.y < -1) clipBottomPlane();
     if (upper_corner.y >  1) clipTopPlane();
     if (lower_corner.z < -1) clipFarPlane();
-    if (upper_corner.z >  0) clipNearPlane();
     
     return *this;
 }
@@ -1805,7 +1912,7 @@ void TriangleMesh<F>::_addIntersectionVertices(size_t i, size_t j, size_t k,
 }
 
 template <typename F>
-TriangleMesh<F>& TriangleMesh<F>::drawEdges(Image& image, float luminance)
+const TriangleMesh<F>& TriangleMesh<F>::drawEdges(Image& image, float luminance) const
 {
     assert(_is_homogenized);
 
@@ -1830,7 +1937,7 @@ TriangleMesh<F>& TriangleMesh<F>::drawEdges(Image& image, float luminance)
 }
 
 template <typename F>
-TriangleMesh<F>& TriangleMesh<F>::drawFaces(Image& image)
+const TriangleMesh<F>& TriangleMesh<F>::drawFaces(Image& image) const
 {
     assert(_is_homogenized);
     assert(_colors.size() == getNumberOfVertices());
@@ -1842,7 +1949,8 @@ TriangleMesh<F>& TriangleMesh<F>::drawFaces(Image& image)
     #pragma omp parallel for default(shared) \
                              private(idx, i, j, k) \
                              shared(image, n_faces) \
-                             if (use_omp)
+							 schedule(dynamic) \
+                             if (uses_omp)
     for (idx = 0; idx < n_faces; idx++)
     {
         i = _faces(0, idx); j = _faces(1, idx); k = _faces(2, idx);
@@ -1856,7 +1964,7 @@ TriangleMesh<F>& TriangleMesh<F>::drawFaces(Image& image)
 }
 
 template <typename F>
-TriangleMesh<F>& TriangleMesh<F>::drawFaces(Image& image, Color color)
+const TriangleMesh<F>& TriangleMesh<F>::drawFaces(Image& image, Color color) const
 {
     assert(_is_homogenized);
 
