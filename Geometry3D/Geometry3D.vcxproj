@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -17,6 +17,47 @@
       <Configuration>Release</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\AffineTransformation.hpp" />
+    <ClInclude Include="include\affine_combinations.hpp" />
+    <ClInclude Include="include\AxisAlignedBox.hpp" />
+    <ClInclude Include="include\BoundingVolumeHierarchy.hpp" />
+    <ClInclude Include="include\Box.hpp" />
+    <ClInclude Include="include\BVHNode.hpp" />
+    <ClInclude Include="include\Camera.hpp" />
+    <ClInclude Include="include\CoordinateFrame.hpp" />
+    <ClInclude Include="include\LinearTransformation.hpp" />
+    <ClInclude Include="include\Plane.hpp" />
+    <ClInclude Include="include\Point3.hpp" />
+    <ClInclude Include="include\ProjectiveTransformation.hpp" />
+    <ClInclude Include="include\Ray.hpp" />
+    <ClInclude Include="include\Sphere.hpp" />
+    <ClInclude Include="include\Transformation.hpp" />
+    <ClInclude Include="include\Triangle3.hpp" />
+    <ClInclude Include="include\TriangleMesh.hpp" />
+    <ClInclude Include="include\Vector3.hpp" />
+    <ClInclude Include="include\Vector4.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\AffineTransformation.cpp" />
+    <ClCompile Include="src\affine_combinations.cpp" />
+    <ClCompile Include="src\AxisAlignedBox.cpp" />
+    <ClCompile Include="src\BoundingVolumeHierarchy.cpp" />
+    <ClCompile Include="src\Box.cpp" />
+    <ClCompile Include="src\BVHNode.cpp" />
+    <ClCompile Include="src\Camera.cpp" />
+    <ClCompile Include="src\CoordinateFrame.cpp" />
+    <ClCompile Include="src\LinearTransformation.cpp" />
+    <ClCompile Include="src\Plane.cpp" />
+    <ClCompile Include="src\Point3.cpp" />
+    <ClCompile Include="src\ProjectiveTransformation.cpp" />
+    <ClCompile Include="src\Ray.cpp" />
+    <ClCompile Include="src\Sphere.cpp" />
+    <ClCompile Include="src\Triangle3.cpp" />
+    <ClCompile Include="src\TriangleMesh.cpp" />
+    <ClCompile Include="src\Vector3.cpp" />
+    <ClCompile Include="src\Vector4.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -39,13 +80,13 @@
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -74,23 +115,23 @@
     <IntDir>$(Configuration)\$(Platform)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)$(Configuration)\$(Platform)\</OutDir>
-    <IntDir>$(Configuration)\$(Platform)\</IntDir>
+    <OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)obj\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(SolutionDir)$(Configuration)\$(Platform)\</OutDir>
     <IntDir>$(Configuration)\$(Platform)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)$(Configuration)\$(Platform)\</OutDir>
-    <IntDir>$(Configuration)\$(Platform)\</IntDir>
+    <OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)obj\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(VS_DEPENDENCIES)\Armadillo\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -103,13 +144,18 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(VS_DEPENDENCIES)\Armadillo\include;$(VS_DEPENDENCIES)\GLEW\include;$(VS_DEPENDENCIES)\freeglut\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\;$(VS_DEPENDENCIES)\Armadillo\include</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>GEOMETRY3D_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(VS_DEPENDENCIES)\Armadillo\x64;$(VS_DEPENDENCIES)\GLEW\x64;$(VS_DEPENDENCIES)\freeglut\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>blas_win64_MT.lib;lapack_win64_MT.lib;glew32.lib;freeglut.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)$(Configuration)\$(Platform);$(VS_DEPENDENCIES)\Armadillo\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Core.dll;Geometry2D.dll;blas_win64_MT.lib;lapack_win64_MT.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
+    <Lib>
+      <AdditionalDependencies>Geometry2D.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)Geometry2D\bin\$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -118,7 +164,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(VS_DEPENDENCIES)\Armadillo\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)</AdditionalIncludeDirectories>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
@@ -136,38 +182,22 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(VS_DEPENDENCIES)\Armadillo\include;$(VS_DEPENDENCIES)\GLEW\include;$(VS_DEPENDENCIES)\freeglut\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\;$(VS_DEPENDENCIES)\Armadillo\include</AdditionalIncludeDirectories>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <PreprocessorDefinitions>GEOMETRY3D_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>$(VS_DEPENDENCIES)\Armadillo\x64;$(VS_DEPENDENCIES)\GLEW\x64;$(VS_DEPENDENCIES)\freeglut\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>blas_win64_MT.lib;lapack_win64_MT.lib;glew32.lib;freeglut.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(VS_DEPENDENCIES)\Armadillo\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>blas_win64_MT.lib;lapack_win64_MT.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>Console</SubSystem>
     </Link>
+    <Lib>
+      <AdditionalDependencies>Geometry2D.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)Geometry2D\bin\$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>
+    </Lib>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClInclude Include="affine_combinations.hpp" />
-    <ClInclude Include="AxisAlignedBox.hpp" />
-    <ClInclude Include="BoundingVolumeHierarchy.hpp" />
-    <ClInclude Include="Box.hpp" />
-    <ClInclude Include="Camera.hpp" />
-    <ClInclude Include="CoordinateFrame.hpp" />
-    <ClInclude Include="Plane.hpp" />
-    <ClInclude Include="Point.hpp" />
-    <ClInclude Include="Ray.hpp" />
-    <ClInclude Include="Sphere.hpp" />
-    <ClInclude Include="Triangle.hpp" />
-    <ClInclude Include="TriangleMesh.hpp" />
-    <ClInclude Include="util.hpp" />
-    <ClInclude Include="Vector.hpp" />
-    <ClInclude Include="Vector4.hpp" />
-    <ClInclude Include="Vertex.hpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="test_geometry.cpp" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

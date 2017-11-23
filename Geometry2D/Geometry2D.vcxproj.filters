@@ -15,23 +15,43 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Vertex.hpp">
+    <ClInclude Include="include\AxisAlignedRectangle.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Point.hpp">
+    <ClInclude Include="include\BAHNode.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Vector.hpp">
+    <ClInclude Include="include\BoundingAreaHierarchy.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Triangle.hpp">
+    <ClInclude Include="include\Point2.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="AxisAlignedRectangle.hpp">
+    <ClInclude Include="include\Triangle2.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="BoundingAreaHierarchy.hpp">
+    <ClInclude Include="include\Vector2.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\AxisAlignedRectangle.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BAHNode.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BoundingAreaHierarchy.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Point2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Triangle2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Vector2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

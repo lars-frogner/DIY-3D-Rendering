@@ -1,5 +1,5 @@
-# DIY Rendering
-A modeling and rendering API for C++. Uses [Armadillo](http://arma.sourceforge.net/) with [LAPACK](http://www.netlib.org/lapack/) and [BLAS](http://www.netlib.org/blas/) for linear algebra, in addition to [OpenGL](https://www.opengl.org/) with [GLUT](https://www.opengl.org/resources/libraries/glut/) for displaying the rendered pixels. Otherwise self contained.
+# Impact
+A rendering and physics engine written in C++. Uses [Armadillo](http://arma.sourceforge.net/) with [LAPACK](http://www.netlib.org/lapack/) and [BLAS](http://www.netlib.org/blas/) for linear algebra, in addition to [OpenGL](https://www.opengl.org/) with [GLUT](https://www.opengl.org/resources/libraries/glut/) for displaying the rendered pixels. Otherwise self contained.
 
 #### Screenshots
 ![box wireframe](/Screenshots/2017_08_21_box.png?raw=true "Box wireframe")

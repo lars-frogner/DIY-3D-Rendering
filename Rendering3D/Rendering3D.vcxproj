@@ -18,6 +18,42 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\Animator.hpp" />
+    <ClInclude Include="include\BlinnPhongMaterial.hpp" />
+    <ClInclude Include="include\Color.hpp" />
+    <ClInclude Include="include\DirectionalLight.hpp" />
+    <ClInclude Include="include\HemisphereAreaLight.hpp" />
+    <ClInclude Include="include\Image.hpp" />
+    <ClInclude Include="include\Light.hpp" />
+    <ClInclude Include="include\LightContainer.hpp" />
+    <ClInclude Include="include\Material.hpp" />
+    <ClInclude Include="include\OmnidirectionalLight.hpp" />
+    <ClInclude Include="include\RectangularAreaLight.hpp" />
+    <ClInclude Include="include\RenderableTriangleMesh.hpp" />
+    <ClInclude Include="include\Scene.hpp" />
+    <ClInclude Include="include\SceneGraph.hpp" />
+    <ClInclude Include="include\Simulator.hpp" />
+    <ClInclude Include="include\Vertex2.hpp" />
+    <ClInclude Include="include\Vertex3.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Animator.cpp" />
+    <ClCompile Include="src\BlinnPhongMaterical.cpp" />
+    <ClCompile Include="src\Color.cpp" />
+    <ClCompile Include="src\DirectionalLight.cpp" />
+    <ClCompile Include="src\HemisphereAreaLight.cpp" />
+    <ClCompile Include="src\Image.cpp" />
+    <ClCompile Include="src\LightContainer.cpp" />
+    <ClCompile Include="src\OmnidirectionalLight.cpp" />
+    <ClCompile Include="src\RectangularAreaLight.cpp" />
+    <ClCompile Include="src\RenderableTriangleMesh.cpp" />
+    <ClCompile Include="src\Scene.cpp" />
+    <ClCompile Include="src\SceneGraph.cpp" />
+    <ClCompile Include="src\Simulator.cpp" />
+    <ClCompile Include="src\Vertex2.cpp" />
+    <ClCompile Include="src\Vertex3.cpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{15228454-E5C8-4B22-8426-6AC8697A4A6F}</ProjectGuid>
@@ -40,13 +76,13 @@
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v141</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -75,30 +111,35 @@
     <IntDir>$(Configuration)\$(Platform)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)$(Configuration)\$(Platform)\</OutDir>
-    <IntDir>$(Configuration)\$(Platform)\</IntDir>
+    <OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)obj\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <OutDir>$(SolutionDir)$(Configuration)\$(Platform)\</OutDir>
     <IntDir>$(Configuration)\$(Platform)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)$(Configuration)\$(Platform)\</OutDir>
-    <IntDir>$(Configuration)\$(Platform)\</IntDir>
+    <OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(ProjectDir)obj\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(VS_DEPENDENCIES)\Armadillo\include;$(VS_DEPENDENCIES)\GLEW\include;$(VS_DEPENDENCIES)\freeglut\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Rendering3D\include\;$(SolutionDir)Physics3D\include\;$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\;$(VS_DEPENDENCIES)\Armadillo\include;$(VS_DEPENDENCIES)\GLEW\include;$(VS_DEPENDENCIES)\freeglut\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OpenMPSupport>true</OpenMPSupport>
+      <PreprocessorDefinitions>RENDERING3D_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(VS_DEPENDENCIES)\Armadillo\x64;$(VS_DEPENDENCIES)\GLEW\x64;$(VS_DEPENDENCIES)\freeglut\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>blas_win64_MT.lib;lapack_win64_MT.lib;glew32.lib;freeglut.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)$(Configuration)\$(Platform);$(VS_DEPENDENCIES)\Armadillo\x64;$(VS_DEPENDENCIES)\GLEW\x64;$(VS_DEPENDENCIES)\freeglut\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Core.lib;Geometry2D.lib;Geometry3D.lib;blas_win64_MT.lib;lapack_win64_MT.lib;glew32.lib;freeglut.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>NotSet</SubSystem>
     </Link>
+    <Lib>
+      <AdditionalLibraryDirectories>$(SolutionDir)Physics3D\bin\$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Physics3D.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -140,38 +181,23 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(VS_DEPENDENCIES)\Armadillo\include;$(VS_DEPENDENCIES)\GLEW\include;$(VS_DEPENDENCIES)\freeglut\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Rendering3D\include\;$(SolutionDir)Physics3D\include\;$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\;$(VS_DEPENDENCIES)\Armadillo\include;$(VS_DEPENDENCIES)\GLEW\include;$(VS_DEPENDENCIES)\freeglut\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OpenMPSupport>true</OpenMPSupport>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <PreprocessorDefinitions>RENDERING3D_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>$(VS_DEPENDENCIES)\Armadillo\x64;$(VS_DEPENDENCIES)\GLEW\x64;$(VS_DEPENDENCIES)\freeglut\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>blas_win64_MT.lib;lapack_win64_MT.lib;glew32.lib;freeglut.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)$(Configuration)\$(Platform);$(VS_DEPENDENCIES)\Armadillo\x64;$(VS_DEPENDENCIES)\GLEW\x64;$(VS_DEPENDENCIES)\freeglut\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Core.lib;Geometry2D.lib;Geometry3D.lib;blas_win64_MT.lib;lapack_win64_MT.lib;glew32.lib;freeglut.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>NotSet</SubSystem>
     </Link>
+    <Lib>
+      <AdditionalLibraryDirectories>$(SolutionDir)Physics3D\bin\$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Physics3D.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="Color.cpp" />
-    <ClCompile Include="test_rendering.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="Animator.hpp" />
-    <ClInclude Include="BlinnPhongMaterial.hpp" />
-    <ClInclude Include="Color.hpp" />
-    <ClInclude Include="DirectionalLight.hpp" />
-    <ClInclude Include="HemisphereAreaLight.hpp" />
-    <ClInclude Include="Light.hpp" />
-    <ClInclude Include="LightContainer.hpp" />
-    <ClInclude Include="Material.hpp" />
-    <ClInclude Include="OmnidirectionalLight.hpp" />
-    <ClInclude Include="RectangularAreaLight.hpp" />
-    <ClInclude Include="Scene.hpp" />
-    <ClInclude Include="SceneGraph.hpp" />
-    <ClInclude Include="Image.hpp" />
-    <ClInclude Include="Simulator.hpp" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

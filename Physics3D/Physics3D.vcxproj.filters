@@ -15,117 +15,99 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\affine_combinations.hpp">
+    <ClInclude Include="include\Particle.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\AffineTransformation.hpp">
+    <ClInclude Include="include\ParticleAnchoredBungeeForce.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\AxisAlignedBox.hpp">
+    <ClInclude Include="include\ParticleAnchoredSpringForce.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\BoundingVolumeHierarchy.hpp">
+    <ClInclude Include="include\ParticleAnchoredStiffSpringForce.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\Box.hpp">
+    <ClInclude Include="include\ParticleBungeeForce.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\BVHNode.hpp">
+    <ClInclude Include="include\ParticleBuoyancyForce.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\Camera.hpp">
+    <ClInclude Include="include\ParticleCable.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\CoordinateFrame.hpp">
+    <ClInclude Include="include\ParticleContact.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\LinearTransformation.hpp">
+    <ClInclude Include="include\ParticleContactResolver.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\Plane.hpp">
+    <ClInclude Include="include\ParticleDragForce.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\ProjectiveTransformation.hpp">
+    <ClInclude Include="include\ParticleForceGenerator.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\Ray.hpp">
+    <ClInclude Include="include\ParticleForceRegistry.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\Sphere.hpp">
+    <ClInclude Include="include\ParticleGravityForce.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\Transformation.hpp">
+    <ClInclude Include="include\ParticleLink.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\TriangleMesh.hpp">
+    <ClInclude Include="include\ParticleRod.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\Vector4.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Triangle3.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Point3.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\Vector3.hpp">
+    <ClInclude Include="include\ParticleSpringForce.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\affine_combinations.cpp">
+    <ClCompile Include="src\Particle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\AffineTransformation.cpp">
+    <ClCompile Include="src\ParticleAnchoredBungeeForce.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\AxisAlignedBox.cpp">
+    <ClCompile Include="src\ParticleAnchoredSpringForce.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\BoundingVolumeHierarchy.cpp">
+    <ClCompile Include="src\ParticleAnchoredStiffSpringForce.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Box.cpp">
+    <ClCompile Include="src\ParticleBungeeForce.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\BVHNode.cpp">
+    <ClCompile Include="src\ParticleBuoyancyForce.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Camera.cpp">
+    <ClCompile Include="src\ParticleCable.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\CoordinateFrame.cpp">
+    <ClCompile Include="src\ParticleContact.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\LinearTransformation.cpp">
+    <ClCompile Include="src\ParticleContactResolver.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Plane.cpp">
+    <ClCompile Include="src\ParticleDragForce.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\ProjectiveTransformation.cpp">
+    <ClCompile Include="src\ParticleForceRegistry.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Ray.cpp">
+    <ClCompile Include="src\ParticleGravityForce.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Sphere.cpp">
+    <ClCompile Include="src\ParticleLink.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\TriangleMesh.cpp">
+    <ClCompile Include="src\ParticleRod.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Vector4.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Point3.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Triangle3.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Vector3.cpp">
+    <ClCompile Include="src\ParticleSpringForce.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

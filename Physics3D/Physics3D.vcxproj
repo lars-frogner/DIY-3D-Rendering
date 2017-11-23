@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -19,25 +19,44 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\AxisAlignedRectangle.hpp" />
-    <ClInclude Include="include\BAHNode.hpp" />
-    <ClInclude Include="include\BoundingAreaHierarchy.hpp" />
-    <ClInclude Include="include\Point2.hpp" />
-    <ClInclude Include="include\Triangle2.hpp" />
-    <ClInclude Include="include\Vector2.hpp" />
+    <ClInclude Include="include\Particle.hpp" />
+    <ClInclude Include="include\ParticleAnchoredBungeeForce.hpp" />
+    <ClInclude Include="include\ParticleAnchoredSpringForce.hpp" />
+    <ClInclude Include="include\ParticleAnchoredStiffSpringForce.hpp" />
+    <ClInclude Include="include\ParticleBungeeForce.hpp" />
+    <ClInclude Include="include\ParticleBuoyancyForce.hpp" />
+    <ClInclude Include="include\ParticleCable.hpp" />
+    <ClInclude Include="include\ParticleContact.hpp" />
+    <ClInclude Include="include\ParticleContactResolver.hpp" />
+    <ClInclude Include="include\ParticleDragForce.hpp" />
+    <ClInclude Include="include\ParticleForceGenerator.hpp" />
+    <ClInclude Include="include\ParticleForceRegistry.hpp" />
+    <ClInclude Include="include\ParticleGravityForce.hpp" />
+    <ClInclude Include="include\ParticleLink.hpp" />
+    <ClInclude Include="include\ParticleRod.hpp" />
+    <ClInclude Include="include\ParticleSpringForce.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\AxisAlignedRectangle.cpp" />
-    <ClCompile Include="src\BAHNode.cpp" />
-    <ClCompile Include="src\BoundingAreaHierarchy.cpp" />
-    <ClCompile Include="src\Point2.cpp" />
-    <ClCompile Include="src\Triangle2.cpp" />
-    <ClCompile Include="src\Vector2.cpp" />
+    <ClCompile Include="src\Particle.cpp" />
+    <ClCompile Include="src\ParticleAnchoredBungeeForce.cpp" />
+    <ClCompile Include="src\ParticleAnchoredSpringForce.cpp" />
+    <ClCompile Include="src\ParticleAnchoredStiffSpringForce.cpp" />
+    <ClCompile Include="src\ParticleBungeeForce.cpp" />
+    <ClCompile Include="src\ParticleBuoyancyForce.cpp" />
+    <ClCompile Include="src\ParticleCable.cpp" />
+    <ClCompile Include="src\ParticleContact.cpp" />
+    <ClCompile Include="src\ParticleContactResolver.cpp" />
+    <ClCompile Include="src\ParticleDragForce.cpp" />
+    <ClCompile Include="src\ParticleForceRegistry.cpp" />
+    <ClCompile Include="src\ParticleGravityForce.cpp" />
+    <ClCompile Include="src\ParticleLink.cpp" />
+    <ClCompile Include="src\ParticleRod.cpp" />
+    <ClCompile Include="src\ParticleSpringForce.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{FB55C752-D1C7-439B-BC0E-65EA93D58B03}</ProjectGuid>
-    <RootNamespace>Geometry2D</RootNamespace>
+    <ProjectGuid>{182DB3EF-CC66-4F8D-B69A-595AFEAD6C16}</ProjectGuid>
+    <RootNamespace>Physics3D</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -85,14 +104,6 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>$(SolutionDir)$(Configuration)\$(Platform)\</OutDir>
-    <IntDir>$(Configuration)\$(Platform)\</IntDir>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>$(SolutionDir)$(Configuration)\$(Platform)\</OutDir>
-    <IntDir>$(Configuration)\$(Platform)\</IntDir>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)obj\$(Platform)\$(Configuration)\</IntDir>
@@ -101,22 +112,23 @@
     <OutDir>$(ProjectDir)bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(ProjectDir)obj\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <Optimization>Disabled</Optimization>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>GEOMETRY2D_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)Physics3D\include\;$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\</AdditionalIncludeDirectories>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(SolutionDir)$(Configuration)\$(Platform);$(VS_DEPENDENCIES)\Armadillo\x64;$(VS_DEPENDENCIES)\GLEW\x64;$(VS_DEPENDENCIES)\freeglut\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>blas_win64_MT.lib;lapack_win64_MT.lib;glew32.lib;freeglut.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
     </Link>
     <Lib>
-      <AdditionalDependencies>Core.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(SolutionDir)Core\bin\$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)Geometry3D\bin\$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Geometry3D.lib</AdditionalDependencies>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -124,13 +136,19 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)</AdditionalIncludeDirectories>
     </ClCompile>
-    <Link>
-      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
-      <SubSystem>Console</SubSystem>
-    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>$(SolutionDir)Physics3D\include\;$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Lib>
+      <AdditionalLibraryDirectories>$(SolutionDir)Geometry3D\bin\$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Geometry3D.lib</AdditionalDependencies>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -139,38 +157,11 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
-      <SubSystem>Console</SubSystem>
     </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
-      <Optimization>Full</Optimization>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>GEOMETRY2D_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-    </ClCompile>
-    <Link>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>$(VS_DEPENDENCIES)\Armadillo\x64;$(VS_DEPENDENCIES)\GLEW\x64;$(VS_DEPENDENCIES)\freeglut\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>blas_win64_MT.lib;lapack_win64_MT.lib;glew32.lib;freeglut.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <SubSystem>Console</SubSystem>
-    </Link>
-    <Lib>
-      <AdditionalLibraryDirectories>$(SolutionDir)Core\bin\$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Core.lib;%(AdditionalDependencies)</AdditionalDependencies>
-    </Lib>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
