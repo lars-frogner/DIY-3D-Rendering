@@ -13,6 +13,12 @@ CoordinateFrame::CoordinateFrame(const Point&  new_origin,
       basis_2(new_basis_2),
       basis_3(new_basis_3) {}
 
+CoordinateFrame::CoordinateFrame()
+    : origin(Point::origin()),
+      basis_1(Vector::unitX()),
+      basis_2(Vector::unitY()),
+      basis_3(Vector::unitZ()) {}
+
 Point CoordinateFrame::operator()(imp_float coord_1, imp_float coord_2, imp_float coord_3) const
 {
     return origin + basis_1*coord_1 + basis_2*coord_2 + basis_3*coord_3;

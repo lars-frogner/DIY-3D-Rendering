@@ -27,6 +27,8 @@ public:
     AxisAlignedBox(const Point&  new_lower_corner,
                    imp_float width, imp_float height, imp_float depth);
 
+    static AxisAlignedBox merged(const AxisAlignedBox& aab_1, const AxisAlignedBox& aab_2);
+
     Vector getSpan() const;
     Point getCenter() const;
     imp_float getWidth() const;

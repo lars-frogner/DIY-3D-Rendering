@@ -11,29 +11,36 @@ Particle::Particle()
 	  _default_acceleration(Vector::zero()),
 	  _accumulated_force(Vector::zero()),
 	  _inverse_mass(1),
+	  _radius(1),
 	  _damping(1) {}
 
 Particle::Particle(const Point& new_position,
 				   const Vector& new_velocity,
 				   imp_float new_mass,
+				   imp_float new_radius,
 				   imp_float new_damping /* = 1 */)
 	: _position(new_position),
 	  _velocity(new_velocity),
 	  _default_acceleration(Vector::zero()),
 	  _accumulated_force(Vector::zero()),
+	  _transformation(AffineTransformation::translationTo(new_position)),
 	  _inverse_mass(1/new_mass),
+	  _radius(new_radius),
 	  _damping(new_damping) {}
 
 Particle::Particle(const Point& new_position,
 				   const Vector& new_velocity,
 				   const Vector& new_default_acceleration,
 				   imp_float new_mass,
+				   imp_float new_radius,
 				   imp_float new_damping /* = 1 */)
 	: _position(new_position),
 	  _velocity(new_velocity),
 	  _default_acceleration(new_default_acceleration),
 	  _accumulated_force(Vector::zero()),
+	  _transformation(AffineTransformation::translationTo(new_position)),
 	  _inverse_mass(1/new_mass),
+	  _radius(new_radius),
 	  _damping(new_damping) {}
 
 void Particle::setPosition(const Point& position)
@@ -61,6 +68,11 @@ void Particle::setInverseMass(imp_float inverse_mass)
 	_inverse_mass = inverse_mass;
 }
 
+void Particle::setRadius(imp_float radius)
+{
+	_radius = radius;
+}
+
 void Particle::setDamping(imp_float damping)
 {
 	_damping = damping;
@@ -86,6 +98,11 @@ Geometry3D::Vector Particle::getTotalAcceleration() const
 	return _default_acceleration + _inverse_mass*_accumulated_force;
 }
 
+const Geometry3D::AffineTransformation& Particle::getTransformation() const
+{
+	return _transformation;
+}
+
 imp_float Particle::getMass() const
 {
 	return 1/_inverse_mass;
@@ -94,6 +111,11 @@ imp_float Particle::getMass() const
 imp_float Particle::getInverseMass() const
 {
 	return _inverse_mass;
+}
+
+imp_float Particle::getRadius() const
+{
+	return _radius;
 }
 
 imp_float Particle::getDamping() const
@@ -148,7 +170,7 @@ void Particle::resetAccumulatedForce()
 	_accumulated_force.setToZero();
 }
 
-void Particle::integrate(imp_float duration)
+void Particle::integrateMotion(imp_float duration)
 {
 	assert(duration > 0);
 
@@ -163,8 +185,11 @@ void Particle::integrate(imp_float duration)
 	}
 
 	_position.addScaledVector(_velocity, duration);
+}
 
-	resetAccumulatedForce();
+void Particle::updateTransformation()
+{
+	_transformation = AffineTransformation::translationTo(_position);
 }
 
 } // Physics3D

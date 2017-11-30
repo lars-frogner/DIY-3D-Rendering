@@ -46,6 +46,46 @@ Color Color::blue()
     return Color(0, 0, 1);
 }
 
+Color Color::yellow()
+{
+    return Color(1, 1, 0);
+}
+
+Color Color::cyan()
+{
+    return Color(0, 1, 1);
+}
+
+Color Color::magenta()
+{
+    return Color(1, 0, 1);
+}
+
+Color Color::orange()
+{
+    return Color(1, 0.647f, 0);
+}
+
+Color Color::maroon()
+{
+    return Color(0.5f, 0, 0);
+}
+
+Color Color::pink()
+{
+    return Color(1, 0.753f, 0.796f);
+}
+
+Color Color::purple()
+{
+    return Color(0.5f, 0, 0.5f);
+}
+
+Color Color::gold()
+{
+    return Color(1, 0.843f, 0);
+}
+
 Color Color::operator+(const Color& other) const
 {
     return Color(r + other.r, g + other.g, b + other.b);

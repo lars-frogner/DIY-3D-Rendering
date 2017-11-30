@@ -7,7 +7,11 @@
 namespace Impact {
 namespace Physics3D {
 
+class ParticleWorld;
+
 class ParticleForceRegistry {
+
+friend ParticleWorld;
 
 protected:
 
@@ -23,13 +27,11 @@ protected:
 
 	Registry _registrations;
 
-public:
+	void applyForces(imp_float duration);
 
-	void add(Particle* particle, ParticleForceGenerator* force_generator);
-	void remove(Particle* particle, ParticleForceGenerator* force_generator);
-	void clear();
-
-	void addForces(imp_float duration);
+	void addForceGenerator(Particle* particle, ParticleForceGenerator* force_generator);
+	void removeForceGenerator(Particle* particle, ParticleForceGenerator* force_generator);
+	void clearForceGenerators();
 };
 
 } // Physics3D

@@ -8,9 +8,9 @@ Camera::Camera()
     : _look_ray(Point::origin(), Vector(0, 0, -1)),
       _up_direction(0, 1, 0),
       _near_plane_distance(1),
-      _far_plane_distance(1000),
+      _far_plane_distance(100),
       _field_of_view(45*IMP_DEG_TO_RAD),
-      _coordinate_frame(_getCoordinateFrame()) {}
+      _coordinate_frame(getCoordinateFrame(_look_ray.origin, _look_ray.direction, _up_direction)) {}
 
 Camera::Camera(const Ray& new_look_ray,
                const Vector& new_up_direction,
@@ -22,21 +22,23 @@ Camera::Camera(const Ray& new_look_ray,
       _near_plane_distance(new_near_plane_distance),
       _far_plane_distance(new_far_plane_distance),
       _field_of_view(new_field_of_view*IMP_DEG_TO_RAD),
-      _coordinate_frame(_getCoordinateFrame()) {}
+      _coordinate_frame(getCoordinateFrame(_look_ray.origin, _look_ray.direction, _up_direction)) {}
 
-CoordinateFrame Camera::_getCoordinateFrame() const
+CoordinateFrame Camera::getCoordinateFrame(const Point& position,
+										   const Vector& look_direction,
+										   const Vector& up_direction)
 {
-    const Vector& w = -_look_ray.direction;
-    const Vector& v = (_up_direction - _up_direction.dot(w)*w).normalize();
+    const Vector& w = -look_direction;
+    const Vector& v = (up_direction - up_direction.dot(w)*w).normalize();
     const Vector& u = v.cross(w);
 
-    return CoordinateFrame(_look_ray.origin, u, v, w);
+    return CoordinateFrame(position, u, v, w);
 }
 
 void Camera::transformLookRay(const AffineTransformation& transformation)
 {
 	_look_ray = transformation*_look_ray;
-	_coordinate_frame = _getCoordinateFrame();
+	_coordinate_frame = getCoordinateFrame(_look_ray.origin, _look_ray.direction, _up_direction);
 }
 
 const Point& Camera::getPosition() const
@@ -47,6 +49,11 @@ const Point& Camera::getPosition() const
 const Vector& Camera::getLookDirection() const
 {
 	return _look_ray.direction;
+}
+
+const Vector& Camera::getUpDirection() const
+{
+	return _up_direction;
 }
 
 imp_float Camera::getFieldOfView() const

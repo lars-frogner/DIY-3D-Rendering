@@ -3,6 +3,7 @@
 #include "Transformation.hpp"
 #include "Point3.hpp"
 #include "Vector3.hpp"
+#include "Quaternion.hpp"
 #include "Triangle3.hpp"
 #include "Plane.hpp"
 #include "Ray.hpp"
@@ -29,13 +30,16 @@ protected:
     arma::Mat<imp_float> _normal_transform_matrix;
 
     LinearTransformation(const arma::Mat<imp_float>& new_matrix);
+    LinearTransformation(const arma::Mat<imp_float>& new_matrix,
+						 const arma::Mat<imp_float>& new_normal_transform_matrix);
 
 public:
     LinearTransformation();
     
     static LinearTransformation scaling(imp_float scale_x, imp_float scale_y, imp_float scale_z);
     static LinearTransformation scaling(imp_float scale);
-    static LinearTransformation rotationAboutAxis(const Vector& axis, imp_float angle);
+    static LinearTransformation rotation(const Vector& axis, imp_float angle);
+    static LinearTransformation rotation(const Quaternion& quaternion);
     static LinearTransformation rotationFromVectorToVector(const Vector& from_vector,
                                                            const Vector& to_vector);
     static LinearTransformation rotationFromXToY(imp_float angle);

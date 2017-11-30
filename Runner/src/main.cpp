@@ -1,365 +1,292 @@
-#include "RenderableTriangleMesh.hpp"
-#include "SceneGraph.hpp"
-#include "Image.hpp"
-#include "Color.hpp"
-#include "BlinnPhongMaterial.hpp"
-#include "Light.hpp"
-#include "LightContainer.hpp"
-#include "RectangularAreaLight.hpp"
-#include "HemisphereAreaLight.hpp"
-#include "OmnidirectionalLight.hpp"
-#include "DirectionalLight.hpp"
-#include "Scene.hpp"
-#include "Simulator.hpp"
-#include "Animator.hpp"
+#include "precision.hpp"
+#include "World.hpp"
 #include "Point3.hpp"
 #include "Vector3.hpp"
-#include "Triangle3.hpp"
-#include "Ray.hpp"
 #include "Box.hpp"
 #include "Sphere.hpp"
-#include "TriangleMesh.hpp"
-#include "Camera.hpp"
-#include "Transformation.hpp"
-#include "LinearTransformation.hpp"
-#include "AffineTransformation.hpp"
-#include "ProjectiveTransformation.hpp"
+#include "mesh_assets.hpp"
+#include "Color.hpp"
+#include "Material.hpp"
+#include "BlinnPhongMaterial.hpp"
+#include "OmnidirectionalLight.hpp"
+#include "DirectionalLight.hpp"
+#include "material_assets.hpp"
 #include <glut.h>
 #include <freeglut.h>
-#include <vector>
-#include <ctime>
+#include <random>
 
 using namespace Impact;
+using namespace Geometry3D;
+using namespace Physics3D;
+using namespace Rendering3D;
 
-Rendering3D::Animator* ANIMATOR_PTR;
+World* WORLD = nullptr;
 
-void renderScene()
+/* Create mainloop functions */
+
+void render()
 {
-	glClearColor(0, 0, 0, 1);
-	glClear(GL_COLOR_BUFFER_BIT);
-
-	ANIMATOR_PTR->updateScene();
-
-	const Rendering3D::Image& image = ANIMATOR_PTR->getImage();
-
-	glDrawPixels(static_cast<GLsizei>(image.getWidth()),
-				 static_cast<GLsizei>(image.getHeight()),
-				 GL_RGB, GL_FLOAT,
-			     image.getRawPixelArray());
-
-	//ANIMATOR_PTR->drawInfo();
-
-	glutSwapBuffers();
+	WORLD->render();
 }
 
-void pressKey(unsigned char key, int x, int y)
+void processKeyPress(unsigned char key, int x, int y)
 {
-	if (key == 27)
-	{
-		glutLeaveMainLoop();
-	}
-
-	ANIMATOR_PTR->startCameraMove(key);
+	WORLD->processKeyPress(key, x, y);
 }
 
-void releaseKey(unsigned char key, int x, int y)
+void processKeyRelease(unsigned char key, int x, int y)
 {
-	ANIMATOR_PTR->stopCameraMove(key);
+	WORLD->processKeyRelease(key, x, y);
 }
 
-void moveMouse(int x, int y)
+void processMouseMovement(int x, int y)
 {
-	ANIMATOR_PTR->rotateCamera(x, y);
+	WORLD->processMouseMovement(x, y);
 }
 
-void startMainLoop(Rendering3D::Animator& animator, int argc, char *argv[])
+void processMouseClick(int button, int state, int x, int y)
+{
+	WORLD->processMouseClick(button, state, x, y);
+}
+
+void startMainLoop(int argc, char *argv[])
 {
 	glutInit(&argc, argv);
 
-	const Rendering3D::Image& image = animator.getImage();
+	WORLD->initialize();
 
-	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-	glutInitWindowSize(static_cast<int>(image.getWidth()),
-					   static_cast<int>(image.getHeight()));
-	glutInitWindowPosition(100, 100);
+	glutDisplayFunc(render);
+	glutIdleFunc(render);
 
-	glutCreateWindow("Impact window");
-
-	ANIMATOR_PTR = &animator;
-	glutDisplayFunc(renderScene);
-	glutIdleFunc(renderScene);
-
-	glutKeyboardFunc(pressKey);
-	glutKeyboardUpFunc(releaseKey);
-	glutPassiveMotionFunc(moveMouse);
-
-	glutIgnoreKeyRepeat(1);
-
-	animator.initialize();
+	glutKeyboardFunc(processKeyPress);
+	glutKeyboardUpFunc(processKeyRelease);
+	glutPassiveMotionFunc(processMouseMovement);
+	glutMouseFunc(processMouseClick);
 
 	glutMainLoop();
 }
 
-Rendering3D::Scene getScene()
+void setupGravityDragTest()
 {
-	typedef Geometry3D::Point Point;
-	typedef Geometry3D::Vector Vector;
-	typedef Geometry3D::Ray Ray;
-	typedef Geometry3D::Camera Camera;
-
-	typedef Rendering3D::Image Image;
-
-	typedef Rendering3D::Scene Scene;
+	WORLD->addRoom(20.0f, 10.0f, 20.0f, &IMP_DIFFUSE_DARKSLATEGREY);
 	
-    Camera camera(Ray(Point(0.0f, 0.0f, 0.0f), Vector(0.2f, 0.0f, -1.0f)),
-                  Vector(0.0f, 1.0f, 0),
-                  1.0f, 100,
-                  45);
+	WORLD->addLight(new OmnidirectionalLight(Point(3.0f, 4.0f, 6.0f),
+						 			         Power::grey(3000.0f)));
 
-    Image image(800, 600);
+	WORLD->addParticle(Point(0.0f, 1.0f, 0.0f),
+					   Vector(3.0f, 10.0f, 0),
+					   Vector::zero(),
+					   1.0f, 0.1f, 1.0f,
+					   &IMP_SHINY_GREEN);
+	
+	WORLD->addParticle(Point(0.0f, 1.0f, 0.0f),
+					   Vector(3.0f, 10.0f, 0),
+					   Vector::zero(),
+					   1.0f, 0.1f, 1.0f,
+					   &IMP_SHINY_RED);
 
-    Scene scene(camera,
-                image);
-
-	scene.gamma_encode = 1;
-    scene.use_omp = 0;
-
-	return scene;
+	WORLD->addUniformGravityForce(Vector(0, -9.81f, 0), -1);
+	WORLD->addDragForce(0.2f, 0.05f, 0);
 }
 
-Rendering3D::LightContainer getLights()
+void setupSpringTest()
 {
-	typedef Geometry3D::Point Point;
-	typedef Geometry3D::Vector Vector;
-
-	typedef Rendering3D::Power Power;
-	typedef Rendering3D::Biradiance Biradiance;
-	typedef Rendering3D::DirectionalLight DirectionalLight;
-	typedef Rendering3D::OmnidirectionalLight OmnidirectionalLight;
-	typedef Rendering3D::LightContainer LightContainer;
+	WORLD->addRoom(20.0f, 10.0f, 20.0f, &IMP_DIFFUSE_DARKSLATEGREY);
 	
-    DirectionalLight light_rays(Vector(0.8f, -0.3f, -0.3f),
-                                Biradiance::grey(5.0f));
-    DirectionalLight light_rays2(Vector(-0.2f, 0.7f, 0.6f),
-                                Biradiance::grey(3.0f));
-	
-    OmnidirectionalLight light_point(Point(2.2f, 0.6f, 0.4f),
-                                     Power::grey(600.0f));
+	WORLD->addLight(new OmnidirectionalLight(Point(3.0f, 4.0f, 6.0f),
+								             Power::grey(3000.0f)));
 
-	LightContainer lights;
-	lights.addLight(light_point);
+	imp_float gravity = 0;
+	imp_float damping = 1.0;
 
-	return lights;
+	WORLD->addParticle(Point(-4.0f, 4.0f, 0.0f),
+					   Vector(0, 0, 0),
+					   Vector(0, gravity, 0),
+					   1.0f, 0.1f, damping,
+					   &IMP_SHINY_FORESTGREEN);
+
+	WORLD->addAnchoredSpringForce(Point(-4.0f, 6.0f, 0.0f),
+						   5.0f, 1.0f, 0);
+
+	WORLD->addParticle(Point(-2.0f, 4.0f, 0.0f),
+					   Vector(0, 0, 0),
+					   Vector(0, gravity, 0),
+					   1.0f, 0.1f, damping,
+					   &IMP_SHINY_CRIMSON);
+
+	WORLD->addAnchoredBungeeForce(Point(-2.0f, 6.0f, 0.0f),
+								  5.0f, 1.0f, 1);
+
+	WORLD->addParticle(Point(0.0f, 6.0f, 0.0f),
+					   Vector(0, 0, 0),
+					   Vector(0, gravity, 0),
+					   1.0f, 0.1f, damping,
+					   &IMP_SHINY_BLUE);
+
+	WORLD->addParticle(Point(0.0f, 2.0f, 0.0f),
+					   Vector(0, 0, 0),
+					   Vector(0, gravity, 0),
+					   1.0f, 0.1f, damping,
+					   &IMP_SHINY_CYAN);
+
+	WORLD->addSpringForce(5.0f, 1.5f, 2, 3);
+
+	WORLD->addParticle(Point(2.0f, 6.0f, 0.0f),
+					   Vector(0, 0, 0),
+					   Vector(0, gravity, 0),
+					   1.0f, 0.1f, damping,
+					   &IMP_SHINY_ORANGE);
+
+	WORLD->addParticle(Point(2.0f, 2.0f, 0.0f),
+					   Vector(0, 0, 0),
+					   Vector(0, gravity, 0),
+					   1.0f, 0.1f, damping,
+					   &IMP_SHINY_MAGENTA);
+
+	WORLD->addBungeeForce(5.0f, 1.5f, 4, 5);
+
+	/*WORLD->addParticle(Point(4.0f, 4.0f, 0.0f),
+					   Vector(0, 0, 0),
+					   Vector(0, gravity, 0),
+					   1.0f, 0.1f, 1.0f,
+					   &IMP_SHINY_GOLD);
+
+	WORLD->addAnchoredStiffSpringForce(Point(4.0f, 4.2f, 0.0f),
+									   1000.0f, 1.0f, 6);*/
 }
 
-/*
-void render_teapot(int argc, char *argv[])
+void setupPlaneContactTest()
 {
-    typedef Geometry3D::Point Point;
-    typedef Geometry3D::Vector Vector;
-    typedef Geometry3D::Triangle Triangle;
-    typedef Geometry3D::Ray Ray;
-    typedef Geometry3D::Box Box;
-    typedef Geometry3D::Sphere Sphere;
-    typedef Geometry3D::TriangleMesh TriangleMesh;
-    typedef Geometry3D::Camera Camera;
-    typedef Geometry3D::LinearTransformation LinearTransformation;
-    typedef Geometry3D::AffineTransformation AffineTransformation;
-    typedef Geometry3D::ProjectiveTransformation ProjectiveTransformation;
-    typedef Rendering3D::SceneGraph SceneGraph;
-    typedef Rendering3D::Image Image;
-    typedef Rendering3D::Color Color;
-    typedef Rendering3D::Power Power;
-    typedef Rendering3D::Reflectance Reflectance;
-    typedef Rendering3D::Biradiance Biradiance;
-    typedef Rendering3D::BlinnPhongMaterial BlinnPhongMaterial;
-    typedef Rendering3D::Light Light;
-    typedef Rendering3D::RectangularAreaLight RectangularAreaLight;
-    typedef Rendering3D::HemisphereAreaLight HemisphereAreaLight;
-    typedef Rendering3D::OmnidirectionalLight OmnidirectionalLight;
-    typedef Rendering3D::DirectionalLight DirectionalLight;
-    typedef Rendering3D::LightContainer LightContainer;
-    typedef Rendering3D::Scene Scene;
+	imp_float width = 20.0f;
+	imp_float height = 8.0f;
+	imp_float depth = 20.0f;
 
-    BlinnPhongMaterial ground_material(Reflectance::grey(0.1f),
-                                       Reflectance::grey(0.1f),
-                                       10.0f);
+	imp_float restitution_coef = 0.9f;
 
-    BlinnPhongMaterial blue_material(Reflectance(0.2f, 0.2f, 0.7f),
-                                     Reflectance(0.0f, 0.0f, 0.0f),
-                                     100.0f);
-
-    BlinnPhongMaterial red_material(Reflectance(0.7f, 0.2f, 0.2f),
-                                    Reflectance(0.3f, 0.0f, 0.0f),
-                                    100.0f);
-
-    BlinnPhongMaterial sphere_material(Color(0.2f, 0.2f, 0.7f),
-                                       1.0f, 0.4f, 0.7f);
-
-    BlinnPhongMaterial teapot_material(Reflectance::red(), Reflectance::grey(0.35f), 800.0f);
-
-    BlinnPhongMaterial diffuse_brown(Reflectance(0x3E211B), Reflectance::grey(0.2f), 40.0f);
-
-
-    TriangleMesh teapot = TriangleMesh::file("teapot2.obj");
-    TriangleMesh table_top = TriangleMesh::box(Box(Point(-0.5f, 0.0f, -0.5f), 1.0f, 0.1f, 1.0f)); table_top.setMaterial(diffuse_brown);
-    TriangleMesh table_leg = TriangleMesh::box(Box(Point(-0.5f, 0.0f, -0.5f), 1.0f, 15.0f, 1.0f)); table_leg.setMaterial(diffuse_brown);
-    TriangleMesh ground = TriangleMesh::sheet(Point(-50.0f, 0.0f, 5.0e3f),
-                                              Vector(100.0f, 0.0f, 0.0f),
-                                              Vector(0.0f, 0.0f, -1.0e4f)); ground.setMaterial(ground_material);
-    
-    SceneGraph scene_graph(LinearTransformation::scaling(1.0f));
-
-    scene_graph.addTransformation(AffineTransformation::translation(0.0f, -0.5f, 0.0f))
-               ->addObject(ground);
-
-    scene_graph.addTransformation(AffineTransformation::translation(0.0f, 0.0f, -4.0f))
-               ->addTransformation(LinearTransformation::rotationFromYToZ(M_PI_2))
-               ->addObject(ground);
-
-    scene_graph.addTransformation(AffineTransformation::translation(-2.0f, 0.0f, 0.0f))
-               ->addTransformation(LinearTransformation::rotationFromZToX(M_PI_2))
-               ->addTransformation(LinearTransformation::rotationFromYToZ(M_PI_2))
-               ->addObject(ground);
-
-    SceneGraph* objects_branch = scene_graph.addTransformation(AffineTransformation::translation(0.0f, 0.0f, -2.0f));
-
-    objects_branch->addTransformation(AffineTransformation::translation(0.0f, 0.0f, 0.0f))
-                  ->addTransformation(LinearTransformation::scaling(1.0f/180.0f))
-                  ->addTransformation(LinearTransformation::rotationFromZToX(0.2f))
-                  ->addObject(teapot.withMaterialReplaceOld(teapot_material));
-
-    SceneGraph* table_branch = objects_branch->addTransformation(AffineTransformation::translation(0.0f, 0.0f, 0.0f))
-                                             ->addTransformation(LinearTransformation::scaling(1.0f, 1.0f/2.0f, 1.0f))
-                                             ->addTransformation(AffineTransformation::translation(0.0f, -1.0f, 0.0f))
-                                             ->addTransformation(LinearTransformation::scaling(1.0f/17.0f));
-
-    table_branch->addTransformation(AffineTransformation::translation(0.0f, 15.0f, 0.0f))
-                ->addTransformation(LinearTransformation::scaling(20.0f, 20.0f, 20.0f))
-                ->addObject(table_top);
-
-    table_branch->addTransformation(AffineTransformation::translation(9.0f, 0.0f, 9.0f))
-                ->addObject(table_leg);
-
-    table_branch->addTransformation(AffineTransformation::translation(9.0f, 0.0f, -9.0f))
-                ->addObject(table_leg);
-
-    table_branch->addTransformation(AffineTransformation::translation(-9.0f, 0.0f, 9.0f))
-                ->addObject(table_leg);
-
-    table_branch->addTransformation(AffineTransformation::translation(-9.0f, 0.0f, -9.0f))
-                ->addObject(table_leg);
-
-    OmnidirectionalLight light_point1(Point(2.2f, 0.6f, 0.4f),
-                                      Power::grey(300.0f));
-
-    OmnidirectionalLight light_point2(Point(0.0f, 5.0f, -2.0f),
-                                      Power::grey(10.0f));
+	WORLD->addRoom(width, height, depth, &IMP_DIFFUSE_DARKSLATEGREY);
 	
-    LightContainer lights;
-	lights.addLight(light_point1);
-    lights.addLight(light_point2);
+	WORLD->addLight(new OmnidirectionalLight(Point(3.0f, 4.0f, 6.0f),
+										     Power::grey(3000.0f)));
 
-    Camera camera(Ray(Point(0.8f, 0.8f, 0.0f), Vector(-0.4f, -0.3f, -1.0f)),
-                  Vector(0.0f, 1.0f, 0),
-                  0.1f, 100,
-                  45);
+	WORLD->addParticle(Point(0.0f, 2.0f, 0.0f),
+					   Vector(0.0f, 0.0f, 0.0f),
+					   Vector(0, 0.0f, 0),
+					   1.0f, 0.5f, 1.0f,
+					   &IMP_SHINY_FORESTGREEN);
 
-    Image image(800, 600);
-    image.setBackgroundColor(Color::black());
+	WORLD->addParticle(Point(0.95f, 2.0f, 0.0f),
+					   Vector(0.0f, 0.0f, 0.0f),
+					   Vector(0, 0, 0),
+					   1.0f, 0.5f, 1.0f,
+					   &IMP_SHINY_CRIMSON);
 
-    Scene scene(lights,
-                camera,
-                image);
+	WORLD->addParticle(Point(0.5f, 2.8f, 0.0f),
+					   Vector(0.0f, 0.0f, 0.0f),
+					   Vector(0, -9.81f, 0),
+					   1.0f, 0.5f, 1.0f,
+					   &IMP_SHINY_NAVY);
 
-    scene.use_direct_lighting = 1;
-    scene.remove_hidden_faces = 1;
-    scene.perform_clipping = 1;
-    scene.draw_faces = 1;
-    
-    scene.use_omp = 1;
-    
-    clock_t begin = std::clock();
+	//WORLD->addDragForce(0.02f, 0.003f, 0);
 
-    scene.rayTrace(scene_graph);
-
-    clock_t end = std::clock();
-    double elapsed_time = double(end - begin)/CLOCKS_PER_SEC;
-    std::cout << "Rendering time: " << elapsed_time << " s" << std::endl;
-
-    showImage(argc, argv, scene.getImage());
+	//WORLD->addCableContact(1.0f, restitution_coef, 0, 1);
+	//WORLD->addRodContact(1.0f, 1, 2);
+	//WORLD->addGroundContact(restitution_coef, -1);
+	WORLD->addAllParticleContacts(restitution_coef);
+	//WORLD->addRoomContact(width, height, depth, restitution_coef, -1);
 }
-*/
+
+void setupParticlesContactTest()
+{
+	imp_float width = 15.0f;
+	imp_float height = 8.0f;
+	imp_float depth = 20.0f;
+
+	imp_uint mesh_quality = 0;
+	imp_uint n_particles_per_axis = 5;
+	imp_float wall_separation_x = 2.0f;
+	imp_float wall_separation_y = 2.0f;
+	imp_float wall_separation_z = 2.0f;
+	imp_float x_shift = 0.3f;
+	imp_float y_shift = 0.3f;
+	imp_float z_shift = 0.3f;
+	imp_float mass = 1.0f;
+	imp_float radius = 0.2f;
+	imp_float damping = 1.0f;
+	imp_float restitution_coef = 0.9f;
+	imp_float gravitational_constant = 0.01f;
+	Vector velocity(0, 0, 0);
+	Vector gravity(0, -9.81f, 0);
+	//Vector gravity(0, 0, 0);
+
+	const Material* materials[3] = {&IMP_SHINY_FORESTGREEN, &IMP_SHINY_NAVY, &IMP_SHINY_CRIMSON};
+	
+	WORLD->addRoom(width, height, depth, &IMP_DIFFUSE_DARKSLATEGREY);
+	
+	WORLD->addLight(new OmnidirectionalLight(Point(0.0f, 7.5f, 7.0f),
+											 Power::grey(1000.0f)));
+	OmnidirectionalLight* ambient = new OmnidirectionalLight(Point(0.0f, 7.5f, 7.0f),
+															 Power::grey(50.0f));
+	ambient->creates_shadows = false;
+	WORLD->addLight(ambient);
+	ambient = nullptr;
+
+	imp_float x_start = -width/2 + wall_separation_x, x_end = width/2 - wall_separation_x;
+	imp_float y_start = wall_separation_y, y_end = height - wall_separation_y;
+	imp_float z_start = -depth/2 + wall_separation_z, z_end = depth/2 - wall_separation_z;
+	imp_float dx = (x_end - x_start)/(n_particles_per_axis - 1);
+	imp_float dy = (y_end - y_start)/(n_particles_per_axis - 1);
+	imp_float dz = (z_end - z_start)/(n_particles_per_axis - 1);
+	imp_float x, y, z;
+	imp_uint i, j, k;
+
+	x_start -= x_shift*n_particles_per_axis/2;
+	y_start -= y_shift*n_particles_per_axis/2;
+	z_start -= z_shift*n_particles_per_axis/2;
+	
+	std::random_device random_device;
+    std::mt19937 generator(random_device());
+    std::uniform_int_distribution<> distribution(0, 2);
+	
+	y = y_start;
+	for (j = 0; j < n_particles_per_axis; j++)
+	{
+		x = x_start + j*x_shift;
+		for (i = 0; i < n_particles_per_axis; i++)
+		{
+			z = z_start + i*z_shift;
+			for (k = 0; k < n_particles_per_axis; k++)
+			{
+				WORLD->addParticle(Point(x, y + k*y_shift - wall_separation_y/2, z),
+								   velocity,
+								   gravity,
+								   mass, radius, damping,
+								   materials[distribution(generator)],
+								   mesh_quality);
+
+				z += dz;
+			}
+			x += dx;
+		}
+		y += dy;
+	}
+
+	WORLD->addDragForce(0.02f, 0.003f, -1);
+
+	WORLD->addAllParticleContacts(restitution_coef);
+	//WORLD->addAllParticleGravityForces(gravitational_constant);
+	WORLD->addRoomContact(width, height, depth, restitution_coef, -1);
+}
 
 int main(int argc, char *argv[])
 {
-	typedef Geometry3D::Point Point;
-	typedef Geometry3D::Box Box;
-	typedef Geometry3D::Sphere Sphere;
+	WORLD = new World(800, 600);
 
-	typedef Geometry3D::LinearTransformation LinearTransformation;
-	typedef Geometry3D::AffineTransformation AffineTransformation;
+	WORLD->setCameraPointing(Point(0, 2, 25));
+
+	//setupGravityDragTest();
+	//setupSpringTest();
+	//setupPlaneContactTest();
+	setupParticlesContactTest();
 	
-	typedef Rendering3D::RenderableTriangleMesh RenderableTriangleMesh;
-
-	typedef Rendering3D::Color Color;
-	typedef Rendering3D::Reflectance Reflectance;
-	typedef Rendering3D::BlinnPhongMaterial BlinnPhongMaterial;
-
-	typedef Rendering3D::Biradiance Biradiance;
-	typedef Rendering3D::DirectionalLight DirectionalLight;
-	typedef Rendering3D::LightContainer LightContainer;
-
-	typedef Rendering3D::Simulator Simulator;
-	typedef Rendering3D::Animator Animator;
-
-	BlinnPhongMaterial blue_material(Reflectance(0.2f, 0.2f, 0.7f),
-								  	 Reflectance(0.2f, 0.2f, 0.2f),
-									 100.0f);
-
-	BlinnPhongMaterial red_material(Reflectance(0.7f, 0.2f, 0.2f),
-								  	Reflectance(0.2f, 0.2f, 0.2f),
-									100.0f);
-
-	BlinnPhongMaterial teapot_material(Reflectance::red(), Reflectance::grey(0.35f), 400.0f);
-
-	BlinnPhongMaterial diffuse_brown(Reflectance(0x3E211B), Reflectance::grey(0.2f), 40.0f);
-
-	Simulator simulator;
-	Animator animator(simulator, getScene(), getLights());
-
-	Box box1(Point(-0.5f, -0.5f, -0.5f), 1, 1, 1);
-	box1.rotateFromXToY(0.2f);
-	box1.rotateFromYToZ(0.2f);
-	box1.origin.translate(-1.0, 0.0, -5.0);
-
-	Box box2(Point(-0.5f, -0.5f, -0.5f), 1, 1, 1);
-	box2.rotateFromYToZ(0.4f);
-	box2.rotateFromZToX(0.2f);
-	box2.origin.translate(1.0, 0.0, -5.0);
-
-	Box box3(Point::origin(), 8.0f, 3.0f, 8.0f);
-	box3.setCenter(Point::origin());
-	box3.origin.translate(0.0f, 0.5f, -5.0f);
-
-	Sphere sphere1(Point::origin(), 0.1f);
-	sphere1.center.translate(0.0f, 0.5f, -5.0f);
-
-	/*RenderableTriangleMesh teapot = RenderableTriangleMesh::file("teapot.obj");
-	teapot.setMaterial(teapot_material);
-	teapot.applyTransformation(LinearTransformation::scaling(1.0f/50.0f));
-	teapot.applyTransformation(AffineTransformation::translation(0.0f, 0.0f, -5.0f));*/
-
-	//animator.addDynamicBox(box1, blue_material);
-	//animator.addDynamicBox(box2, red_material);
-	animator.addMesh(RenderableTriangleMesh::room(box3).withMaterial(diffuse_brown));
-	//animator.addMesh(teapot);
-	animator.addMesh(RenderableTriangleMesh::sphere(sphere1, 5).withMaterial(teapot_material));
-
-	//animator.getMesh(0).casts_shadows = 1;
-	//animator.getMesh(1).casts_shadows = 1;
-
-	animator.render_mode = 0;
-
-	startMainLoop(animator, argc, argv);
+	startMainLoop(argc, argv);
 }

@@ -13,6 +13,10 @@ void ParticleDragForce::addForce(Particle* particle, imp_float duration)
 	Vector vector(particle->getVelocity());
 
 	imp_float squared_speed = vector.getSquaredLength();
+
+	if (squared_speed == 0)
+		return;
+
 	imp_float drag = -_linear_drag_coef*sqrt(squared_speed) - _nonlinear_drag_coef*squared_speed;
 
 	vector.normalize();

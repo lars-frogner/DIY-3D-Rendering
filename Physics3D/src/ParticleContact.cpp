@@ -68,11 +68,11 @@ void ParticleContact::updatePenetrationDepth()
 			relative_displacement -= _particle_2->getLastDisplacement();
 		}
 
-		_penetration_depth += relative_displacement.dot(_contact_normal);
+		_penetration_depth -= relative_displacement.dot(_contact_normal);
 	}
 	else if (_particle_2 && _particle_2->wasDisplaced())
 	{
-		_penetration_depth -= (_particle_2->getLastDisplacement()).dot(_contact_normal);
+		_penetration_depth += (_particle_2->getLastDisplacement()).dot(_contact_normal);
 	}
 }
 
@@ -138,7 +138,7 @@ void ParticleContact::resolveInterpenetration(imp_float duration)
 	if (total_inverse_mass <= 0)
 		return;
 
-	Vector position_impulse = (-_penetration_depth/total_inverse_mass)*_contact_normal;
+	Vector position_impulse = (_penetration_depth/total_inverse_mass)*_contact_normal;
 	
 	_particle_1->addDisplacementImpulse(position_impulse);
 	

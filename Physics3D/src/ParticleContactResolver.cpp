@@ -90,9 +90,9 @@ void ParticleContactResolver::resolveInterpenetrations(imp_uint n_contacts,
 	}
 }
 
-void ParticleContactResolver::resolve(imp_uint n_contacts,
-									  ParticleContact contacts[],
-									  imp_float duration)
+void ParticleContactResolver::resolveContacts(imp_uint n_contacts,
+											  ParticleContact contacts[],
+											  imp_float duration)
 {
 	resolveCollisions(n_contacts, contacts, duration);
 	resolveInterpenetrations(n_contacts, contacts, duration);

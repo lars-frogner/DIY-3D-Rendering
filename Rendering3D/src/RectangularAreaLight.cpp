@@ -80,6 +80,14 @@ Power RectangularAreaLight::getTotalPower() const
     return _power;
 }
 
+void RectangularAreaLight::setCoordinateFrame(const CoordinateFrame& cframe)
+{
+	_origin = cframe.origin;
+	_width_vector = cframe.basis_1;
+	_height_vector = cframe.basis_2;
+	_direction = cframe.basis_3;
+}
+
 void RectangularAreaLight::applyTransformation(const LinearTransformation& transformation)
 {
     _origin = transformation*_origin;

@@ -25,12 +25,16 @@ protected:
     arma::Mat<imp_float> _normal_transform_matrix;
 
     AffineTransformation(const arma::Mat<imp_float>& new_matrix);
+    AffineTransformation(const arma::Mat<imp_float>& new_matrix,
+						 const arma::Mat<imp_float>& new_normal_transform_matrix);
 
 public:
     AffineTransformation();
+    AffineTransformation(const LinearTransformation& other);
 
     static AffineTransformation translation(imp_float dx, imp_float dy, imp_float dz);
     static AffineTransformation translation(const Vector& displacement);
+    static AffineTransformation translationTo(const Point& position);
     static AffineTransformation rotationAboutRay(const Ray& ray, imp_float angle);
     static AffineTransformation pointAndVectorsToPointAndVectors(const Point& from_pt,
                                                                  const Vector& from_vec_1,

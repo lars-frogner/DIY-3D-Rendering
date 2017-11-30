@@ -14,7 +14,7 @@ class BAHNode {
 friend BoundingAreaHierarchy;
 
 private:
-    typedef std::unique_ptr<BAHNode> node_ptr;
+    typedef std::shared_ptr<BAHNode> node_ptr;
 
 protected:
     AxisAlignedRectangle _aabr;
@@ -25,11 +25,16 @@ protected:
 
     BAHNode(const AxisAlignedRectangle& new_bounding_area,
 			const AABRContainer& new_object);
+	/*BAHNode(const BAHNode& other);
+	BAHNode& operator=(const BAHNode& other);*/
 
     void _insertObject(const AABRContainer& object);
     const AxisAlignedRectangle& _computeBoundingAreas();
 
     std::vector<imp_uint> _getIntersectedObjectIDs(const Point& point) const;
+
+public:
+	//~BAHNode();
 };
 
 } // Geometry2D

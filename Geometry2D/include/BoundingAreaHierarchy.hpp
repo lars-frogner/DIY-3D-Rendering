@@ -13,7 +13,7 @@ class BAHNode;
 class BoundingAreaHierarchy {
 
 private:
-    typedef std::unique_ptr<BAHNode> node_ptr;
+    typedef std::shared_ptr<BAHNode> node_ptr;
 
     node_ptr _root_node;
 
@@ -21,6 +21,9 @@ public:
     BoundingAreaHierarchy();
     BoundingAreaHierarchy(const AxisAlignedRectangle& bounding_area,
 						  const std::vector<AABRContainer>& objects);
+	/*BoundingAreaHierarchy(const BoundingAreaHierarchy& other);
+	~BoundingAreaHierarchy();
+	BoundingAreaHierarchy& operator=(const BoundingAreaHierarchy& other);*/
 
     std::vector<imp_uint> getIntersectedObjectIDs(const Point& point) const;
 };

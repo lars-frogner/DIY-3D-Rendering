@@ -14,14 +14,20 @@ LinearTransformation::LinearTransformation(const arma::Mat<imp_float>& new_matri
     : _matrix(new_matrix),
       _normal_transform_matrix(new_matrix.submat(0, 0, 2, 2).t().i()) {}
 
+LinearTransformation::LinearTransformation(const arma::Mat<imp_float>& new_matrix,
+										   const arma::Mat<imp_float>& new_normal_transform_matrix)
+    : _matrix(new_matrix),
+      _normal_transform_matrix(new_normal_transform_matrix) {}
+
 LinearTransformation LinearTransformation::scaling(imp_float scale_x, imp_float scale_y, imp_float scale_z)
 {
-    LinearTransformation transformation;
-    transformation._matrix(0, 0) = scale_x;
-    transformation._matrix(1, 1) = scale_y;
-    transformation._matrix(2, 2) = scale_z;
+    arma::Mat<imp_float> matrix(4, 4, arma::fill::eye);
 
-    return transformation;
+    matrix(0, 0) = scale_x;
+    matrix(1, 1) = scale_y;
+    matrix(2, 2) = scale_z;
+	
+    return LinearTransformation(matrix);
 }
 
 LinearTransformation LinearTransformation::scaling(imp_float scale)
@@ -29,18 +35,32 @@ LinearTransformation LinearTransformation::scaling(imp_float scale)
     return scaling(scale, scale, scale);
 }
 
-LinearTransformation LinearTransformation::rotationAboutAxis(const Vector& axis, imp_float angle)
+LinearTransformation LinearTransformation::rotation(const Vector& axis, imp_float angle)
 {
     arma::Mat<imp_float> cross_product_matrix = {{0, -axis.z, axis.y},
                                                  {axis.z, 0, -axis.x},
                                                  {-axis.y, axis.x, 0}};
         
-    LinearTransformation transformation;
-    transformation._matrix.submat(0, 0, 2, 2) = transformation._matrix.submat(0, 0, 2, 2) +
-                                                sin(angle)*cross_product_matrix +
-                                                (1 - cos(angle))*cross_product_matrix*cross_product_matrix;
+    arma::Mat<imp_float> matrix(4, 4, arma::fill::eye);
 
-    return transformation;
+    matrix.submat(0, 0, 2, 2) = matrix.submat(0, 0, 2, 2) +
+                                sin(angle)*cross_product_matrix +
+                                (1 - cos(angle))*cross_product_matrix*cross_product_matrix;
+	
+    return LinearTransformation(matrix);
+}
+
+LinearTransformation LinearTransformation::rotation(const Quaternion& q)
+{
+	arma::Mat<imp_float> rotation_matrix = {{1 - 2*(q.y*q.y + q.z*q.z),		2*(q.x*q.y + q.z*q.w),	   2*(q.x*q.z - q.y*q.w)},
+											{	 2*(q.x*q.y - q.z*q.w), 1 - 2*(q.x*q.x + q.z*q.z),	   2*(q.y*q.z + q.x*q.w)},
+											{	 2*(q.x*q.z + q.y*q.w),		2*(q.y*q.z - q.x*q.w), 1 - 2*(q.x*q.x + q.y*q.y)}};
+
+    arma::Mat<imp_float> matrix(4, 4, arma::fill::eye);
+    
+	matrix.submat(0, 0, 2, 2) = rotation_matrix;
+	
+    return LinearTransformation(matrix);
 }
 
 LinearTransformation LinearTransformation::rotationFromVectorToVector(const Vector& from_vector,
@@ -69,7 +89,7 @@ LinearTransformation LinearTransformation::rotationFromVectorToVector(const Vect
     
     const Vector& axis = from_vector.cross(reference).normalize();
 
-    return rotationAboutAxis(axis, angle);
+    return rotation(axis, angle);
 }
 
 LinearTransformation LinearTransformation::rotationFromXToY(imp_float angle)
@@ -77,13 +97,14 @@ LinearTransformation LinearTransformation::rotationFromXToY(imp_float angle)
     imp_float cos_angle = cos(angle);
     imp_float sin_angle = sin(angle);
     
-    LinearTransformation transformation;
-    transformation._matrix(0, 0) = cos_angle;
-    transformation._matrix(0, 1) = -sin_angle;
-    transformation._matrix(1, 0) = sin_angle;
-    transformation._matrix(1, 1) = cos_angle;
+    arma::Mat<imp_float> matrix(4, 4, arma::fill::eye);
 
-    return transformation;
+    matrix(0, 0) = cos_angle;
+    matrix(0, 1) = -sin_angle;
+    matrix(1, 0) = sin_angle;
+    matrix(1, 1) = cos_angle;
+	
+    return LinearTransformation(matrix);
 }
 
 LinearTransformation LinearTransformation::rotationFromYToZ(imp_float angle)
@@ -91,13 +112,14 @@ LinearTransformation LinearTransformation::rotationFromYToZ(imp_float angle)
     imp_float cos_angle = cos(angle);
     imp_float sin_angle = sin(angle);
     
-    LinearTransformation transformation;
-    transformation._matrix(1, 1) = cos_angle;
-    transformation._matrix(1, 2) = -sin_angle;
-    transformation._matrix(2, 1) = sin_angle;
-    transformation._matrix(2, 2) = cos_angle;
+    arma::Mat<imp_float> matrix(4, 4, arma::fill::eye);
 
-    return transformation;
+    matrix(1, 1) = cos_angle;
+    matrix(1, 2) = -sin_angle;
+    matrix(2, 1) = sin_angle;
+    matrix(2, 2) = cos_angle;
+	
+    return LinearTransformation(matrix);
 }
 
 LinearTransformation LinearTransformation::rotationFromZToX(imp_float angle)
@@ -105,26 +127,28 @@ LinearTransformation LinearTransformation::rotationFromZToX(imp_float angle)
     imp_float cos_angle = cos(angle);
     imp_float sin_angle = sin(angle);
     
-    LinearTransformation transformation;
-    transformation._matrix(0, 0) = cos_angle;
-    transformation._matrix(0, 2) = sin_angle;
-    transformation._matrix(2, 0) = -sin_angle;
-    transformation._matrix(2, 2) = cos_angle;
+    arma::Mat<imp_float> matrix(4, 4, arma::fill::eye);
 
-    return transformation;
+    matrix(0, 0) = cos_angle;
+    matrix(0, 2) = sin_angle;
+    matrix(2, 0) = -sin_angle;
+    matrix(2, 2) = cos_angle;
+	
+    return LinearTransformation(matrix);
 }
 
 LinearTransformation LinearTransformation::shear(imp_float dxdy, imp_float dxdz, imp_float dydx, imp_float dydz, imp_float dzdx, imp_float dzdy)
 {
-    LinearTransformation transformation;
-    transformation._matrix(0, 1) = dxdy;
-    transformation._matrix(0, 2) = dxdz;
-    transformation._matrix(1, 0) = dydx;
-    transformation._matrix(1, 2) = dydz;
-    transformation._matrix(2, 0) = dzdx;
-    transformation._matrix(2, 1) = dzdy;
+    arma::Mat<imp_float> matrix(4, 4, arma::fill::eye);
 
-    return transformation;
+    matrix(0, 1) = dxdy;
+    matrix(0, 2) = dxdz;
+    matrix(1, 0) = dydx;
+    matrix(1, 2) = dydz;
+    matrix(2, 0) = dzdx;
+    matrix(2, 1) = dzdy;
+	
+    return LinearTransformation(matrix);
 }
 
 LinearTransformation LinearTransformation::vectorsToVectors(const Vector& from_vec_1,
@@ -142,22 +166,27 @@ LinearTransformation LinearTransformation::vectorsToVectors(const Vector& from_v
 								   {to_vec_1.y, to_vec_2.y, to_vec_3.y},
 								   {to_vec_1.z, to_vec_2.z, to_vec_3.z}};
     
-    LinearTransformation transformation;
-    transformation._matrix.submat(0, 0, 2, 2) = to_mat*(from_mat.i());
+    arma::Mat<imp_float> matrix(4, 4, arma::fill::eye);
 
-    return transformation;
+    matrix.submat(0, 0, 2, 2) = to_mat*(from_mat.i());
+	
+    return LinearTransformation(matrix);
 }
 
 LinearTransformation LinearTransformation::operator*(const LinearTransformation& other) const
 {
-    LinearTransformation transformation;
-    transformation._matrix.submat(0, 0, 2, 2) = _matrix.submat(0, 0, 2, 2)*other._matrix.submat(0, 0, 2, 2);
-    return transformation;
+    arma::Mat<imp_float> matrix(4, 4, arma::fill::eye);
+
+    matrix.submat(0, 0, 2, 2) = _matrix.submat(0, 0, 2, 2)*other._matrix.submat(0, 0, 2, 2);
+	
+    return LinearTransformation(matrix,
+							    _normal_transform_matrix*other._normal_transform_matrix);
 }
 
 AffineTransformation LinearTransformation::operator*(const AffineTransformation& other) const
 {
-    return AffineTransformation(_matrix*other._matrix);
+    return AffineTransformation(_matrix*other._matrix,
+							    _normal_transform_matrix*other._normal_transform_matrix);
 }
 
 ProjectiveTransformation LinearTransformation::operator*(const ProjectiveTransformation& other) const
@@ -220,9 +249,11 @@ Box LinearTransformation::operator*(const Box& box) const
 
 LinearTransformation LinearTransformation::getInverse() const
 {
-    LinearTransformation transformation;
-    transformation._matrix.submat(0, 0, 2, 2) = _matrix.submat(0, 0, 2, 2).i();
-    return transformation;
+    arma::Mat<imp_float> matrix(4, 4, arma::fill::eye);
+
+    matrix.submat(0, 0, 2, 2) = _matrix.submat(0, 0, 2, 2).i();
+	
+    return LinearTransformation(matrix, _normal_transform_matrix.i());
 }
 
 const arma::Mat<imp_float>& LinearTransformation::getMatrix() const

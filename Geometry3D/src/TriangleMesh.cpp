@@ -1,6 +1,6 @@
 #include "TriangleMesh.hpp"
 #include "string_util.hpp"
-#include <omp.h>
+#include "BAHNode.hpp"
 #include <cstdlib>
 #include <cmath>
 #include <map>
@@ -15,7 +15,8 @@ namespace Geometry3D {
 TriangleMesh::TriangleMesh()
     : _is_homogenized(true),
       _has_normals(false),
-	  uses_omp(true) {}
+	  _has_aabb(false),
+	  _has_vertex_data_3(false) {}
 
 TriangleMesh::TriangleMesh(imp_uint n_vertices, imp_float vertex_array[],
                            imp_uint n_faces, imp_uint face_array[])
@@ -23,7 +24,8 @@ TriangleMesh::TriangleMesh(imp_uint n_vertices, imp_float vertex_array[],
       _faces(face_array, 3, n_faces),
       _is_homogenized(true),
       _has_normals(false),
-	  uses_omp(true)
+	  _has_aabb(false),
+	  _has_vertex_data_3(false)
 {
     _vertices.rows(0, 2) = arma::Mat<imp_float>(vertex_array, 3, n_vertices);
 }
@@ -32,9 +34,12 @@ TriangleMesh::TriangleMesh(const TriangleMesh& mesh_1,
                            const TriangleMesh& mesh_2)
     : _vertices(arma::join_cols(mesh_1._vertices, mesh_2._vertices)),
       _faces(arma::join_cols(mesh_1._faces, mesh_2._faces + mesh_2.getNumberOfVertices())),
+      _vertex_data_3(arma::join_cols(mesh_1._vertex_data_3, mesh_2._vertex_data_3)),
       _is_homogenized(mesh_1._is_homogenized && mesh_2._is_homogenized),
       _has_normals(false),
-	  uses_omp(true) {}
+	  _aabb(AxisAlignedBox::merged(mesh_1._aabb, mesh_2._aabb)),
+	  _has_aabb(mesh_1._has_aabb && mesh_2._has_aabb),
+	  _has_vertex_data_3(mesh_1._has_vertex_data_3 && mesh_2._has_vertex_data_3) {}
 
 TriangleMesh TriangleMesh::file(const std::string& filename, string_vec& material_files, string_vec& material_names)
 {
@@ -168,7 +173,8 @@ TriangleMesh TriangleMesh::file(const std::string& filename, string_vec& materia
         }
     }
 
-
+	if (!mesh._has_normals)
+		mesh.computeNormalVectors();
 
     return mesh;
 }
@@ -345,6 +351,8 @@ TriangleMesh TriangleMesh::triangle(const Triangle& triangle_obj)
 
     triangle_mesh._faces = {{0}, {1}, {2}};
 
+	triangle_mesh.computeNormalVectors();
+
     return triangle_mesh;
 }
 
@@ -371,6 +379,8 @@ TriangleMesh TriangleMesh::box(const Box& box_obj)
     box_mesh._faces = {{0, 3, 12, 21,  1, 13, 19, 22,  2, 11,  5, 17},
                        {9, 9, 15, 15,  4,  4,  7,  7, 14, 14,  8,  8},
                        {3, 6, 21, 18, 13, 16, 22, 10, 11, 23, 17, 20}};
+
+	box_mesh.computeNormalVectors();
 
     return box_mesh;
 }
@@ -399,6 +409,8 @@ TriangleMesh TriangleMesh::room(const Box& box_obj)
                         {3, 6, 21, 18, 13, 16, 22, 10, 11, 23, 17, 20},
                         {9, 9, 15, 15,  4,  4,  7,  7, 14, 14,  8,  8}};
 
+	room_mesh.computeNormalVectors();
+
     return room_mesh;
 }
 
@@ -419,6 +431,8 @@ TriangleMesh TriangleMesh::sheet(const Point& origin, const Vector& width_vector
     sheet_mesh._faces = {{1, 0},
                          {2, 2},
                          {0, 3}};
+
+	sheet_mesh.computeNormalVectors();
 
     return sheet_mesh;
 }
@@ -555,27 +569,42 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
         sphere_mesh._faces(2, n) = n_vertices - 1;
         n++;
     }
-    sphere_mesh._faces(0, n) = offset + n_lon;
+    sphere_mesh._faces(0, n) = offset;
     sphere_mesh._faces(1, n) = offset + n_lon - 1;
     sphere_mesh._faces(2, n) = n_vertices - 1;
+
+	sphere_mesh._has_normals = true;
 
     return sphere_mesh;
 }
 
-imp_uint TriangleMesh::getNumberOfVertices() const
+void TriangleMesh::initializeVertexData3()
 {
-    return static_cast<imp_uint>(_vertices.n_cols);
+	if (_has_vertex_data_3)
+		return;
+
+	_vertex_data_3 = arma::Mat<imp_float>(3, getNumberOfVertices(), arma::fill::zeros);
+	_has_vertex_data_3 = true;
 }
 
-imp_uint TriangleMesh::getNumberOfFaces() const
+void TriangleMesh::setVertexData3(imp_uint idx,
+								  imp_float data_0,
+								  imp_float data_1,
+								  imp_float data_2)
 {
-    return static_cast<imp_uint>(_faces.n_cols);
+	assert(_has_vertex_data_3);
+
+	_vertex_data_3(0, idx) = data_0;
+	_vertex_data_3(1, idx) = data_1;
+	_vertex_data_3(2, idx) = data_2;
 }
 
 void TriangleMesh::addVertex(imp_float x, imp_float y, imp_float z)
 {
     _vertices.insert_cols(_vertices.n_cols, arma::Col<imp_float>({x, y, z, 1}));
     _has_normals = false;
+    _has_aabb = false;
+	_has_vertex_data_3 = false;
 }
 
 void TriangleMesh::addVertex(const Point& vertex)
@@ -587,6 +616,7 @@ void TriangleMesh::addFace(imp_uint i, imp_uint j, imp_uint k)
 {
     _faces.insert_cols(_faces.n_cols, arma::Col<imp_uint>({i, j, k}));
     _has_normals = false;
+    _has_aabb = false;
 }
 
 void TriangleMesh::removeVertex(imp_uint idx)
@@ -608,12 +638,15 @@ void TriangleMesh::removeVertex(imp_uint idx)
     }
 
     _has_normals = false;
+    _has_aabb = false;
+	_has_vertex_data_3 = false;
 }
 
 void TriangleMesh::removeFace(imp_uint idx)
 {
     _faces.shed_col(idx);
     _has_normals = false;
+    _has_aabb = false;
 }
 
 void TriangleMesh::splitFaces(imp_uint n_times)
@@ -673,100 +706,305 @@ void TriangleMesh::splitFaces(imp_uint n_times)
     }
 }
 
-void TriangleMesh::computeNormals()
+void TriangleMesh::clipNearPlaneAt(imp_float z_near)
 {
-    if (_has_normals) return;
+    assert(_is_homogenized);
+    _clip(2, z_near, 1); // Clip away points with z > z_near
+}
 
-    _normals = arma::Mat<imp_float>(3, getNumberOfVertices(), arma::fill::zeros);
-    
-    imp_uint n_faces = getNumberOfFaces();
+void TriangleMesh::clipLeftPlane()
+{
+    assert(_is_homogenized);
+    _clip(0, -1, -1); // Clip away points with x < -1
+}
+
+void TriangleMesh::clipRightPlane()
+{
+    assert(_is_homogenized);
+    _clip(0, 1, 1); // Clip away points with x > 1
+}
+
+void TriangleMesh::clipBottomPlane()
+{
+    assert(_is_homogenized);
+    _clip(1, -1, -1); // Clip away points with y < -1
+}
+
+void TriangleMesh::clipTopPlane()
+{
+    assert(_is_homogenized);
+    _clip(1, 1, 1); // Clip away points with y > 1
+}
+
+void TriangleMesh::clipNearPlane()
+{
+    _clip(2, 0, 1); // Clip away points with z > 0
+}
+
+void TriangleMesh::clipFarPlane()
+{
+    assert(_is_homogenized);
+    _clip(2, -1, -1); // Clip away points with z < -1
+}
+
+void TriangleMesh::clipNonNearPlanes()
+{
+	assert(_has_aabb);
+
+    const Point& lower_corner = _aabb.lower_corner;
+    const Point& upper_corner = _aabb.upper_corner;
+
+    if (lower_corner.x < -1) clipLeftPlane();
+    if (upper_corner.x >  1) clipRightPlane();
+    if (lower_corner.y < -1) clipBottomPlane();
+    if (upper_corner.y >  1) clipTopPlane();
+    if (lower_corner.z < -1) clipFarPlane();
+}
+
+void TriangleMesh::_clip(imp_uint component, imp_float limit, int sign)
+{
+    assert(component < 3);
+    assert(sign == 1 || sign == -1);
+
+    imp_uint n_vertices = getNumberOfVertices();
+
+    imp_uint component_1 = (component + 1) % 3;
+    imp_uint component_2 = (component + 2) % 3;
+
+    imp_float signed_limit = sign*limit;
+
     imp_uint i, j, k;
+    imp_float A[4], B[4], C[4];
+
+    bool A_outside, B_outside, C_outside;
+
+	bool was_added;
+
+    imp_uint n_outside;
+    imp_uint inside_idx_1, inside_idx_2;
+
+    imp_uint n_faces = getNumberOfFaces();
+    imp_uint last_vertex = n_vertices - 1;
+    
+    std::vector<imp_uint> deleted_faces;
 
     for (imp_uint idx = 0; idx < n_faces; idx++)
     {
         i = _faces(0, idx); j = _faces(1, idx); k = _faces(2, idx);
+        
+        A[0] = _vertices(0, i); A[1] = _vertices(1, i); A[2] = _vertices(2, i); A[3] = _vertices(3, i);
+        B[0] = _vertices(0, j); B[1] = _vertices(1, j); B[2] = _vertices(2, j); B[3] = _vertices(3, j);
+        C[0] = _vertices(0, k); C[1] = _vertices(1, k); C[2] = _vertices(2, k); C[3] = _vertices(3, k);
 
-        const Vector& normal = Triangle::areaVector(Point(_vertices(0, i), _vertices(1, i), _vertices(2, i)),
-                                                    Point(_vertices(0, j), _vertices(1, j), _vertices(2, j)),
-                                                    Point(_vertices(0, k), _vertices(1, k), _vertices(2, k)));
+        A_outside = sign*A[component] > signed_limit;
+        B_outside = sign*B[component] > signed_limit;
+        C_outside = sign*C[component] > signed_limit;
 
-        _normals(0, i) += normal.x;
-        _normals(1, i) += normal.y;
-        _normals(2, i) += normal.z;
+        n_outside = 0;
+        if (A_outside) n_outside++;
+        if (B_outside) n_outside++;
+        if (C_outside) n_outside++;
 
-        _normals(0, j) += normal.x;
-        _normals(1, j) += normal.y;
-        _normals(2, j) += normal.z;
+		if (i == j || i == k || j == k)
+			n_outside = 3;
 
-        _normals(0, k) += normal.x;
-        _normals(1, k) += normal.y;
-        _normals(2, k) += normal.z;
+        if (n_outside > 0)
+        {
+            if (n_outside == 1)
+            {
+                if (A_outside)
+                {
+                    inside_idx_1 = j;
+                    inside_idx_2 = k;
+                    was_added = _addIntersectionVertices(i, j, k,
+											             A, B, C,
+														 component, component_1, component_2,
+														 limit);
+                }
+                else if (B_outside)
+                {
+                    inside_idx_1 = k;
+                    inside_idx_2 = i;
+                    was_added = _addIntersectionVertices(i, j, k,
+														 B, C, A,
+														 component, component_1, component_2,
+														 limit);
+                }
+                else
+                {
+                    inside_idx_1 = i;
+                    inside_idx_2 = j;
+                    was_added = _addIntersectionVertices(i, j, k,
+													     C, A, B,
+													     component, component_1, component_2,
+														 limit);
+                }
+
+				if (was_added)
+				{
+					_faces(0, idx) = inside_idx_1;
+					_faces(1, idx) = inside_idx_2;
+					_faces(2, idx) = last_vertex + 1;
+
+					_faces.insert_cols(_faces.n_cols, arma::Col<imp_uint>({last_vertex + 1, inside_idx_2, last_vertex + 2}));
+                
+					last_vertex += 2;
+				}
+				else
+				{
+					n_outside = 3;
+				}
+
+            }
+            else if (n_outside == 2)
+            {
+                if (!A_outside) 
+                {
+                    inside_idx_1 = i;
+                    was_added = _addIntersectionVertices(i, j, k,
+														 A, B, C,
+														 component, component_1, component_2,
+														 limit);
+                }
+                else if (!B_outside)
+                {
+                    inside_idx_1 = j;
+                    was_added = _addIntersectionVertices(i, j, k,
+														 B, C, A,
+														 component, component_1, component_2,
+														 limit);
+                }
+                else                
+                {
+                    inside_idx_1 = k;
+                    was_added = _addIntersectionVertices(i, j, k,
+														 C, A, B,
+													     component, component_1, component_2,
+														 limit);
+                }
+            
+				if (was_added)
+				{
+					_faces(0, idx) = inside_idx_1;
+					_faces(1, idx) = last_vertex + 1;
+					_faces(2, idx) = last_vertex + 2;
+                
+					last_vertex += 2;
+				}
+				else
+				{
+					n_outside = 3;
+				}
+
+            }
+
+            if (n_outside == 3)
+            {
+                deleted_faces.push_back(idx);
+            }
+        }
     }
 
-    _normals = arma::normalise(_normals);
+    while (!deleted_faces.empty())
+    {
+        _faces.shed_col(deleted_faces.back());
+        deleted_faces.pop_back();
+    }
+}
+
+bool TriangleMesh::_addIntersectionVertices(imp_uint i, imp_uint j, imp_uint k,
+											imp_float origin[], imp_float other_1[], imp_float other_2[],
+											imp_uint component_0, imp_uint component_1, imp_uint component_2,
+											imp_float limit)
+{
+    // Find vertices
+
+    arma::Col<imp_float> vertex_vector1(4);
+    arma::Col<imp_float> vertex_vector2(4);
+
+    imp_float orig_plane_dist = limit - origin[component_0];
+
+    imp_float scaling = orig_plane_dist/(other_1[component_0] - origin[component_0]);
+    vertex_vector1(component_0) = limit;
+    vertex_vector1(component_1) = origin[component_1] + scaling*(other_1[component_1] - origin[component_1]);
+    vertex_vector1(component_2) = origin[component_2] + scaling*(other_1[component_2] - origin[component_2]);
+    vertex_vector1(3) = origin[3] + scaling*(other_1[3] - origin[3]);
+
+    scaling = orig_plane_dist/(other_2[component_0] - origin[component_0]);
+    vertex_vector2(component_0) = limit;
+    vertex_vector2(component_1) = origin[component_1] + scaling*(other_2[component_1] - origin[component_1]);
+    vertex_vector2(component_2) = origin[component_2] + scaling*(other_2[component_2] - origin[component_2]);
+    vertex_vector2(3) = origin[3] + scaling*(other_2[3] - origin[3]);
+
+    imp_float alpha1, beta1, gamma1;
+    imp_float alpha2, beta2, gamma2;
+
+    // Find barycentric coordinates of new vertices in old triangle
+    if (_has_normals || _has_vertex_data_3)
+    {
+        Triangle face(Point(_vertices(0, i), _vertices(1, i), _vertices(2, i)),
+                      Point(_vertices(0, j), _vertices(1, j), _vertices(2, j)),
+                      Point(_vertices(0, k), _vertices(1, k), _vertices(2, k)));
+
+        face.computeNormalVectors();
+
+		if (face.isDegenerate())
+			return false;
+        
+        Point vertex1(vertex_vector1(0), vertex_vector1(1), vertex_vector1(2));
+        Point vertex2(vertex_vector2(0), vertex_vector2(1), vertex_vector2(2));
+
+        face.getBarycentricCoordinatesInside(vertex1, alpha1, beta1, gamma1);
+        face.getBarycentricCoordinatesInside(vertex2, alpha2, beta2, gamma2);
+	}
+	
+	// Add normals
+	if (_has_normals)
+	{
+        _normals.insert_cols(_normals.n_cols, arma::normalise(alpha1*_normals.col(i) + beta1*_normals.col(j) + gamma1*_normals.col(k)));
+        _normals.insert_cols(_normals.n_cols, arma::normalise(alpha2*_normals.col(i) + beta2*_normals.col(j) + gamma2*_normals.col(k)));
+    }
+	
+	// Add 3D vertex data
+	if (_has_vertex_data_3)
+	{
+        _vertex_data_3.insert_cols(_vertex_data_3.n_cols, alpha1*_vertex_data_3.col(i) + beta1*_vertex_data_3.col(j) + gamma1*_vertex_data_3.col(k));
+        _vertex_data_3.insert_cols(_vertex_data_3.n_cols, alpha2*_vertex_data_3.col(i) + beta2*_vertex_data_3.col(j) + gamma2*_vertex_data_3.col(k));
+    }
     
-    _has_normals = true;
+    _vertices.insert_cols(_vertices.n_cols, vertex_vector1);
+    _vertices.insert_cols(_vertices.n_cols, vertex_vector2);
+
+	return true;
 }
 
-void TriangleMesh::applyTransformation(const LinearTransformation& transformation)
+void TriangleMesh::removeBackwardFacingFaces()
 {
-    _vertices.rows(0, 2) = transformation.getMatrix().submat(0, 0, 2, 2)*_vertices.rows(0, 2);
+    imp_uint n_faces = getNumberOfFaces();
+    imp_uint i, j, k;
+    imp_float AB_x, AB_y, AC_x, AC_y;
 
-    if (_has_normals)
-        _normals = transformation.getNormalTransformMatrix()*_normals;
-}
+    for (int idx = static_cast<int>(n_faces) - 1; idx >= 0; idx--)
+    {
+        i = _faces(0, idx); j = _faces(1, idx); k = _faces(2, idx);
 
-void TriangleMesh::applyTransformation(const AffineTransformation& transformation)
-{
-    _vertices = transformation.getMatrix()*_vertices;
+        AB_x = _vertices(0, j) - _vertices(0, i);
+        AB_y = _vertices(1, j) - _vertices(1, i);
+        AC_x = _vertices(0, k) - _vertices(0, i);
+        AC_y = _vertices(1, k) - _vertices(1, i);
 
-    if (_has_normals)
-        _normals = transformation.getNormalTransformMatrix()*_normals;
-}
-
-void TriangleMesh::applyTransformation(const ProjectiveTransformation& transformation)
-{
-    _vertices = transformation.getMatrix()*_vertices;
-    _is_homogenized = false;
-    _has_normals = false;
-}
-
-void TriangleMesh::applyWindowingTransformation(const AffineTransformation& transformation)
-{
-    assert(_is_homogenized);
-    _vertices.rows(0, 1) = transformation.getMatrix().submat(0, 0, 1, 3)*_vertices;
-    _has_normals = false;
-}
-
-void TriangleMesh::homogenizeVertices()
-{
-    const arma::Row<imp_float>& norm_vals = 1/_vertices.row(3);
-    _vertices.each_row(arma::uvec({0, 1, 2})) %= norm_vals;
-    _vertices.row(3).ones();
-
-    _is_homogenized = true;
-    _has_normals = false;
-
-    return;
-}
-
-void TriangleMesh::getVertexAttributes(imp_uint face_idx, Point vertices[3], Vector normals[3]) const
-{
-    assert(_has_normals);
-
-    imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
-
-    vertices[0].moveTo(_vertices(0, i), _vertices(1, i), _vertices(2, i));
-    vertices[1].moveTo(_vertices(0, j), _vertices(1, j), _vertices(2, j));
-    vertices[2].moveTo(_vertices(0, k), _vertices(1, k), _vertices(2, k));
-
-    normals[0].setComponents(_normals(0, i), _normals(1, i), _normals(2, i));
-    normals[1].setComponents(_normals(0, j), _normals(1, j), _normals(2, j));
-    normals[2].setComponents(_normals(0, k), _normals(1, k), _normals(2, k));
+        if (AB_x*AC_y - AB_y*AC_x < 0)
+        {
+            removeFace(idx);
+        }
+    }
 }
 
 void TriangleMesh::computeAABB()
 {
+	if (_has_aabb)
+		return;
+
     _aabb.lower_corner = Point::max();
     _aabb.upper_corner = Point::min();
     
@@ -802,10 +1040,14 @@ void TriangleMesh::computeAABB()
         if      (z < _aabb.lower_corner.z) _aabb.lower_corner.z = z;
         else if (z > _aabb.upper_corner.z) _aabb.upper_corner.z = z;
     }
+
+    _has_aabb = true;
 }
 
 void TriangleMesh::computeBoundingVolumeHierarchy()
 {
+	assert(_has_aabb);
+
     imp_uint n_triangles = getNumberOfFaces();
     std::vector< AABBContainer > objects(n_triangles);
 
@@ -822,19 +1064,98 @@ void TriangleMesh::computeBoundingVolumeHierarchy()
     objects.clear();
 }
 
-bool TriangleMesh::evaluateRayAABBIntersection(const Ray& ray) const
+void TriangleMesh::computeBoundingAreaHierarchy(imp_float image_width,
+												imp_float image_height,
+												imp_float inverse_image_width_at_unit_distance_from_camera,
+												imp_float inverse_image_height_at_unit_distance_from_camera)
 {
-    return _aabb.evaluateRayIntersection(ray) < IMP_FLOAT_INF;
+    imp_uint n_triangles = getNumberOfFaces();
+    std::vector< AABRContainer > objects(n_triangles);
+
+    AxisAlignedRectangle aabr(Point2::max(), Point2::min());
+
+    for (imp_uint face_idx = 0; face_idx < n_triangles; face_idx++)
+    {
+        const Triangle2& projected_face = getProjectedFace(face_idx,
+														   image_width,
+														   image_height,
+														   inverse_image_width_at_unit_distance_from_camera,
+														   inverse_image_height_at_unit_distance_from_camera);
+
+        objects[face_idx].aabr = projected_face.getAABR();
+        aabr.merge(objects[face_idx].aabr);
+        objects[face_idx].centroid = projected_face.getCentroid();
+        objects[face_idx].id = face_idx;
+    }
+
+    _bounding_area_hierarchy = BoundingAreaHierarchy(aabr, objects);
+
+    objects.clear();
 }
 
-std::vector<imp_uint> TriangleMesh::getIntersectedFaceIndices(const Ray& ray) const
+void TriangleMesh::computeNormalVectors()
 {
-    return _bounding_volume_hierarchy.getIntersectedObjectIDs(ray);
+    if (_has_normals)
+		return;
+
+    _normals = arma::Mat<imp_float>(3, getNumberOfVertices(), arma::fill::zeros);
+    
+    imp_uint n_faces = getNumberOfFaces();
+    imp_uint i, j, k;
+
+    for (imp_uint idx = 0; idx < n_faces; idx++)
+    {
+        i = _faces(0, idx); j = _faces(1, idx); k = _faces(2, idx);
+
+        const Vector& normal = Triangle::areaVector(Point(_vertices(0, i), _vertices(1, i), _vertices(2, i)),
+                                                    Point(_vertices(0, j), _vertices(1, j), _vertices(2, j)),
+                                                    Point(_vertices(0, k), _vertices(1, k), _vertices(2, k)));
+
+        _normals(0, i) += normal.x;
+        _normals(1, i) += normal.y;
+        _normals(2, i) += normal.z;
+
+        _normals(0, j) += normal.x;
+        _normals(1, j) += normal.y;
+        _normals(2, j) += normal.z;
+
+        _normals(0, k) += normal.x;
+        _normals(1, k) += normal.y;
+        _normals(2, k) += normal.z;
+    }
+    
+    _has_normals = true;
+
+    normalizeNormalVectors();
+}
+
+void TriangleMesh::normalizeNormalVectors()
+{
+	assert(_has_normals);
+	_normals = arma::normalise(_normals);
+}
+
+void TriangleMesh::homogenizeVertices()
+{
+    const arma::Row<imp_float>& norm_vals = 1/_vertices.row(3);
+    _vertices.each_row(arma::uvec({0, 1, 2})) %= norm_vals;
+    _vertices.row(3).ones();
+
+    _is_homogenized = true;
+    _has_normals = false;
+    _has_aabb = false;
 }
 
 imp_float TriangleMesh::evaluateRayIntersection(const Ray& ray) const
 {
+	assert(_has_aabb);
     return _bounding_volume_hierarchy.evaluateRayIntersection(*this, ray);
+}
+
+bool TriangleMesh::evaluateRayAABBIntersection(const Ray& ray) const
+{
+	assert(_has_aabb);
+    return _aabb.evaluateRayIntersection(ray) < IMP_FLOAT_INF;
 }
 
 imp_float TriangleMesh::evaluateRayFaceIntersectionNonOptimized(const Ray& ray, imp_uint face_idx, imp_float& alpha, imp_float& beta, imp_float& gamma) const
@@ -955,19 +1276,226 @@ imp_float TriangleMesh::evaluateRayFaceIntersectionDistanceOnly(const Ray& ray, 
     return distance;
 }
 
+TriangleMesh& TriangleMesh::applyTransformation(const LinearTransformation& transformation)
+{
+    _vertices.rows(0, 2) = transformation.getMatrix().submat(0, 0, 2, 2)*_vertices.rows(0, 2);
+
+    if (_has_normals)
+	{
+        _normals = transformation.getNormalTransformMatrix()*_normals;
+		normalizeNormalVectors();
+	}
+
+    _has_aabb = false;
+
+	return *this;
+}
+
+TriangleMesh& TriangleMesh::applyTransformation(const AffineTransformation& transformation)
+{
+    _vertices = transformation.getMatrix()*_vertices;
+
+    if (_has_normals)
+	{
+        _normals = transformation.getNormalTransformMatrix()*_normals;
+		normalizeNormalVectors();
+	}
+	
+    _has_aabb = false;
+
+	return *this;
+}
+
+TriangleMesh& TriangleMesh::applyTransformation(const ProjectiveTransformation& transformation)
+{
+    _vertices = transformation.getMatrix()*_vertices;
+    _is_homogenized = false;
+    _has_normals = false;
+    _has_aabb = false;
+
+	return *this;
+}
+
+TriangleMesh& TriangleMesh::applyWindowingTransformation(const AffineTransformation& transformation)
+{
+    assert(_is_homogenized);
+    _vertices.rows(0, 1) = transformation.getMatrix().submat(0, 0, 1, 3)*_vertices;
+    _has_normals = false;
+    _has_aabb = false;
+
+	return *this;
+}
+
 Point TriangleMesh::getVertex(imp_uint idx) const
 {
     return Point(_vertices(0, idx), _vertices(1, idx), _vertices(2, idx));
 }
 
-Triangle TriangleMesh::getFace(imp_uint idx) const
+Vector TriangleMesh::getVertexNormal(imp_uint idx) const
 {
-    return Triangle(getVertex(_faces(0, idx)), getVertex(_faces(1, idx)), getVertex(_faces(2, idx)));
+	assert(_has_normals);
+    return Vector(_normals(0, idx), _normals(1, idx), _normals(2, idx));
+}
+
+void TriangleMesh::getVertexData3(imp_uint idx,
+								  imp_float& data_0,
+								  imp_float& data_1,
+								  imp_float& data_2) const
+{
+	assert(_has_vertex_data_3);
+
+    data_0 = _vertex_data_3(0, idx);
+    data_1 = _vertex_data_3(1, idx);
+    data_2 = _vertex_data_3(2, idx);
+}
+
+Triangle TriangleMesh::getFace(imp_uint face_idx) const
+{
+    return Triangle(getVertex(_faces(0, face_idx)), getVertex(_faces(1, face_idx)), getVertex(_faces(2, face_idx)));
+}
+
+void TriangleMesh::getFaceVertices(imp_uint face_idx, Point vertices[3]) const
+{
+    imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+
+    vertices[0].moveTo(_vertices(0, i), _vertices(1, i), _vertices(2, i));
+    vertices[1].moveTo(_vertices(0, j), _vertices(1, j), _vertices(2, j));
+    vertices[2].moveTo(_vertices(0, k), _vertices(1, k), _vertices(2, k));
+}
+
+void TriangleMesh::getFaceNormals(imp_uint face_idx, Vector normals[3]) const
+{
+    assert(_has_normals);
+
+    imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+
+    normals[0].setComponents(_normals(0, i), _normals(1, i), _normals(2, i));
+    normals[1].setComponents(_normals(0, j), _normals(1, j), _normals(2, j));
+    normals[2].setComponents(_normals(0, k), _normals(1, k), _normals(2, k));
+}
+
+void TriangleMesh::getFaceVertexData3(imp_uint face_idx,
+									  imp_float data_A[3],
+									  imp_float data_B[3],
+									  imp_float data_C[3]) const
+{
+	assert(_has_vertex_data_3);
+
+    imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+
+    data_A[0] = _vertex_data_3(0, i);
+    data_A[1] = _vertex_data_3(1, i);
+    data_A[2] = _vertex_data_3(2, i);
+
+    data_B[0] = _vertex_data_3(0, j);
+    data_B[1] = _vertex_data_3(1, j);
+    data_B[2] = _vertex_data_3(2, j);
+
+    data_C[0] = _vertex_data_3(0, k);
+    data_C[1] = _vertex_data_3(1, k);
+    data_C[2] = _vertex_data_3(2, k);
+}
+
+void TriangleMesh::getFaceAttributes(imp_uint face_idx, Point vertices[3], Vector normals[3]) const
+{
+    assert(_has_normals);
+
+    imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+
+    vertices[0].moveTo(_vertices(0, i), _vertices(1, i), _vertices(2, i));
+    vertices[1].moveTo(_vertices(0, j), _vertices(1, j), _vertices(2, j));
+    vertices[2].moveTo(_vertices(0, k), _vertices(1, k), _vertices(2, k));
+
+    normals[0].setComponents(_normals(0, i), _normals(1, i), _normals(2, i));
+    normals[1].setComponents(_normals(0, j), _normals(1, j), _normals(2, j));
+    normals[2].setComponents(_normals(0, k), _normals(1, k), _normals(2, k));
+}
+
+Geometry2D::Point TriangleMesh::getProjectedVertex(imp_uint idx,
+												   imp_float image_width,
+												   imp_float image_height,
+												   imp_float inverse_image_width_at_unit_distance_from_camera,
+												   imp_float inverse_image_height_at_unit_distance_from_camera) const
+{
+	imp_float normalization = -1/_vertices(2, idx);
+
+    return Point2(image_width*(_vertices(0, idx)*normalization*inverse_image_width_at_unit_distance_from_camera + 0.5f),
+                  image_height*(_vertices(1, idx)*normalization*inverse_image_height_at_unit_distance_from_camera + 0.5f));
+}
+
+Geometry2D::Triangle TriangleMesh::getProjectedFace(imp_uint face_idx,
+													imp_float image_width,
+													imp_float image_height,
+													imp_float inverse_image_width_at_unit_distance_from_camera,
+													imp_float inverse_image_height_at_unit_distance_from_camera) const
+{
+	imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+
+    imp_float normalization = -1/_vertices(2, i);
+    Point2 vertex_A(image_width*(_vertices(0, i)*normalization*inverse_image_width_at_unit_distance_from_camera + 0.5f),
+                    image_height*(_vertices(1, i)*normalization*inverse_image_height_at_unit_distance_from_camera + 0.5f));
+
+    normalization = -1/_vertices(2, j);
+    Point2 vertex_B(image_width*(_vertices(0, j)*normalization*inverse_image_width_at_unit_distance_from_camera + 0.5f),
+                    image_height*(_vertices(1, j)*normalization*inverse_image_height_at_unit_distance_from_camera + 0.5f));
+
+    normalization = -1/_vertices(2, k);
+    Point2 vertex_C(image_width*(_vertices(0, k)*normalization*inverse_image_width_at_unit_distance_from_camera + 0.5f),
+                    image_height*(_vertices(1, k)*normalization*inverse_image_height_at_unit_distance_from_camera + 0.5f));
+
+    return Triangle2(vertex_A, vertex_B, vertex_C);
+}
+
+bool TriangleMesh::allZAbove(imp_float z_low) const
+{
+	return arma::all(_vertices.row(2) > z_low);
+}
+
+bool TriangleMesh::isInsideParallelViewVolume() const
+{
+	assert(_has_aabb);
+	AxisAlignedBox parallel_view_volume(Point(-1, -1, -1), Point(1, 1, 0));
+	return (_aabb.intersects(parallel_view_volume)) && (!_aabb.encloses(parallel_view_volume));
+}
+
+bool TriangleMesh::faceFacesOrigin(imp_uint face_idx) const
+{
+	imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+
+    const Vector& normal = Triangle::areaVector(Point(_vertices(0, i), _vertices(1, i), _vertices(2, i)),
+                                                Point(_vertices(0, j), _vertices(1, j), _vertices(2, j)),
+                                                Point(_vertices(0, k), _vertices(1, k), _vertices(2, k)));
+
+	return (_vertices(0, i)*normal.x +
+		    _vertices(1, i)*normal.y +
+		    _vertices(2, i)*normal.z) < 0;
+}
+
+std::vector<imp_uint> TriangleMesh::getIntersectedFaceIndices(const Ray& ray) const
+{
+	assert(_has_aabb);
+    return _bounding_volume_hierarchy.getIntersectedObjectIDs(ray);
+}
+
+std::vector<imp_uint> TriangleMesh::getIntersectedFaceIndices(const Point2& pixel_center) const
+{
+    return _bounding_area_hierarchy.getIntersectedObjectIDs(pixel_center);
 }
 
 const AxisAlignedBox& TriangleMesh::getAABB() const
 {
+	assert(_has_aabb);
     return _aabb;
+}
+
+imp_uint TriangleMesh::getNumberOfVertices() const
+{
+    return static_cast<imp_uint>(_vertices.n_cols);
+}
+
+imp_uint TriangleMesh::getNumberOfFaces() const
+{
+    return static_cast<imp_uint>(_faces.n_cols);
 }
 
 std::string TriangleMesh::getVerticesString() const
@@ -989,6 +1517,21 @@ std::string TriangleMesh::getFacesString() const
     std::ostringstream string_stream;
     string_stream << _faces;
     return string_stream.str();
+}
+
+bool TriangleMesh::isHomogenized() const
+{
+    return _is_homogenized;
+}
+
+bool TriangleMesh::hasNormals() const
+{
+    return _has_normals;
+}
+
+bool TriangleMesh::hasAABB() const
+{
+    return _has_aabb;
 }
 
 void TriangleMesh::saveAs(const std::string& filename) const
@@ -1048,16 +1591,6 @@ void TriangleMesh::saveAs(const std::string& filename) const
     }
 
     outfile.close();
-}
-
-bool TriangleMesh::isHomogenized() const
-{
-    return _is_homogenized;
-}
-
-bool TriangleMesh::hasNormals() const
-{
-    return _has_normals;
 }
 
 } // Geometry3D

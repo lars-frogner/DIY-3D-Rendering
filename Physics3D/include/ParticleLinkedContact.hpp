@@ -1,14 +1,16 @@
 #pragma once
 #include "precision.hpp"
+#include "ParticleContactGenerator.hpp"
 #include "Particle.hpp"
 #include "ParticleContact.hpp"
 #include "Point3.hpp"
 #include "Vector3.hpp"
+#include <vector>
 
 namespace Impact {
 namespace Physics3D {
 
-class ParticleLink {
+class ParticleLinkedContact : public ParticleContactGenerator {
 
 private:
 	typedef Geometry3D::Point Point;
@@ -22,8 +24,10 @@ protected:
 	imp_float getCurrentDistance() const;
 
 public:
-	virtual imp_uint fillContact(ParticleContact* first_contact,
-								 imp_uint max_available_contacts) const = 0;
+	std::vector<Particle*> getInvolvedParticles() const;
+
+	ParticleLinkedContact(Particle* new_particle_1,
+						  Particle* new_particle_2);
 };
 
 } // Physics3D

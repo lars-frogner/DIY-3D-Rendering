@@ -67,6 +67,12 @@ Power HemisphereAreaLight::getTotalPower() const
     return _power;
 }
 
+void HemisphereAreaLight::setCoordinateFrame(const CoordinateFrame& cframe)
+{
+	_center = cframe.origin;
+	_direction = -cframe.basis_1;
+}
+
 void HemisphereAreaLight::applyTransformation(const LinearTransformation& transformation)
 {
     _center = transformation*_center;

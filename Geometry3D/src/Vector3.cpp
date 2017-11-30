@@ -355,6 +355,7 @@ Vector operator*(imp_float factor, const Vector& vector)
 
 Vector operator/(imp_float factor, const Vector& vector)
 {
+	assert(vector.x != 0 || vector.y != 0 || vector.z != 0);
     return Vector(factor/vector.x, factor/vector.y, factor/vector.z);
 }
 

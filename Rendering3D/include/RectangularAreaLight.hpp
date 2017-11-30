@@ -53,6 +53,8 @@ public:
 
     Power getTotalPower() const;
 
+	void setCoordinateFrame(const CoordinateFrame& cframe);
+
     void applyTransformation(const LinearTransformation& transformation);
     void applyTransformation(const AffineTransformation& transformation);
 };

@@ -25,6 +25,13 @@ AxisAlignedBox::AxisAlignedBox(const Point&  new_lower_corner,
     : lower_corner(new_lower_corner),
       upper_corner(Point(new_lower_corner).translate(width, height, depth)) {}
 
+AxisAlignedBox AxisAlignedBox::merged(const AxisAlignedBox& aab_1, const AxisAlignedBox& aab_2)
+{
+	AxisAlignedBox result(aab_1);
+	result.merge(aab_2);
+	return result;
+}
+
 Vector AxisAlignedBox::getSpan() const
 {
     return upper_corner - lower_corner;

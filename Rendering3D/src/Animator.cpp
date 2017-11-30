@@ -2,112 +2,208 @@
 #include <glut.h>
 #include <freeglut.h>
 #include <cassert>
+#include <cstdio>
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <iomanip>
 
 namespace Impact {
 namespace Rendering3D {
 
-Animator::Animator(const Simulator& new_simulator,
-				   const Scene& new_scene,
-				   const LightContainer& new_lights)
-	: _simulator(new_simulator),
-	  _scene(new_scene),
-	  _lights(new_lights),
-	  _meshes() {}
+Animator::Animator(Renderer* new_renderer,
+				   ParticleWorld* new_physics_world)
+	: _renderer(new_renderer),
+	  _physics_world(new_physics_world) {}
 
-void Animator::addMesh(const RenderableTriangleMesh& mesh)
-{
-	if (mesh.is_dynamic)
-	{
-		_n_dynamic_meshes++;
-	}
+void Animator::estimateFrameDuration(imp_float& last_duration, imp_float& running_average)
+{	
+	std::chrono::steady_clock::time_point current_time = std::chrono::high_resolution_clock::now();
 
-	_meshes.push_back(mesh);
+	last_duration = std::chrono::duration_cast< std::chrono::duration<imp_float> >(current_time - _previous_time).count();
 
-	if (!mesh.hasNormals())
-	{
-		_meshes.back().computeNormals();
-	}
+	_previous_frame_durations[_frame_count % _fps_running_average_size] = last_duration;
+	_previous_time = current_time;
+
+	running_average = 0;
+	
+	for (imp_uint i = 0; i < _fps_running_average_size; i++)
+		running_average += _previous_frame_durations[i];
+
+	running_average /= _fps_running_average_size;
 }
 
-void Animator::removeMesh(imp_uint idx)
-{
-	assert(idx < getNumberOfMeshes());
-
-	if (_meshes[idx].is_dynamic)
-		_n_dynamic_meshes--;
-
-	_meshes.erase(_meshes.begin() + idx);
-}
-
-void Animator::addDynamicBox(const Box& box, const BlinnPhongMaterial& material)
-{
-	RenderableTriangleMesh mesh = RenderableTriangleMesh::box(box);
-	mesh.is_dynamic = true;
-	mesh.setMaterial(material);
-	mesh.computeNormals();
-
-	addMesh(mesh);
-
-	_simulator.addBox(box);
-}
-
-void Animator::initialize()
+void Animator::initialize(imp_uint image_width, imp_uint image_height)
 {
 	_keys_pressed['w'] = false;
 	_keys_pressed['a'] = false;
 	_keys_pressed['s'] = false;
 	_keys_pressed['d'] = false;
+	_keys_pressed['q'] = false;
+	_keys_pressed['e'] = false;
 
-	const Image& image = getImage();
-	_image_center_x = static_cast<int>(image.getWidth())/2;
-	_image_center_y = static_cast<int>(image.getHeight())/2;
+	_image_center_x = static_cast<int>(image_width)/2;
+	_image_center_y = static_cast<int>(image_height)/2;
 
-	glutSetCursor(GLUT_CURSOR_NONE);
+	if (_camera_active)
+		glutSetCursor(GLUT_CURSOR_NONE);
 
-	_simulator.initialize();
+	_frame_count = 0;
+	_previous_time = std::chrono::high_resolution_clock::now();
 
-	assert(_simulator.getNumberOfBoxes() == _n_dynamic_meshes);
+	for (imp_uint i = 0; i < _fps_running_average_size; i++)
+		_previous_frame_durations[i] = _fps_start_value;
+
+	_saved_frames_count = 0;
 }
 
-void Animator::_transformDynamicMeshes(const std::vector<AffineTransformation>& transformations)
+void Animator::updateFrame()
 {
-	assert(transformations.size() == _n_dynamic_meshes);
+	imp_float simulation_duration;
+	imp_float simulation_timestep;
+	imp_float residual_simulation_duration;
 
-	for (imp_uint idx = 0; idx < getNumberOfMeshes(); idx++)
+	imp_float current_realtime_frame_duration_estimate;
+	imp_float measured_previous_realtime_frame_duration;
+
+	bool valid_recording_mode = _recording_active && !_simulate_realtime && !_camera_active && _physics_active;
+	bool valid_singlestepping_mode = _singlestepping_active && _physics_active && !valid_recording_mode && !_simulate_realtime && !_auto_simulation_frequency;
+	
+	estimateFrameDuration(measured_previous_realtime_frame_duration, current_realtime_frame_duration_estimate);
+	
+	if (valid_recording_mode)
 	{
-		RenderableTriangleMesh& mesh = _meshes[idx];
-
-		if (mesh.is_dynamic)
-			mesh.applyTransformation(transformations[idx]);
+		simulation_timestep = _fixed_simulation_timestep;
+		simulation_duration = _recording_playback_speed*_video_frame_duration;
+		_simulation_frequency = static_cast<imp_uint>(simulation_duration/simulation_timestep);
+		residual_simulation_duration = simulation_duration - _simulation_frequency*simulation_timestep;
+		
+		if (residual_simulation_duration < _minimum_simulation_timestep)
+		{
+			simulation_duration -= residual_simulation_duration;
+			residual_simulation_duration = 0;
+		}
 	}
-}
-
-void Animator::updateScene()
-{
-	_simulator.step();
-	_transformDynamicMeshes(_simulator.getTransformations());
-
-	moveCamera();
-
-	if (_camera_moved)
+	else if (_simulate_realtime)
 	{
-		_scene.transformCameraLookRay(_camera_look_ray_transformation);
-		_camera_look_ray_transformation.setToIdentity();
-		glutWarpPointer(_image_center_x, _image_center_y);
-		_camera_moved = false;
+		simulation_duration = current_realtime_frame_duration_estimate;
+		simulation_timestep = simulation_duration/_simulation_frequency;
+
+		if (simulation_timestep < _minimum_simulation_timestep)
+		{
+			simulation_timestep = _minimum_simulation_timestep;
+			_simulation_frequency = static_cast<imp_uint>(simulation_duration/simulation_timestep);
+		}
+	}
+	else if (valid_singlestepping_mode)
+	{
+		simulation_timestep = _fixed_simulation_timestep;
+		simulation_duration = simulation_timestep;
+	}
+	else
+	{
+		simulation_timestep = _fixed_simulation_timestep;
+		simulation_duration = _simulation_frequency*simulation_timestep;
 	}
 
-	if (render_mode == 0)
+	if (_physics_active && !(valid_singlestepping_mode && !_single_step_requested))
 	{
-		_scene.renderDirect(_meshes, _lights);
+		auto start_time = std::chrono::high_resolution_clock::now();
+
+		for (imp_uint i = 0; i < _simulation_frequency; i++)
+		{
+			_physics_world->performPerFrameInitialization();
+			_physics_world->advance(simulation_timestep);
+		}
+
+		auto end_time = std::chrono::high_resolution_clock::now();
+
+		imp_float measured_realtime_simulation_duration = std::chrono::duration_cast< std::chrono::duration<imp_float> >(end_time - start_time).count();
+
+		if (valid_recording_mode)
+		{
+			if (residual_simulation_duration > 0)
+			{
+				_physics_world->performPerFrameInitialization();
+				_physics_world->advance(residual_simulation_duration);
+			}
+		}
+		else if (_auto_simulation_frequency)
+		{
+			imp_int adjustment = static_cast<imp_int>(_optimal_simulation_to_rendering_ratio
+												  	  *(current_realtime_frame_duration_estimate
+													  /measured_realtime_simulation_duration
+													  - 1)
+													  *_auto_simulation_frequency_response);
+
+			if (adjustment > 1 - static_cast<imp_int>(_simulation_frequency))
+				_simulation_frequency = static_cast<imp_uint>(static_cast<imp_int>(_simulation_frequency) + adjustment);
+			else
+				_simulation_frequency = 1;
+		}
+		else if (valid_singlestepping_mode)
+		{
+			_single_step_requested = false;
+		}
+
+		_physics_world->updateTransformations();
+
+		_elapsed_simulation_time += simulation_duration;
 	}
-	else if (render_mode == 1)
+
+	if (_camera_active)
 	{
-		_scene.rayTrace(_meshes, _lights);
+		moveCamera(current_realtime_frame_duration_estimate);
+
+		if (_camera_moved)
+		{
+			_renderer->transformCameraLookRay(_camera_look_ray_transformation);
+			_camera_look_ray_transformation.setToIdentity();
+			glutWarpPointer(_image_center_x, _image_center_y);
+			_camera_moved = false;
+		}
+	}
+
+	if (_rendering_mode == 0)
+	{
+		_renderer->renderDirect();
+	}
+	else if (_rendering_mode == 1)
+	{
+		_renderer->rayTrace();
+	}
+	else if (_rendering_mode == 2)
+	{
+		_renderer->rasterize();
 	}
 	else
 	{
 		std::cerr << "Warning: rendering disabled" << std::endl;
+	}
+
+	if (valid_recording_mode)
+	{
+		saveFrame();
+	}
+
+	if (_print_time_info)
+	{
+		printf("%d%s%s%s%s%s%s%s%s%s%s | fps: %.1f | dt: %.2g s | freq: %d | time: %.2g s\n",
+			    _rendering_mode,
+				(_renderer->gamma_encode)? "g" : "",
+				(_renderer->render_depth_map)? "z" : "",
+				(_renderer->draw_edges)? "l" : "",
+				(_physics_active)? "p" : "",
+				(_simulate_realtime)? "r" : "",
+				(_auto_simulation_frequency)? "b" : "",
+				(_singlestepping_active)? "x" : "",
+				(_camera_active)? "c" : "",
+				(_recording_active)? "t" : "",
+				(_renderer->use_omp)? "y" : "",
+				1/current_realtime_frame_duration_estimate,
+				simulation_timestep,
+				_simulation_frequency,
+				_elapsed_simulation_time);
 	}
 }
 
@@ -127,26 +223,27 @@ void Animator::stopCameraMove(unsigned char key)
 	}
 }
 
-void Animator::moveCamera()
+void Animator::moveCamera(imp_float frame_duration)
 {
 	imp_float du = 0.0, dv = 0.0, dw = 0.0;
+	imp_float camera_movement = _camera_movement_speed*frame_duration;
 
 	if (_keys_pressed['a'])
-		du += camera_movement_speed;
+		du += camera_movement;
 	if (_keys_pressed['d'])
-		du -= camera_movement_speed;
+		du -= camera_movement;
 	if (_keys_pressed['q'])
-		dv += camera_movement_speed;
+		dv += camera_movement;
 	if (_keys_pressed['e'])
-		dv -= camera_movement_speed;
+		dv -= camera_movement;
 	if (_keys_pressed['w'])
-		dw += camera_movement_speed;
+		dw += camera_movement;
 	if (_keys_pressed['s'])
-		dw -= camera_movement_speed;
+		dw -= camera_movement;
 
 	if (du != 0 || dv != 0 || dw != 0)
 	{
-		const CoordinateFrame& cframe = _scene.getCamera().getCoordinateFrame();
+		const CoordinateFrame& cframe = _renderer->getCamera().getCoordinateFrame();
 
 		_camera_look_ray_transformation = AffineTransformation::translation(-du*cframe.basis_1 + dv*cframe.basis_2 - dw*cframe.basis_3)
 										  *_camera_look_ray_transformation;
@@ -157,10 +254,13 @@ void Animator::moveCamera()
 
 void Animator::rotateCamera(int x, int y)
 {
-	imp_float dphi = -static_cast<imp_float>(x - _image_center_x)*camera_rotation_speed;
-	imp_float dtheta = -static_cast<imp_float>(y - _image_center_y)*camera_rotation_speed;
+	if (!_camera_active)
+		return;
 
-	const CoordinateFrame& cframe = _scene.getCamera().getCoordinateFrame();
+	imp_float dphi = -static_cast<imp_float>(x - _image_center_x)*_camera_rotation_speed;
+	imp_float dtheta = -static_cast<imp_float>(y - _image_center_y)*_camera_rotation_speed;
+
+	const CoordinateFrame& cframe = _renderer->getCamera().getCoordinateFrame();
 
 	_camera_look_ray_transformation = AffineTransformation::rotationAboutRay(Ray(cframe.origin, cframe.basis_1), dtheta)
 									  *AffineTransformation::rotationAboutRay(Ray(cframe.origin, cframe.basis_2), dphi)
@@ -169,47 +269,135 @@ void Animator::rotateCamera(int x, int y)
 	_camera_moved = true;
 }
 
-void Animator::drawInfo() const
+void Animator::togglePhysics()
 {
-	_renderString(0, 0, GLUT_BITMAP_TIMES_ROMAN_24, "test");
+	_physics_active = !_physics_active;
 }
 
-imp_uint Animator::getNumberOfMeshes() const
+void Animator::cycleRenderingMode()
 {
-	return static_cast<imp_uint>(_meshes.size());
+	_rendering_mode = (_rendering_mode + 1) % 3;
 }
 
-imp_uint Animator::getNumberOfStaticMeshes() const
+void Animator::toggleInteractiveCamera()
 {
-	return getNumberOfMeshes() - getNumberOfDynamicMeshes();
+	_camera_active = !_camera_active;
+
+	if (_camera_active)
+		glutSetCursor(GLUT_CURSOR_NONE);
+	else
+		glutSetCursor(GLUT_CURSOR_INHERIT);
 }
 
-imp_uint Animator::getNumberOfDynamicMeshes() const
+void Animator::toggleRealtimeSimulation()
 {
-	return _n_dynamic_meshes;
+	_simulate_realtime = !_simulate_realtime;
 }
 
-const RenderableTriangleMesh& Animator::getMesh(imp_uint idx) const
+void Animator::increaseFixedSimulationTimestep()
 {
-	assert(idx < getNumberOfMeshes());
-	return _meshes[idx];
+	_fixed_simulation_timestep *= _simulation_timestep_increment_ratio;
 }
 
-RenderableTriangleMesh& Animator::getMesh(imp_uint idx)
+void Animator::decreaseFixedSimulationTimestep()
 {
-	assert(idx < getNumberOfMeshes());
-	return _meshes[idx];
+	_fixed_simulation_timestep /= _simulation_timestep_increment_ratio;
 }
 
-const Image& Animator::getImage() const
+void Animator::increaseSimulationFrequency()
 {
-	return _scene.getImage();
+	if (static_cast<imp_uint>(_simulation_frequency*_simulation_frequency_increment_ratio) > _simulation_frequency)
+		_simulation_frequency = static_cast<imp_uint>(_simulation_frequency*_simulation_frequency_increment_ratio);
+	else
+		_simulation_frequency++;
 }
 
-void Animator::_renderString(int x, int y, void* glut_font, const std::string& text)
+void Animator::decreaseSimulationFrequency()
 {
-	glRasterPos2i(x, y);
-	glutBitmapString(glut_font, (const unsigned char*)text.c_str());
+	if (static_cast<imp_uint>(_simulation_frequency/_simulation_frequency_increment_ratio) < _simulation_frequency)
+		_simulation_frequency = static_cast<imp_uint>(_simulation_frequency/_simulation_frequency_increment_ratio);
+	else if (_simulation_frequency > 1)
+		_simulation_frequency--;
+}
+
+void Animator::toggleAutomaticSimulationTimestep()
+{
+	_auto_simulation_frequency = !_auto_simulation_frequency;
+}
+
+void Animator::increaseSimulationPriority()
+{
+	_optimal_simulation_to_rendering_ratio *= _simulation_weight_increment_ratio;
+}
+
+void Animator::decreaseSimulationPriority()
+{
+	_optimal_simulation_to_rendering_ratio /= _simulation_weight_increment_ratio;
+}
+
+void Animator::toggleInfoPrinting()
+{
+	_print_time_info = !_print_time_info;
+}
+
+void Animator::cycleDepthMapRendering()
+{
+	if (!(_renderer->render_depth_map))
+	{
+		_renderer->render_depth_map = true;
+		_renderer->renormalize_depth_map = true;
+	}
+	else if (_renderer->render_depth_map && _renderer->renormalize_depth_map)
+	{
+		_renderer->renormalize_depth_map = false;
+	}
+	else
+	{
+		_renderer->render_depth_map = false;
+	}
+}
+
+void Animator::toggleGammaEncoding()
+{
+	_renderer->gamma_encode = !(_renderer->gamma_encode);
+}
+
+void Animator::toggleEdgeRendering()
+{
+	_renderer->draw_edges = !(_renderer->draw_edges);
+}
+
+void Animator::toggleRecording()
+{
+	_recording_active = !_recording_active;
+}
+
+void Animator::toggleSinglestepping()
+{
+	_singlestepping_active = !_singlestepping_active;
+
+	if (_singlestepping_active)
+		_simulation_frequency = 1;
+	else
+		_simulation_frequency = _default_simulation_frequency;
+}
+
+void Animator::performSingleStep()
+{
+	_single_step_requested = true;
+}
+
+void Animator::terminate()
+{
+	glutLeaveMainLoop();
+}
+
+void Animator::saveFrame()
+{
+	std::ostringstream string_stream;
+    string_stream << "data/saved_frames/frame_" << std::setfill('0') << std::setw(4) << _saved_frames_count << ".ppm";
+	_renderer->saveImage(string_stream.str());
+	_saved_frames_count++;
 }
 
 } // Rendering3D

@@ -15,6 +15,7 @@ private:
     Point _A, _B, _C;
     Vector _normal, _AB_normal, _AC_normal;
     imp_float _area;
+	bool _is_degenerate = false;
 
 public:
     Triangle(const Point& new_A,
@@ -50,8 +51,10 @@ public:
     Triangle& translate(imp_float dx, imp_float dy, imp_float dz);
     Triangle& translate(const Vector& displacement);
 
-    Triangle& computeNormals();
+    Triangle& computeNormalVectors();
     
+	bool isDegenerate() const;
+
     Plane getPlane() const;
     Plane getPlaneNoBasis() const;
     AxisAlignedBox getAABB() const;

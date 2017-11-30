@@ -25,9 +25,9 @@ public:
 
 	void setMaxIterations(imp_uint max_iterations);
 
-	void resolve(imp_uint n_contacts,
-				 ParticleContact contacts[],
-				 imp_float duration);
+	void resolveContacts(imp_uint n_contacts,
+						 ParticleContact contacts[],
+						 imp_float duration);
 };
 
 } // Physics3D

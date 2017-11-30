@@ -23,6 +23,14 @@ public:
     static Color red();
     static Color green();
     static Color blue();
+    static Color yellow();
+    static Color cyan();
+    static Color magenta();
+    static Color orange();
+    static Color maroon();
+    static Color pink();
+    static Color purple();
+    static Color gold();
     
     Color  operator+ (const Color& other) const;
     Color  operator- (const Color& other) const;

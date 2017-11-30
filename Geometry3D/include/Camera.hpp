@@ -20,8 +20,6 @@ private:
 
     CoordinateFrame _coordinate_frame;
 
-    CoordinateFrame _getCoordinateFrame() const;
-
 public:
 
     Camera();
@@ -31,10 +29,15 @@ public:
            imp_float new_far_plane_distance,
            imp_float new_field_of_view);
 
+    static CoordinateFrame getCoordinateFrame(const Point& position,
+											  const Vector& look_direction,
+											  const Vector& up_direction);
+
 	void transformLookRay(const AffineTransformation& transformation);
     
     const Point& getPosition() const;
 	const Vector& getLookDirection() const;
+	const Vector& getUpDirection() const;
     imp_float getFieldOfView() const;
     imp_float getNearPlaneDistance() const;
     imp_float getFarPlaneDistance() const;

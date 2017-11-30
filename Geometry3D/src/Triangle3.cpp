@@ -91,19 +91,19 @@ void Triangle::getBarycentricCoordinates(const Point X,
 Triangle& Triangle::setPointA(const Point& new_A)
 {
     _A = new_A;
-    return computeNormals();
+    return computeNormalVectors();
 }
 
 Triangle& Triangle::setPointB(const Point& new_B)
 {
     _B = new_B;
-    return computeNormals();
+    return computeNormalVectors();
 }
 
 Triangle& Triangle::setPointC(const Point& new_C)
 {
     _C = new_C;
-    return computeNormals();
+    return computeNormalVectors();
 }
 
 Triangle& Triangle::setPoints(const Point& new_A,
@@ -111,7 +111,7 @@ Triangle& Triangle::setPoints(const Point& new_A,
                               const Point& new_C)
 {
     _A = new_A; _B = new_B; _C = new_C;
-    return computeNormals();
+    return computeNormalVectors();
 }
 
 Triangle& Triangle::translate(imp_float dx, imp_float dy, imp_float dz)
@@ -130,11 +130,19 @@ Triangle& Triangle::translate(const Vector& displacement)
     return *this;
 }
 
-Triangle& Triangle::computeNormals()
+Triangle& Triangle::computeNormalVectors()
 {
     _normal = areaVector(_A, _B, _C);
     _area = _normal.getLength();
-    assert(_area > 0);
+
+    if (_area <= 0)
+	{
+		_is_degenerate = true;
+		return *this;
+	}
+
+	_is_degenerate = false;
+
     _normal /= _area;
 
     const Vector& AB = _B - _A;
@@ -145,6 +153,11 @@ Triangle& Triangle::computeNormals()
     _AC_normal /= _AC_normal.dot(AB);
 
     return *this;
+}
+
+bool Triangle::isDegenerate() const
+{
+	return _is_degenerate;
 }
 
 Plane Triangle::getPlane() const

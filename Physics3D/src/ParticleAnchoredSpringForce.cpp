@@ -20,6 +20,9 @@ void ParticleAnchoredSpringForce::addForce(Particle* particle, imp_float duratio
 {
 	Vector vector = particle->getPosition() - _anchor_point;
 
+	if (vector.x == 0 && vector.y == 0 && vector.z == 0)
+		return;
+
 	imp_float force = -_spring_constant*abs(vector.getLength() - _rest_length);
 
 	vector.normalize();

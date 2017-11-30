@@ -29,7 +29,7 @@ void ParticleAnchoredStiffSpringForce::addForce(Particle* particle, imp_float du
 	Vector displacement = particle->getPosition() - _anchor_point;
 	Vector correction = (0.5f*_damping*displacement + particle->getVelocity())/_angular_frequency;
 	Vector target_displacement = (displacement*cos(_angular_frequency*duration) + correction*sin(_angular_frequency*duration))*exp(-0.5f*_damping*duration);
-	Vector acceleration = (target_displacement - displacement)/(duration*duration) - particle->getVelocity()*duration;
+	Vector acceleration = ((target_displacement - displacement)/duration - particle->getVelocity())/duration;
 
 	particle->addForce(acceleration*particle->getMass());
 }

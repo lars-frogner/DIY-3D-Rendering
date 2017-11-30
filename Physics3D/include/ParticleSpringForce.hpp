@@ -24,6 +24,7 @@ protected:
 	imp_float _rest_length;
 
 	bool _has_calculated_force = false;
+	bool _force_is_zero = false;
 
 public:
 

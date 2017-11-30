@@ -12,6 +12,8 @@ public:
     Point origin;
     Vector basis_1, basis_2, basis_3;
 
+    CoordinateFrame();
+
     CoordinateFrame(const Point&  new_origin,
                     const Vector& new_basis_1,
                     const Vector& new_basis_2,

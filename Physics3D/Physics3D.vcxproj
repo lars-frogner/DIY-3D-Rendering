@@ -25,16 +25,22 @@
     <ClInclude Include="include\ParticleAnchoredStiffSpringForce.hpp" />
     <ClInclude Include="include\ParticleBungeeForce.hpp" />
     <ClInclude Include="include\ParticleBuoyancyForce.hpp" />
-    <ClInclude Include="include\ParticleCable.hpp" />
+    <ClInclude Include="include\ParticleCableContact.hpp" />
     <ClInclude Include="include\ParticleContact.hpp" />
+    <ClInclude Include="include\ParticleContactGenerator.hpp" />
     <ClInclude Include="include\ParticleContactResolver.hpp" />
     <ClInclude Include="include\ParticleDragForce.hpp" />
     <ClInclude Include="include\ParticleForceGenerator.hpp" />
     <ClInclude Include="include\ParticleForceRegistry.hpp" />
     <ClInclude Include="include\ParticleGravityForce.hpp" />
-    <ClInclude Include="include\ParticleLink.hpp" />
-    <ClInclude Include="include\ParticleRod.hpp" />
+    <ClInclude Include="include\ParticleUniformGravityForce.hpp" />
+    <ClInclude Include="include\ParticleLinkedContact.hpp" />
+    <ClInclude Include="include\ParticleParticleContact.hpp" />
+    <ClInclude Include="include\ParticlePlaneContact.hpp" />
+    <ClInclude Include="include\ParticleRodContact.hpp" />
     <ClInclude Include="include\ParticleSpringForce.hpp" />
+    <ClInclude Include="include\ParticleWorld.hpp" />
+    <ClInclude Include="include\RigidBody.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Particle.cpp" />
@@ -43,15 +49,20 @@
     <ClCompile Include="src\ParticleAnchoredStiffSpringForce.cpp" />
     <ClCompile Include="src\ParticleBungeeForce.cpp" />
     <ClCompile Include="src\ParticleBuoyancyForce.cpp" />
-    <ClCompile Include="src\ParticleCable.cpp" />
+    <ClCompile Include="src\ParticleCableContact.cpp" />
     <ClCompile Include="src\ParticleContact.cpp" />
     <ClCompile Include="src\ParticleContactResolver.cpp" />
     <ClCompile Include="src\ParticleDragForce.cpp" />
     <ClCompile Include="src\ParticleForceRegistry.cpp" />
     <ClCompile Include="src\ParticleGravityForce.cpp" />
-    <ClCompile Include="src\ParticleLink.cpp" />
-    <ClCompile Include="src\ParticleRod.cpp" />
+    <ClCompile Include="src\ParticleUniformGravityForce.cpp" />
+    <ClCompile Include="src\ParticleLinkedContact.cpp" />
+    <ClCompile Include="src\ParticleParticleContact.cpp" />
+    <ClCompile Include="src\ParticlePlaneContact.cpp" />
+    <ClCompile Include="src\ParticleRodContact.cpp" />
     <ClCompile Include="src\ParticleSpringForce.cpp" />
+    <ClCompile Include="src\ParticleWorld.cpp" />
+    <ClCompile Include="src\RigidBody.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -119,7 +130,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)Physics3D\include\;$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Physics3D\include\;$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\;$(SolutionDir)External\Armadillo\include</AdditionalIncludeDirectories>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
@@ -143,7 +154,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)Physics3D\include\;$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Physics3D\include\;$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\;$(SolutionDir)External\Armadillo\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Lib>
       <AdditionalLibraryDirectories>$(SolutionDir)Geometry3D\bin\$(Platform)\$(Configuration)\</AdditionalLibraryDirectories>

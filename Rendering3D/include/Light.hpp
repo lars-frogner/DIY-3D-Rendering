@@ -21,6 +21,9 @@ private:
     typedef Geometry3D::AffineTransformation AffineTransformation;
 
 public:
+	bool creates_shadows = true;
+	Radiance ambient_radiance = Radiance::black();
+
     virtual CoordinateFrame getCoordinateFrame() const = 0;
     virtual imp_float getSurfaceArea() const = 0;
     virtual imp_uint getNumberOfSamples() const = 0;
@@ -32,6 +35,8 @@ public:
     virtual Power getTotalPower() const = 0;
     //virtual Color getEmittedPhoton(Point& photon_origin,
     //                               Vector& photon_direction) const = 0;
+
+	virtual void setCoordinateFrame(const CoordinateFrame& cframe) = 0;
 
     virtual void applyTransformation(const LinearTransformation& transformation) = 0;
     virtual void applyTransformation(const AffineTransformation& transformation) = 0;

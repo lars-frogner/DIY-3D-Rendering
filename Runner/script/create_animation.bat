@@ -1,0 +1,1 @@
+ffmpeg -f image2 -r 30 -i "..\data\saved_frames\frame_%%04d.ppm" -b 5000k ../animation.mp4

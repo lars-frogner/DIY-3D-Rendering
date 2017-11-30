@@ -26,16 +26,15 @@
     <ClInclude Include="include\HemisphereAreaLight.hpp" />
     <ClInclude Include="include\Image.hpp" />
     <ClInclude Include="include\Light.hpp" />
-    <ClInclude Include="include\LightContainer.hpp" />
     <ClInclude Include="include\Material.hpp" />
+    <ClInclude Include="include\material_assets.hpp" />
     <ClInclude Include="include\OmnidirectionalLight.hpp" />
     <ClInclude Include="include\RectangularAreaLight.hpp" />
-    <ClInclude Include="include\RenderableTriangleMesh.hpp" />
-    <ClInclude Include="include\Scene.hpp" />
+    <ClInclude Include="include\RenderableParticle.hpp" />
+    <ClInclude Include="include\Renderer.hpp" />
     <ClInclude Include="include\SceneGraph.hpp" />
-    <ClInclude Include="include\Simulator.hpp" />
-    <ClInclude Include="include\Vertex2.hpp" />
-    <ClInclude Include="include\Vertex3.hpp" />
+    <ClInclude Include="include\RenderableObject.hpp" />
+    <ClInclude Include="include\World.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Animator.cpp" />
@@ -44,15 +43,14 @@
     <ClCompile Include="src\DirectionalLight.cpp" />
     <ClCompile Include="src\HemisphereAreaLight.cpp" />
     <ClCompile Include="src\Image.cpp" />
-    <ClCompile Include="src\LightContainer.cpp" />
+    <ClCompile Include="src\material_assets.cpp" />
     <ClCompile Include="src\OmnidirectionalLight.cpp" />
     <ClCompile Include="src\RectangularAreaLight.cpp" />
-    <ClCompile Include="src\RenderableTriangleMesh.cpp" />
-    <ClCompile Include="src\Scene.cpp" />
+    <ClCompile Include="src\RenderableParticle.cpp" />
+    <ClCompile Include="src\Renderer.cpp" />
     <ClCompile Include="src\SceneGraph.cpp" />
-    <ClCompile Include="src\Simulator.cpp" />
-    <ClCompile Include="src\Vertex2.cpp" />
-    <ClCompile Include="src\Vertex3.cpp" />
+    <ClCompile Include="src\RenderableObject.cpp" />
+    <ClCompile Include="src\World.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
@@ -127,7 +125,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)Rendering3D\include\;$(SolutionDir)Physics3D\include\;$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\;$(VS_DEPENDENCIES)\Armadillo\include;$(VS_DEPENDENCIES)\GLEW\include;$(VS_DEPENDENCIES)\freeglut\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Rendering3D\include\;$(SolutionDir)Physics3D\include\;$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\;$(SolutionDir)External\Armadillo\include;$(SolutionDir)External\GLEW\include;$(SolutionDir)External\freeglut\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OpenMPSupport>true</OpenMPSupport>
       <PreprocessorDefinitions>RENDERING3D_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
@@ -181,7 +179,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)Rendering3D\include\;$(SolutionDir)Physics3D\include\;$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\;$(VS_DEPENDENCIES)\Armadillo\include;$(VS_DEPENDENCIES)\GLEW\include;$(VS_DEPENDENCIES)\freeglut\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Rendering3D\include\;$(SolutionDir)Physics3D\include\;$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\;$(SolutionDir)External\Armadillo\include;$(SolutionDir)External\GLEW\include;$(SolutionDir)External\freeglut\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OpenMPSupport>true</OpenMPSupport>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <PreprocessorDefinitions>RENDERING3D_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>

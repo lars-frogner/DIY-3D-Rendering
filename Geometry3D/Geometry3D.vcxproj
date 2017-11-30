@@ -28,9 +28,11 @@
     <ClInclude Include="include\Camera.hpp" />
     <ClInclude Include="include\CoordinateFrame.hpp" />
     <ClInclude Include="include\LinearTransformation.hpp" />
+    <ClInclude Include="include\mesh_assets.hpp" />
     <ClInclude Include="include\Plane.hpp" />
     <ClInclude Include="include\Point3.hpp" />
     <ClInclude Include="include\ProjectiveTransformation.hpp" />
+    <ClInclude Include="include\Quaternion.hpp" />
     <ClInclude Include="include\Ray.hpp" />
     <ClInclude Include="include\Sphere.hpp" />
     <ClInclude Include="include\Transformation.hpp" />
@@ -49,9 +51,11 @@
     <ClCompile Include="src\Camera.cpp" />
     <ClCompile Include="src\CoordinateFrame.cpp" />
     <ClCompile Include="src\LinearTransformation.cpp" />
+    <ClCompile Include="src\mesh_assets.cpp" />
     <ClCompile Include="src\Plane.cpp" />
     <ClCompile Include="src\Point3.cpp" />
     <ClCompile Include="src\ProjectiveTransformation.cpp" />
+    <ClCompile Include="src\Quaternion.cpp" />
     <ClCompile Include="src\Ray.cpp" />
     <ClCompile Include="src\Sphere.cpp" />
     <ClCompile Include="src\Triangle3.cpp" />
@@ -144,7 +148,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\;$(VS_DEPENDENCIES)\Armadillo\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\;$(SolutionDir)External\Armadillo\include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>GEOMETRY3D_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -182,7 +186,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\;$(VS_DEPENDENCIES)\Armadillo\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\;$(SolutionDir)External\Armadillo\include</AdditionalIncludeDirectories>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <PreprocessorDefinitions>GEOMETRY3D_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>

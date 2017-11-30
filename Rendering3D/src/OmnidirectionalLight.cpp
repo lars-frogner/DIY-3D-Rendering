@@ -44,6 +44,11 @@ Power OmnidirectionalLight::getTotalPower() const
     return _power;
 }
 
+void OmnidirectionalLight::setCoordinateFrame(const CoordinateFrame& cframe)
+{
+	_origin = cframe.origin;
+}
+
 void OmnidirectionalLight::applyTransformation(const LinearTransformation& transformation)
 {
     _origin = transformation*_origin;

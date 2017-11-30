@@ -8,34 +8,56 @@ AffineTransformation::AffineTransformation()
     : _matrix(4, 4, arma::fill::eye),
       _normal_transform_matrix(3, 3, arma::fill::eye) {}
 
+AffineTransformation::AffineTransformation(const LinearTransformation& other)
+	: _matrix(other._matrix),
+	  _normal_transform_matrix(other._normal_transform_matrix) {}
+
 AffineTransformation::AffineTransformation(const arma::Mat<imp_float>& new_matrix)
     : _matrix(new_matrix),
       _normal_transform_matrix(new_matrix.submat(0, 0, 2, 2).t().i()) {}
 
+AffineTransformation::AffineTransformation(const arma::Mat<imp_float>& new_matrix,
+										   const arma::Mat<imp_float>& new_normal_transform_matrix)
+    : _matrix(new_matrix),
+      _normal_transform_matrix(new_normal_transform_matrix) {}
+
 AffineTransformation AffineTransformation::translation(imp_float dx, imp_float dy, imp_float dz)
 {
-    AffineTransformation transformation;
-    transformation._matrix(0, 3) = dx;
-    transformation._matrix(1, 3) = dy;
-    transformation._matrix(2, 3) = dz;
+    arma::Mat<imp_float> matrix(4, 4, arma::fill::eye);
 
-    return transformation;
+    matrix(0, 3) = dx;
+    matrix(1, 3) = dy;
+    matrix(2, 3) = dz;
+
+    return AffineTransformation(matrix);
 }
 
 AffineTransformation AffineTransformation::translation(const Vector& displacement)
 {
-    AffineTransformation transformation;
-    transformation._matrix(0, 3) = displacement.x;
-    transformation._matrix(1, 3) = displacement.y;
-    transformation._matrix(2, 3) = displacement.z;
+    arma::Mat<imp_float> matrix(4, 4, arma::fill::eye);
 
-    return transformation;
+    matrix(0, 3) = displacement.x;
+    matrix(1, 3) = displacement.y;
+    matrix(2, 3) = displacement.z;
+	
+    return AffineTransformation(matrix);
+}
+
+AffineTransformation AffineTransformation::translationTo(const Point& position)
+{
+    arma::Mat<imp_float> matrix(4, 4, arma::fill::eye);
+
+    matrix(0, 3) = position.x;
+    matrix(1, 3) = position.y;
+    matrix(2, 3) = position.z;
+	
+    return AffineTransformation(matrix);
 }
 
 AffineTransformation AffineTransformation::rotationAboutRay(const Ray& ray, imp_float angle)
 {
     return translation(ray.origin.x, ray.origin.y, ray.origin.z)
-           *LinearTransformation::rotationAboutAxis(ray.direction, angle)
+           *LinearTransformation::rotation(ray.direction, angle)
            *translation(-ray.origin.x, -ray.origin.y, -ray.origin.z);
 }
 
@@ -50,7 +72,7 @@ AffineTransformation AffineTransformation::pointAndVectorsToPointAndVectors(cons
 {
     return translation(to_pt.x, to_pt.y, to_pt.z)
            *LinearTransformation::vectorsToVectors(from_vec_1, from_vec_2, from_vec_3,
-                                                      to_vec_1, to_vec_2, to_vec_3)
+                                                   to_vec_1, to_vec_2, to_vec_3)
            *translation(-from_pt.x, -from_pt.y, -from_pt.z);
 }
 
@@ -83,24 +105,27 @@ AffineTransformation AffineTransformation::windowing(imp_float width, imp_float 
 {
     imp_float half_width = width/2;
     imp_float half_height = height/2;
+	
+    arma::Mat<imp_float> matrix(4, 4, arma::fill::eye);
 
-    AffineTransformation transformation;
-    transformation._matrix(0, 0) = half_width;
-    transformation._matrix(0, 3) = half_width;
-    transformation._matrix(1, 1) = half_height;
-    transformation._matrix(1, 3) = half_height;
-
-    return transformation;
+    matrix(0, 0) = half_width;
+    matrix(0, 3) = half_width;
+    matrix(1, 1) = half_height;
+    matrix(1, 3) = half_height;
+	
+    return AffineTransformation(matrix);
 }
 
 AffineTransformation AffineTransformation::operator*(const LinearTransformation& other) const
 {
-    return AffineTransformation(_matrix*other._matrix);
+    return AffineTransformation(_matrix*other._matrix,
+								_normal_transform_matrix*other._normal_transform_matrix);
 }
 
 AffineTransformation AffineTransformation::operator*(const AffineTransformation& other) const
 {
-    return AffineTransformation(_matrix*other._matrix);
+    return AffineTransformation(_matrix*other._matrix,
+								_normal_transform_matrix*other._normal_transform_matrix);
 }
 
 ProjectiveTransformation AffineTransformation::operator*(const ProjectiveTransformation& other) const
@@ -176,7 +201,7 @@ void AffineTransformation::setToIdentity()
 
 AffineTransformation AffineTransformation::getInverse() const
 {
-    return AffineTransformation(_matrix.i());
+    return AffineTransformation(_matrix.i(), _normal_transform_matrix.i());
 }
 
 const arma::Mat<imp_float>& AffineTransformation::getMatrix() const

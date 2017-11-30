@@ -7,6 +7,25 @@ namespace Geometry2D {
 
 BoundingAreaHierarchy::BoundingAreaHierarchy() {}
 
+/*BoundingAreaHierarchy::BoundingAreaHierarchy(const BoundingAreaHierarchy& other)
+{
+	if (other._root_node)
+		_root_node = node_ptr(new BAHNode(*other._root_node));
+}
+
+BoundingAreaHierarchy::~BoundingAreaHierarchy()
+{
+	_root_node.reset();
+}
+
+BoundingAreaHierarchy& BoundingAreaHierarchy::operator=(const BoundingAreaHierarchy& other)
+{
+	if (other._root_node)
+		_root_node = node_ptr(new BAHNode(*other._root_node));
+
+	return *this;
+}*/
+
 BoundingAreaHierarchy::BoundingAreaHierarchy(const AxisAlignedRectangle& bounding_area,
 											 const std::vector<AABRContainer>& objects)
 {

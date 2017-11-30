@@ -5,8 +5,8 @@
 namespace Impact {
 namespace Rendering3D {
 
-SceneGraph::SceneGraph(const RenderableTriangleMesh& root_object)
-    : _object_ptr(new RenderableTriangleMesh(root_object)),
+SceneGraph::SceneGraph(const TriangleMesh& root_object)
+    : _object_ptr(new TriangleMesh(root_object)),
      _is_transformation_node(false) {}
 
 SceneGraph::SceneGraph(const LinearTransformation& root_transformation)
@@ -18,7 +18,7 @@ SceneGraph::SceneGraph(const AffineTransformation& root_transformation)
      _is_transformation_node(true) {}
 
 SceneGraph::SceneGraph(SceneGraph* new_parent_ptr,
-                       RenderableTriangleMesh* new_object_ptr)
+                       TriangleMesh* new_object_ptr)
     : _parent_ptr(new_parent_ptr),
       _object_ptr(new_object_ptr),
       _is_transformation_node(false) {}
@@ -29,9 +29,9 @@ SceneGraph::SceneGraph(SceneGraph* new_parent_ptr,
       _transformation_ptr(new_transformation_ptr),
       _is_transformation_node(true) {}
 
-SceneGraph* SceneGraph::addObject(const RenderableTriangleMesh& new_object)
+SceneGraph* SceneGraph::addObject(const TriangleMesh& new_object)
 {
-    _child_ptrs.push_back(new SceneGraph(this, new RenderableTriangleMesh(new_object)));
+    _child_ptrs.push_back(new SceneGraph(this, new TriangleMesh(new_object)));
     return _child_ptrs.back();
 }
 
@@ -61,11 +61,11 @@ SceneGraph::~SceneGraph()
     }
 }
 
-std::vector<RenderableTriangleMesh> SceneGraph::getTransformedObjects(SceneGraph& root)
+std::vector<Geometry3D::TriangleMesh> SceneGraph::getTransformedObjects(SceneGraph& root)
 {
     assert(!root._parent_ptr);
     
-    std::vector<RenderableTriangleMesh> object_stack;
+    std::vector<TriangleMesh> object_stack;
     std::vector<Transformation*> transformation_stack;
 
     if (root._is_transformation_node)
@@ -74,7 +74,7 @@ std::vector<RenderableTriangleMesh> SceneGraph::getTransformedObjects(SceneGraph
     }
     else
     {
-        object_stack.push_back(RenderableTriangleMesh(*(root._object_ptr)));
+        object_stack.push_back(TriangleMesh(*(root._object_ptr)));
         transformation_stack.push_back(new LinearTransformation()); // Identity transformation
     }
 
@@ -90,7 +90,7 @@ std::vector<RenderableTriangleMesh> SceneGraph::getTransformedObjects(SceneGraph
 
 void SceneGraph::_processNode(SceneGraph& node,
                               std::vector<Transformation*>& transformation_stack,
-                              std::vector<RenderableTriangleMesh>& object_stack)
+                              std::vector<TriangleMesh>& object_stack)
 {
     Transformation* previous = transformation_stack.back();
     

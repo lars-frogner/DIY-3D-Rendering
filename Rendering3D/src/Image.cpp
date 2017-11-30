@@ -4,14 +4,28 @@
 #include <cmath>
 #include <algorithm>
 #include <iostream>
+#include <string>
+#include <cstdio>
 
 namespace Impact {
 namespace Rendering3D {
 
 Image::Image(imp_uint n_cols, imp_uint n_rows)
-    : _n_cols(n_cols), _n_rows(n_rows), _size(n_rows*n_cols),
-      _pixel_values(3*n_rows*n_cols, 0),
-	  _depth_buffer(n_rows*n_cols, -1) {}
+    : _n_cols(n_cols), _n_rows(n_rows), _n_elements(n_rows*n_cols), _size(3*n_rows*n_cols),
+      _pixel_buffer(new imp_float[3*n_rows*n_cols]),
+	  _depth_buffer(nullptr),
+	  _output_buffer(nullptr) {}
+
+Image::~Image()
+{
+	delete _pixel_buffer;
+
+	if (_depth_buffer)
+		delete _depth_buffer;
+
+	if (_output_buffer)
+		delete _output_buffer;
+}
 
 void Image::drawLine(imp_float x0, imp_float y0, imp_float x1, imp_float y1, imp_float luminance)
 {
@@ -62,11 +76,14 @@ void Image::drawLine(imp_float x0, imp_float y0, imp_float x1, imp_float y1, imp
     for (imp_int i = 0; i <= longest; i++)
     {
         idx = y*_n_cols + x;
-        assert(idx < _size);
+
+		if (idx >= _n_elements)
+			return;
+
         idx *= 3;
-        _pixel_values[idx] = luminance;
-        _pixel_values[idx + 1] = luminance;
-        _pixel_values[idx + 2] = luminance;
+        _pixel_buffer[idx] = luminance;
+        _pixel_buffer[idx + 1] = luminance;
+        _pixel_buffer[idx + 2] = luminance;
 
         numerator += shortest;
         if (!(numerator < longest))
@@ -83,14 +100,21 @@ void Image::drawLine(imp_float x0, imp_float y0, imp_float x1, imp_float y1, imp
     }
 }
 
-void Image::drawTriangle(const Vertex3& v0, const Vertex3& v1, const Vertex3& v2)
+void Image::drawTriangle(const Point& p0,
+						 const Point& p1,
+						 const Point& p2,
+						 const Color& c0,
+						 const Color& c1,
+						 const Color& c2)
 {
-    imp_int x0_i = static_cast<imp_int>(round(v0.x));
-    imp_int y0_i = static_cast<imp_int>(round(v0.y));
-    imp_int x1_i = static_cast<imp_int>(round(v1.x));
-    imp_int y1_i = static_cast<imp_int>(round(v1.y));
-    imp_int x2_i = static_cast<imp_int>(round(v2.x));
-    imp_int y2_i = static_cast<imp_int>(round(v2.y));
+	assert(_depth_buffer);
+
+    imp_int x0_i = static_cast<imp_int>(round(p0.x));
+    imp_int y0_i = static_cast<imp_int>(round(p0.y));
+    imp_int x1_i = static_cast<imp_int>(round(p1.x));
+    imp_int y1_i = static_cast<imp_int>(round(p1.y));
+    imp_int x2_i = static_cast<imp_int>(round(p2.x));
+    imp_int y2_i = static_cast<imp_int>(round(p2.y));
 
     imp_int x_min = std::min(x0_i, std::min(x1_i, x2_i));
     imp_int x_max = std::max(x0_i, std::max(x1_i, x2_i));
@@ -128,16 +152,16 @@ void Image::drawTriangle(const Vertex3& v0, const Vertex3& v1, const Vertex3& v2
             if (alpha > _eps_barycentric && beta > _eps_barycentric && gamma > _eps_barycentric)
             {
                 idx = y*_n_cols + x;
-                z = alpha*v0.z + beta*v1.z + gamma*v2.z;
+                z = alpha*p0.z + beta*p1.z + gamma*p2.z;
 
                 if (z > _depth_buffer[idx])
                 {
                     _depth_buffer[idx] = z;
 
                     idx *= 3;
-                    _pixel_values[idx] = alpha*v0.color.r + beta*v1.color.r + gamma*v2.color.r;
-                    _pixel_values[idx + 1] = alpha*v0.color.g + beta*v1.color.g + gamma*v2.color.g;
-                    _pixel_values[idx + 2] = alpha*v0.color.b + beta*v1.color.b + gamma*v2.color.b;
+                    _pixel_buffer[idx] = alpha*c0.r + beta*c1.r + gamma*c2.r;
+                    _pixel_buffer[idx + 1] = alpha*c0.g + beta*c1.g + gamma*c2.g;
+                    _pixel_buffer[idx + 2] = alpha*c0.b + beta*c1.b + gamma*c2.b;
                 }
             }
         }
@@ -147,33 +171,35 @@ void Image::drawTriangle(const Vertex3& v0, const Vertex3& v1, const Vertex3& v2
 Radiance Image::getRadiance(imp_uint x, imp_uint y) const
 {
     imp_uint idx = 3*(y*_n_cols + x);
-    return Radiance(_pixel_values[idx], _pixel_values[idx + 1], _pixel_values[idx + 2]);
+    return Radiance(_pixel_buffer[idx], _pixel_buffer[idx + 1], _pixel_buffer[idx + 2]);
 }
 
-Image& Image::setRadiance(imp_uint x, imp_uint y, const Radiance& radiance)
+void Image::setRadiance(imp_uint x, imp_uint y, const Radiance& radiance)
 {
     imp_uint idx = 3*(y*_n_cols + x);
 
-    _pixel_values[idx]     = radiance.r;
-    _pixel_values[idx + 1] = radiance.g;
-    _pixel_values[idx + 2] = radiance.b;
-
-    return *this;
+    _pixel_buffer[idx]     = radiance.r;
+    _pixel_buffer[idx + 1] = radiance.g;
+    _pixel_buffer[idx + 2] = radiance.b;
 }
 
 imp_float Image::getDepth(imp_uint x, imp_uint y) const
 {
+	assert(_depth_buffer);
     return _depth_buffer[y*_n_cols + x];
 }
 
-Image& Image::setDepth(imp_uint x, imp_uint y, imp_float depth)
+void Image::setDepth(imp_uint x, imp_uint y, imp_float depth)
 {
+	assert(_depth_buffer);
     _depth_buffer[y*_n_cols + x] = depth;
-    return *this;
 }
 
-Image& Image::initializeDepthBuffer(imp_float initial_value)
+void Image::initializeDepthBuffer(imp_float initial_value)
 {
+	if (!_depth_buffer)
+		_depth_buffer = new imp_float[_n_cols*_n_rows];
+
 	int idx;
 
     #pragma omp parallel for default(shared) \
@@ -181,15 +207,13 @@ Image& Image::initializeDepthBuffer(imp_float initial_value)
                              shared(initial_value) \
                              schedule(static) \
                              if (use_omp)
-	for (idx = 0; idx < static_cast<int>(_size); idx++)
+	for (idx = 0; idx < static_cast<int>(_n_elements); idx++)
 	{
 		_depth_buffer[idx] = initial_value;
 	}
-
-    return *this;
 }
 
-Image& Image::setBackgroundColor(const Color& color)
+void Image::setBackgroundColor(const Color& color)
 {
 	int idx;
 
@@ -198,17 +222,15 @@ Image& Image::setBackgroundColor(const Color& color)
                              shared(color) \
                              schedule(static) \
                              if (use_omp)
-    for (idx = 0; idx < 3*static_cast<int>(_size); idx += 3)
+    for (idx = 0; idx < 3*static_cast<int>(_n_elements); idx += 3)
     {
-        _pixel_values[idx]     = color.r;
-        _pixel_values[idx + 1] = color.g;
-        _pixel_values[idx + 2] = color.b;
+        _pixel_buffer[idx]     = color.r;
+        _pixel_buffer[idx + 1] = color.g;
+        _pixel_buffer[idx + 2] = color.b;
     }
-
-    return *this;
 }
 
-Image& Image::gammaEncode(imp_float normalization)
+void Image::gammaEncode(imp_float normalization)
 {
 	int idx;
     imp_float inverse_gamma = 1.0f/2.2f;
@@ -218,15 +240,13 @@ Image& Image::gammaEncode(imp_float normalization)
                              shared(normalization, inverse_gamma) \
                              schedule(static) \
                              if (use_omp)
-    for (idx = 0; idx < 3*static_cast<int>(_size); idx++)
+    for (idx = 0; idx < 3*static_cast<int>(_n_elements); idx++)
     {
-        _pixel_values[idx] = pow(std::min(1.0f, std::max(0.0f, _pixel_values[idx]*normalization)), inverse_gamma);
+        _pixel_buffer[idx] = pow(std::min(1.0f, std::max(0.0f, _pixel_buffer[idx]*normalization)), inverse_gamma);
     }
-
-    return *this;
 }
 
-Image& Image::gammaEncodeApprox(imp_float normalization)
+void Image::gammaEncodeApprox(imp_float normalization)
 {
 	int idx;
 
@@ -235,29 +255,25 @@ Image& Image::gammaEncodeApprox(imp_float normalization)
                              shared(normalization) \
                              schedule(static) \
                              if (use_omp)
-    for (idx = 0; idx < 3*static_cast<int>(_size); idx++)
+    for (idx = 0; idx < 3*static_cast<int>(_n_elements); idx++)
     {
-        _pixel_values[idx] = sqrt(std::min(1.0f, std::max(0.0f, _pixel_values[idx]*normalization)));
+        _pixel_buffer[idx] = sqrt(std::min(1.0f, std::max(0.0f, _pixel_buffer[idx]*normalization)));
     }
-
-    return *this;
 }
 
-Image& Image::stretch()
+void Image::stretch()
 {
-    auto min_max_elements = std::minmax_element(_pixel_values.begin(), _pixel_values.end());
+    auto min_max_elements = std::minmax_element(_pixel_buffer, _pixel_buffer + _size);
     imp_float min_val = *(min_max_elements.first);
     imp_float max_val = *(min_max_elements.second);
     imp_float range = max_val - min_val;
 
     assert(range != 0);
 
-    for (imp_uint idx = 0; idx < 3*_size; idx++)
+    for (imp_uint idx = 0; idx < _size; idx++)
     {
-        _pixel_values[idx] = (_pixel_values[idx] - min_val)/range;
+        _pixel_buffer[idx] = (_pixel_buffer[idx] - min_val)/range;
     }
-
-    return *this;
 }
 
 imp_uint Image::getWidth() const
@@ -275,9 +291,90 @@ imp_float Image::getAspectRatio() const
     return static_cast<imp_float>(_n_cols)/static_cast<imp_float>(_n_rows);
 }
 
-const float* Image::getRawPixelArray() const
+const imp_float* Image::getRawPixelArray() const
 {
-    return _pixel_values.data();
+    return _pixel_buffer;
+}
+
+void Image::renderDepthMap(bool renormalize)
+{
+	assert(_depth_buffer);
+
+	imp_float depth_value;
+	int idx;
+
+	if (renormalize)
+	{
+		auto min_max_elements = std::minmax_element(_depth_buffer, _depth_buffer + _n_elements);
+		_depth_map_min_val = *(min_max_elements.first);
+		imp_float max_val = *(min_max_elements.second);
+		
+		assert(max_val != _depth_map_min_val);
+
+		_depth_map_norm = 1/(max_val - _depth_map_min_val);
+	}
+
+    #pragma omp parallel for default(shared) \
+                             private(idx, depth_value) \
+                             schedule(static) \
+                             if (use_omp)
+    for (idx = 0; idx < static_cast<int>(_n_elements); idx++)
+    {
+		depth_value = (_depth_buffer[idx] - _depth_map_min_val)*_depth_map_norm;
+        _pixel_buffer[3*idx] = depth_value;
+        _pixel_buffer[3*idx + 1] = depth_value;
+        _pixel_buffer[3*idx + 2] = depth_value;
+    }
+}
+
+void Image::writeToOutputBuffer()
+{
+	if (!_output_buffer)
+		_output_buffer = new output_buffer[_size];
+
+	int i, j;
+	int offset_in, offset_out;
+	int idx_in, idx_out;
+	int n_cols = static_cast<int>(_n_cols);
+	int n_rows = static_cast<int>(_n_rows);
+
+    #pragma omp parallel for default(shared) \
+                             private(i, j, offset_in, offset_out, idx_in, idx_out) \
+							 shared(n_rows, n_cols) \
+                             schedule(static) \
+                             if (use_omp)
+	for (i = 0; i < n_rows; i++)
+	{
+		offset_in = n_cols*i;
+		offset_out = n_cols*(n_rows-1 - i);
+
+		for (j = 0; j < n_cols; j++)
+		{
+			idx_in = 3*(j + offset_in);
+			idx_out = 3*(j + offset_out);
+
+			_output_buffer[idx_out]     = static_cast<output_buffer>(255*_pixel_buffer[idx_in]    );
+			_output_buffer[idx_out + 1] = static_cast<output_buffer>(255*_pixel_buffer[idx_in + 1]);
+			_output_buffer[idx_out + 2] = static_cast<output_buffer>(255*_pixel_buffer[idx_in + 2]);
+		}
+	}
+}
+
+void Image::saveAsPPM(const std::string& filename)
+{
+	FILE* image_file;
+
+	writeToOutputBuffer();
+
+	fopen_s(&image_file, filename.c_str(), "wb");
+
+	assert(image_file);
+
+	fprintf(image_file, "P6\n");
+	fprintf(image_file, "%d %d\n", _n_cols, _n_rows);
+	fprintf(image_file, "255\n");
+	fwrite(_output_buffer, sizeof(output_buffer), _size, image_file);
+	fclose(image_file);
 }
 
 } // Rendering3D

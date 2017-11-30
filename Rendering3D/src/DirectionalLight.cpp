@@ -12,7 +12,7 @@ DirectionalLight::DirectionalLight(const Vector& new_direction,
 Geometry3D::CoordinateFrame DirectionalLight::getCoordinateFrame() const
 {
     return CoordinateFrame(Point::origin(),
-                           Vector::zero(),
+                           _direction,
                            Vector::zero(),
                            Vector::zero());
 }
@@ -42,6 +42,11 @@ Biradiance DirectionalLight::getBiradiance(const Vector4& source_point,
 Power DirectionalLight::getTotalPower() const
 {
     return Power(IMP_FLOAT_INF, IMP_FLOAT_INF, IMP_FLOAT_INF);
+}
+
+void DirectionalLight::setCoordinateFrame(const CoordinateFrame& cframe)
+{
+	_direction = cframe.basis_1;
 }
 
 void DirectionalLight::applyTransformation(const LinearTransformation& transformation)
