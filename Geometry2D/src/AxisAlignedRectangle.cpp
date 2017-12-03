@@ -155,5 +155,12 @@ AxisAlignedRectangle& AxisAlignedRectangle::validateOrientation()
     return *this;
 }
 
+AABRContainer::AABRContainer(const AxisAlignedRectangle& new_aabr,
+							 const Point& new_centroid,
+							 imp_uint new_id)
+	: aabr(new_aabr),
+	  centroid(new_centroid),
+	  id(new_id) {}
+
 } // Geometry2D
 } // Impact

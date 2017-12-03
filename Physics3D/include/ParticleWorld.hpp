@@ -6,6 +6,7 @@
 #include "ParticleContactResolver.hpp"
 #include "ParticleContactGenerator.hpp"
 #include <vector>
+#include <list>
 #include <ctime>
 
 namespace Impact {
@@ -19,22 +20,21 @@ protected:
 	std::vector<ParticleContactGenerator*> _contact_generators;
 	ParticleForceRegistry _force_registry;
 	
-	imp_uint _max_contacts;
-	ParticleContact* _contacts;
+	std::vector<ParticleContact> _contacts;
 	ParticleContactResolver _contact_resolver;
 
 	bool _calculate_iterations;
 
-	imp_uint generateContacts();
+	void generateContacts();
 
 	void integrateMotion(imp_float duration);
 
 	void resetForces();
 
 public:
+	bool use_omp = true;
 
-	ParticleWorld(imp_uint new_max_contacts, imp_uint max_iterations = 0);
-	~ParticleWorld();
+	ParticleWorld(imp_uint max_iterations = 0);
 
 	ParticleWorld(const ParticleWorld& other) = delete;
 	ParticleWorld& operator=(const ParticleWorld& other) = delete;
@@ -55,6 +55,8 @@ public:
 	void clearForceGenerators();
 
 	imp_uint getNumberOfParticles() const;
+
+	void initialize();
 
 	void performPerFrameInitialization();
 

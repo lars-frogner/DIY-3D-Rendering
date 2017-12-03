@@ -8,11 +8,11 @@ namespace Rendering3D {
 Renderer::Renderer(Image* new_image,
 				   Camera* new_camera,
 				   std::vector<Light*>* new_lights,
-				   std::vector<RenderableObject*>* new_objects)
+				   std::vector<Model*>* new_models)
     : _image(new_image),
 	  _camera(new_camera),
 	  _lights(new_lights),
-	  _objects(new_objects) {}
+	  _models(new_models) {}
 
 void Renderer::computeViewData()
 {
@@ -41,6 +41,12 @@ void Renderer::computeViewData()
 
 	_perspective_transformation = _camera->getWorldToParallelViewVolumeTransformation(_image->getAspectRatio());
 	_windowing_transformation = _camera->getWindowingTransformation(_image->getWidth(), _image->getAspectRatio());
+
+	_camera->getViewFrustumInCameraSystem(_image->getAspectRatio(),
+										  _frustum_lower_plane,
+										  _frustum_upper_plane,
+										  _frustum_left_plane,
+										  _frustum_right_plane);
 }
 
 void Renderer::storeLightWorldCoordinateFrames()
@@ -78,11 +84,23 @@ void Renderer::createTransformedMeshCopies()
 {
 	assert(_mesh_copies.size() == 0);
 
-	_mesh_copies.reserve(_objects->size());
+	_mesh_copies.reserve(_models->size());
 
-	for (std::vector<RenderableObject*>::const_iterator iter = _objects->begin(); iter != _objects->end(); iter++)
+	for (std::vector<Model*>::const_iterator iter = _models->begin(); iter != _models->end(); iter++)
 	{
 		_mesh_copies.push_back((*iter)->getTransformedMesh());
+	}
+}
+
+void Renderer::createTransformedMeshCopies(const AffineTransformation& additional_transformation)
+{
+	assert(_mesh_copies.size() == 0);
+
+	_mesh_copies.reserve(_models->size());
+
+	for (std::vector<Model*>::const_iterator iter = _models->begin(); iter != _models->end(); iter++)
+	{
+		_mesh_copies.push_back((*iter)->getTransformedMesh(additional_transformation));
 	}
 }
 
@@ -106,7 +124,7 @@ void Renderer::initialize()
 
 void Renderer::renderDirect()
 {
-	int n_objects = static_cast<int>(_objects->size());
+	int n_models = static_cast<int>(_models->size());
 	int obj_idx;
 
 	if (_lights_in_camera_system)
@@ -122,60 +140,60 @@ void Renderer::renderDirect()
 	
     #pragma omp parallel for default(shared) \
                              private(obj_idx) \
-                             shared(n_objects) \
+                             shared(n_models) \
                              schedule(dynamic) \
                              if (use_omp)
-    for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
+    for (obj_idx = 0; obj_idx < n_models; obj_idx++)
     {
-		const RenderableObject* object = _objects->operator[](obj_idx);
+		const Model* model = _models->operator[](obj_idx);
         TriangleMesh& mesh = _mesh_copies[obj_idx];
 
         if (n_splits > 0)
             mesh.splitFaces(n_splits);
 
-		if (object->casts_shadows)
+		if (model->casts_shadows)
 		{
 			mesh.computeAABB();
 			mesh.computeBoundingVolumeHierarchy();
 		}
 	}
 
-    for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
+    for (obj_idx = 0; obj_idx < n_models; obj_idx++)
     {
-		const RenderableObject* object = _objects->operator[](obj_idx);
+		const Model* model = _models->operator[](obj_idx);
         TriangleMesh& mesh = _mesh_copies[obj_idx];
 
-        if (object->uses_direct_lighting)
-            computeRadianceAtAllVertices(mesh, object->getMaterial());
+        if (model->uses_direct_lighting)
+            computeRadianceAtAllVertices(mesh, model->getMaterial());
 	}
 
     #pragma omp parallel for default(shared) \
                              private(obj_idx) \
-                             shared(n_objects) \
+                             shared(n_models) \
                              schedule(dynamic) \
                              if (use_omp)
-	for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
+	for (obj_idx = 0; obj_idx < n_models; obj_idx++)
 	{
-		RenderableObject* object = _objects->operator[](obj_idx);
+		Model* model = _models->operator[](obj_idx);
 		TriangleMesh& mesh = _mesh_copies[obj_idx];
 
 		mesh.applyTransformation(_perspective_transformation);
 
-		if (object->perform_clipping && mesh.allZAbove(0))
+		if (model->perform_clipping && mesh.allZAbove(0))
 		{
-			object->is_currently_visible = false;
+			model->is_currently_visible = false;
 			continue;
 		}
 		
-		if (object->perform_clipping)
+		if (model->perform_clipping)
 			mesh.clipNearPlane();
 
 		mesh.homogenizeVertices();
 
-		if (object->remove_hidden_faces)
+		if (model->remove_hidden_faces)
 			mesh.removeBackwardFacingFaces();
 
-		if (object->perform_clipping)
+		if (model->perform_clipping)
 		{
 			mesh.computeAABB();
 
@@ -185,7 +203,7 @@ void Renderer::renderDirect()
 			}
 			else
 			{
-				object->is_currently_visible = false;
+				model->is_currently_visible = false;
 				continue;
 			}
 		}
@@ -193,18 +211,18 @@ void Renderer::renderDirect()
 		mesh.applyWindowingTransformation(_windowing_transformation);
 	}
 
-	for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
+	for (obj_idx = 0; obj_idx < n_models; obj_idx++)
 	{
-		const RenderableObject* object = _objects->operator[](obj_idx);
+		const Model* model = _models->operator[](obj_idx);
 		const TriangleMesh& mesh = _mesh_copies[obj_idx];
 
-		if (!object->is_currently_visible || !object->render_faces)
+		if (!model->is_currently_visible || !model->render_faces)
 			continue;
 
-        if (object->uses_direct_lighting)
+        if (model->uses_direct_lighting)
             drawFaces(mesh);
         else
-            drawFaces(mesh, face_color);
+            drawFaces(mesh, model->getMaterial()->getBaseColor());
     }
 
 	if (gamma_encode && !render_depth_map)
@@ -213,14 +231,14 @@ void Renderer::renderDirect()
 	if (render_depth_map)
 		_image->renderDepthMap(renormalize_depth_map);
 
-	for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
+	for (obj_idx = 0; obj_idx < n_models; obj_idx++)
 	{
-		RenderableObject* object = _objects->operator[](obj_idx);
+		Model* model = _models->operator[](obj_idx);
 		const TriangleMesh& mesh = _mesh_copies[obj_idx];
 
-		if (!object->is_currently_visible)
+		if (!model->is_currently_visible)
 		{
-			object->is_currently_visible = object->is_visible;
+			model->is_currently_visible = model->is_visible;
 			continue;
 		}
 			
@@ -235,7 +253,7 @@ void Renderer::rayTrace()
 {
 	int image_width = static_cast<int>(_image_width);
     int image_height = static_cast<int>(_image_height);
-    int n_objects = static_cast<int>(_objects->size());
+    int n_models = static_cast<int>(_models->size());
     int x, y, obj_idx;
     std::vector<imp_uint>::const_iterator iter;
     imp_float closest_distance;
@@ -248,27 +266,25 @@ void Renderer::rayTrace()
 		_lights_in_camera_system = true;
 	}
 
-	createTransformedMeshCopies();
+	createTransformedMeshCopies(_transformation_to_camera_system);
 
 	_image->setBackgroundColor(bg_color);
     
     #pragma omp parallel for default(shared) \
                              private(obj_idx) \
-                             shared(n_objects) \
+                             shared(n_models) \
                              schedule(dynamic) \
                              if (use_omp)
-    for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
+    for (obj_idx = 0; obj_idx < n_models; obj_idx++)
     {
-		RenderableObject* object = _objects->operator[](obj_idx);
+		Model* model = _models->operator[](obj_idx);
         TriangleMesh& mesh = _mesh_copies[obj_idx];
 
-        mesh.applyTransformation(_transformation_to_camera_system);
-
-		if (object->perform_clipping && mesh.allZAbove(-_near_plane_distance))
+		if (mesh.allZAbove(-_near_plane_distance))
 		{
-			object->is_currently_visible = false;
+			model->is_currently_visible = false;
 
-			if (object->casts_shadows)
+			if (model->casts_shadows)
 			{
 				mesh.computeAABB();
 				mesh.computeBoundingVolumeHierarchy();
@@ -277,22 +293,40 @@ void Renderer::rayTrace()
 			continue;
 		}
 
-		if (object->perform_clipping)
+		if (model->perform_clipping)
 	        mesh.clipNearPlaneAt(-_near_plane_distance);
 
 		mesh.computeAABB();
+
+		if (mesh.isOutsideViewFrustum(_frustum_lower_plane,
+									  _frustum_upper_plane,
+								      _frustum_left_plane,
+									  _frustum_right_plane,
+									  _far_plane_distance))
+		{
+			model->is_currently_visible = false;
+
+			if (model->casts_shadows)
+			{
+				mesh.computeAABB();
+				mesh.computeBoundingVolumeHierarchy();
+			}
+
+			continue;
+		}
+
 		mesh.computeBoundingAreaHierarchy(_image_width,
 									      _image_height,
 									      _inverse_image_width_at_unit_distance_from_camera,
 									      _inverse_image_height_at_unit_distance_from_camera);
 
-		if (object->casts_shadows)
+		if (model->casts_shadows)
 			mesh.computeBoundingVolumeHierarchy();
     }
     
     #pragma omp parallel for default(shared) \
                              private(x, y, pixel_center, obj_idx, iter, closest_distance, pixel_radiance) \
-                             shared(image_height, image_width, n_objects) \
+                             shared(image_height, image_width, n_models) \
                              schedule(dynamic) \
                              if (use_omp)
     for (y = 0; y < image_height; y++) {
@@ -304,14 +338,14 @@ void Renderer::rayTrace()
                 
             closest_distance = _far_plane_distance;
 
-            for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
+            for (obj_idx = 0; obj_idx < n_models; obj_idx++)
             {
-				const RenderableObject* object = _objects->operator[](obj_idx);
+				const Model* model = _models->operator[](obj_idx);
 
-				if (object->is_currently_visible)
+				if (model->is_currently_visible)
 				{
 					const TriangleMesh& mesh = _mesh_copies[obj_idx];
-					const Material* material = object->getMaterial();
+					const Material* material = model->getMaterial();
 
 					const std::vector<imp_uint>& intersected_faces = mesh.getIntersectedFaceIndices(pixel_center);
 
@@ -319,7 +353,7 @@ void Renderer::rayTrace()
 					{
 						if (computeRadianceAtIntersectedPosition(mesh, material, eye_ray, *iter, pixel_radiance, closest_distance))
 						{
-							_image->setRadiance(x, y, pixel_radiance);
+							_image->setRadiance(x, y, (model->uses_direct_lighting)? pixel_radiance : model->getMaterial()->getBaseColor());
 						}
 					}
 				}
@@ -327,15 +361,15 @@ void Renderer::rayTrace()
         }
     }
     
-    for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
+    for (obj_idx = 0; obj_idx < n_models; obj_idx++)
     {
-		RenderableObject* object = _objects->operator[](obj_idx);
+		Model* model = _models->operator[](obj_idx);
 		//const TriangleMesh& mesh = _mesh_copies[obj_idx];
 
-		//if (object->render_edges)
+		//if (model->render_edges)
 			//drawEdges(mesh, edge_brightness);
 
-		object->is_currently_visible = object->is_visible;
+		model->is_currently_visible = model->is_visible;
     }
 
 	if (gamma_encode)
@@ -346,7 +380,7 @@ void Renderer::rayTrace()
 
 void Renderer::rasterize()
 {
-	int n_objects = static_cast<int>(_objects->size());
+	int n_models = static_cast<int>(_models->size());
     int n_triangles;
     int x, y, obj_idx, face_idx, vertex_idx;
     int x_min, x_max, y_min, y_max;
@@ -366,28 +400,26 @@ void Renderer::rasterize()
 		_lights_in_camera_system = true;
 	}
 	
-	createTransformedMeshCopies();
+	createTransformedMeshCopies(_transformation_to_camera_system);
 
 	_image->setBackgroundColor(bg_color);
     _image->initializeDepthBuffer(_far_plane_distance);
     
     #pragma omp parallel for default(shared) \
                              private(obj_idx) \
-                             shared(n_objects) \
+                             shared(n_models) \
 							 schedule(dynamic) \
                              if (use_omp)
-    for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
+    for (obj_idx = 0; obj_idx < n_models; obj_idx++)
     {
-		RenderableObject* object = _objects->operator[](obj_idx);
+		Model* model = _models->operator[](obj_idx);
         TriangleMesh& mesh = _mesh_copies[obj_idx];
-        
-		mesh.applyTransformation(_transformation_to_camera_system);
 
-		if (object->perform_clipping && mesh.allZAbove(-_near_plane_distance))
+		if (mesh.allZAbove(-_near_plane_distance))
 		{
-			object->is_currently_visible = false;
+			model->is_currently_visible = false;
 
-			if (object->casts_shadows)
+			if (model->casts_shadows)
 			{
 				mesh.computeAABB();
 				mesh.computeBoundingVolumeHierarchy();
@@ -396,29 +428,46 @@ void Renderer::rasterize()
 			continue;
 		}
 
-		if (object->perform_clipping)
+		if (model->perform_clipping)
 	        mesh.clipNearPlaneAt(-_near_plane_distance);
 
 		mesh.computeAABB();
 
-		if (object->casts_shadows)
+		if (mesh.isOutsideViewFrustum(_frustum_lower_plane,
+									  _frustum_upper_plane,
+								      _frustum_left_plane,
+									  _frustum_right_plane,
+									  _far_plane_distance))
+		{
+			model->is_currently_visible = false;
+
+			if (model->casts_shadows)
+			{
+				mesh.computeAABB();
+				mesh.computeBoundingVolumeHierarchy();
+			}
+
+			continue;
+		}
+
+		if (model->casts_shadows)
 			mesh.computeBoundingVolumeHierarchy();
     }
         
     #pragma omp parallel for default(shared) \
                              private(x, y, obj_idx, face_idx, vertex_idx, n_triangles, x_min, x_max, y_min, y_max, pixel_center, alpha, beta, gamma, inverse_depths, vertices, normals, interpolated_inverse_depth, depth) \
-                             shared(n_objects) \
+                             shared(n_models) \
 							 schedule(dynamic) \
                              if (use_omp)
-    for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
+    for (obj_idx = 0; obj_idx < n_models; obj_idx++)
     {
-		RenderableObject* object = _objects->operator[](obj_idx);
+		Model* model = _models->operator[](obj_idx);
         const TriangleMesh& mesh = _mesh_copies[obj_idx];
-		const Material* material = object->getMaterial();
+		const Material* material = model->getMaterial();
 
-		if (!object->is_currently_visible)
+		if (!model->is_currently_visible)
 		{
-			object->is_currently_visible = object->is_visible;
+			model->is_currently_visible = model->is_visible;
 			continue;
 		}
 
@@ -473,17 +522,28 @@ void Renderer::rasterize()
 
                         if (depth < _image->getDepth(x, y))
                         {
-                            const Radiance& radiance = getScatteredRadiance(surface_point,
-																			surface_normal,
-																			displacement_to_camera/depth,
-																			material);
+							if (model->uses_direct_lighting)
+							{
+								const Radiance& radiance = getScatteredRadiance(surface_point,
+																				surface_normal,
+																				displacement_to_camera/depth,
+																				material);
 
-                            #pragma omp critical
-                            if (depth < _image->getDepth(x, y))
-                            {
-                                _image->setDepth(x, y, depth);
-                                _image->setRadiance(x, y, radiance);
-                            }
+								#pragma omp critical
+								if (depth < _image->getDepth(x, y))
+								{
+									_image->setDepth(x, y, depth);
+									_image->setRadiance(x, y, radiance);
+								}
+							}
+							else
+							{
+								#pragma omp critical
+								{
+									_image->setDepth(x, y, depth);
+									_image->setRadiance(x, y, model->getMaterial()->getBaseColor());
+								}
+							}
                         }
                     }
                 }
@@ -548,7 +608,7 @@ Radiance Renderer::getScatteredRadiance(const Point&  surface_point,
 
             if (!(light->creates_shadows) || evaluateSourceVisibility(surface_point, direction_to_source, distance_to_source))
             {
-                const Biradiance& biradiance = light->getBiradiance(source_point, surface_point);
+                const Biradiance& biradiance = light->getBiradiance(source_point, surface_point, distance_to_source);
                 const Color& scattering_density = material->getScatteringDensity(surface_normal, direction_to_source, scatter_direction);
             
                 radiance += surface_normal.dot(direction_to_source)*scattering_density*biradiance;
@@ -567,17 +627,17 @@ bool Renderer::evaluateSourceVisibility(const Point& surface_point,
 										const Vector& direction_to_source,
 										imp_float distance_to_source) const
 {   
-	imp_uint n_objects = static_cast<imp_uint>(_objects->size());
+	imp_uint n_models = static_cast<imp_uint>(_models->size());
 	imp_uint obj_idx;
 
     Ray shadow_ray(surface_point + direction_to_source*_ray_origin_offset, direction_to_source, distance_to_source);
 
-    for (obj_idx = 0; obj_idx < n_objects; obj_idx++)
+    for (obj_idx = 0; obj_idx < n_models; obj_idx++)
     {
-		const RenderableObject* object = _objects->operator[](obj_idx);
+		const Model* model = _models->operator[](obj_idx);
         const TriangleMesh& mesh = _mesh_copies[obj_idx];
 
-        if (object->casts_shadows && mesh.evaluateRayIntersection(shadow_ray) < distance_to_source)
+        if (model->casts_shadows && mesh.evaluateRayIntersection(shadow_ray) < distance_to_source)
             return false;
     }
 
@@ -591,11 +651,12 @@ void Renderer::computeRadianceAtAllVertices(TriangleMesh& mesh, const Material* 
 
     int n_vertices = static_cast<int>(mesh.getNumberOfVertices());
     int idx;
+	imp_float vertex_camera_distance;
 	
 	mesh.initializeVertexData3();
 
     #pragma omp parallel for default(shared) \
-                             private(idx) \
+                             private(idx, vertex_camera_distance) \
                              shared(mesh, material, n_vertices) \
 							 schedule(static) \
                              if (use_omp)
@@ -604,14 +665,20 @@ void Renderer::computeRadianceAtAllVertices(TriangleMesh& mesh, const Material* 
 		const Point& vertex_point = mesh.getVertex(idx);
 		const Vector& normal_vector = mesh.getVertexNormal(idx);
 
-        const Vector& scatter_direction = _camera_cframe.origin - vertex_point;
+        Vector& scatter_direction = _camera_cframe.origin - vertex_point;
+		vertex_camera_distance = scatter_direction.getLength();
 
-        const Radiance& radiance = getScatteredRadiance(vertex_point,
-													    normal_vector,
-														scatter_direction,
-														material).clamp();
+		if (vertex_camera_distance > 0)
+		{
+			scatter_direction /= vertex_camera_distance;
 
-		mesh.setVertexData3(idx, radiance.r, radiance.g, radiance.b);
+			const Radiance& radiance = getScatteredRadiance(vertex_point,
+															normal_vector,
+															scatter_direction,
+															material).clamp();
+
+			mesh.setVertexData3(idx, radiance.r, radiance.g, radiance.b);
+		}
     }
 }
 
@@ -729,13 +796,14 @@ const Geometry3D::Camera& Renderer::getCamera() const
 	return *_camera;
 }
 
-void Renderer::toggleObjectShadows()
+void Renderer::toggleModelShadows()
 {
-	std::vector<RenderableObject*>::iterator iter = _objects->begin();
+	std::vector<Model*>::iterator iter = _models->begin();
 
-	for (; iter != _objects->end(); iter++)
+	for (; iter != _models->end(); iter++)
 	{
-		(*iter)->casts_shadows = !((*iter)->casts_shadows);
+		if ((*iter)->shadows_toggable)
+			(*iter)->casts_shadows = !((*iter)->casts_shadows);
 	}
 }
 

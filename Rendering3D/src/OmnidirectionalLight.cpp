@@ -33,10 +33,11 @@ Geometry3D::Vector4 OmnidirectionalLight::getRandomPoint() const
 }
 
 Biradiance OmnidirectionalLight::getBiradiance(const Vector4& source_point,
-                                               const Point& surface_point) const
+                                               const Point& surface_point,
+											   imp_float distance) const
 {
     assert(source_point.w == 1);
-    return _power/(IMP_FOUR_PI*(surface_point - source_point.getXYZ()).getSquaredLength());
+    return _power/(IMP_FOUR_PI*distance*distance);
 }
 
 Power OmnidirectionalLight::getTotalPower() const
@@ -51,12 +52,12 @@ void OmnidirectionalLight::setCoordinateFrame(const CoordinateFrame& cframe)
 
 void OmnidirectionalLight::applyTransformation(const LinearTransformation& transformation)
 {
-    _origin = transformation*_origin;
+    _origin = transformation(_origin);
 }
 
 void OmnidirectionalLight::applyTransformation(const AffineTransformation& transformation)
 {
-    _origin = transformation*_origin;
+    _origin = transformation(_origin);
 }
 
 } // Rendering3D

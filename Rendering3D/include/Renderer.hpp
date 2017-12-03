@@ -1,6 +1,6 @@
 #pragma once
 #include "precision.hpp"
-#include "RenderableObject.hpp"
+#include "Model.hpp"
 #include "Material.hpp"
 #include "Light.hpp"
 #include "Image.hpp"
@@ -13,6 +13,7 @@
 #include "Vector4.hpp"
 #include "Camera.hpp"
 #include "Ray.hpp"
+#include "Plane.hpp"
 #include "CoordinateFrame.hpp"
 #include "TriangleMesh.hpp"
 #include "AffineTransformation.hpp"
@@ -35,6 +36,7 @@ private:
     typedef Geometry3D::Vector4 Vector4;
     typedef Geometry3D::Camera Camera;
     typedef Geometry3D::Ray Ray;
+    typedef Geometry3D::Plane Plane;
     typedef Geometry3D::CoordinateFrame CoordinateFrame;
     typedef Geometry3D::TriangleMesh TriangleMesh;
     typedef Geometry3D::AffineTransformation AffineTransformation;
@@ -47,7 +49,7 @@ protected:
     Image* _image;
     Camera* _camera;
 	std::vector<Light*>* _lights;
-	std::vector<RenderableObject*>* _objects;
+	std::vector<Model*>* _models;
 	std::vector<CoordinateFrame> _light_world_cframes;
 
 	std::vector<TriangleMesh> _mesh_copies;
@@ -74,6 +76,11 @@ protected:
 	ProjectiveTransformation _perspective_transformation;
 	AffineTransformation _windowing_transformation;
 
+	Plane _frustum_lower_plane;
+	Plane _frustum_upper_plane;
+	Plane _frustum_left_plane;
+	Plane _frustum_right_plane;
+
     void computeViewData();
 
 	void storeLightWorldCoordinateFrames();
@@ -82,6 +89,7 @@ protected:
 	void transformLightsToWorldSystem();
 
 	void createTransformedMeshCopies();
+	void createTransformedMeshCopies(const AffineTransformation& additional_transformation);
 
     Ray getEyeRay(const Point2& pixel_center) const;
 
@@ -118,14 +126,13 @@ public:
 	bool renormalize_depth_map = true;
 	bool draw_edges = false;
 
-    Color face_color = Color::white();
 	Color bg_color = Color::black();
     float edge_brightness = 0;
 
     Renderer(Image* new_image,
 			 Camera* new_camera,
 			 std::vector<Light*>* new_lights,
-			 std::vector<RenderableObject*>* new_objects);
+			 std::vector<Model*>* new_models);
 
     Renderer(const Renderer& other) = delete;
 	Renderer& operator=(const Renderer& other) = delete;
@@ -143,7 +150,7 @@ public:
 	const Image& getImage() const;
 	const Camera& getCamera() const;
 
-	void toggleObjectShadows();
+	void toggleModelShadows();
 };
 
 } // Rendering3D

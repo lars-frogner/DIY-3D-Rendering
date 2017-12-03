@@ -47,6 +47,10 @@ struct AABRContainer
     AxisAlignedRectangle aabr;
     Point centroid;
     imp_uint id;
+
+	AABRContainer(const AxisAlignedRectangle& new_aabr,
+				  const Point& new_centroid,
+				  imp_uint new_id);
 };
 
 } // Geometry2D

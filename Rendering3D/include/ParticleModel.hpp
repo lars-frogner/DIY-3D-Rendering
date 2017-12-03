@@ -1,6 +1,6 @@
 #pragma once
 #include "precision.hpp"
-#include "RenderableObject.hpp"
+#include "Model.hpp"
 #include "Material.hpp"
 #include "Particle.hpp"
 #include "Point3.hpp"
@@ -11,7 +11,7 @@
 namespace Impact {
 namespace Rendering3D {
 
-class RenderableParticle : public RenderableObject {
+class ParticleModel : public Model {
     
 private:
     typedef Physics3D::Particle Particle;
@@ -25,16 +25,17 @@ protected:
 
 public:
 
-    RenderableParticle(const TriangleMesh* new_mesh,
-					   const Material* new_material,
-					   Particle* new_particle,
-					   const AffineTransformation& new_transformation);
+    ParticleModel(const TriangleMesh* new_mesh,
+				  const Material* new_material,
+			      Particle* new_particle,
+		   	      const AffineTransformation& new_transformation);
 
-    RenderableParticle(const TriangleMesh* new_mesh,
-					   const Material* new_material,
-					   Particle* new_particle);
+    ParticleModel(const TriangleMesh* new_mesh,
+				  const Material* new_material,
+				  Particle* new_particle);
 
-	virtual TriangleMesh getTransformedMesh() const;
+	TriangleMesh getTransformedMesh() const;
+	TriangleMesh getTransformedMesh(const AffineTransformation& additional_transformation) const;
 
 	Particle* getParticle();
 };

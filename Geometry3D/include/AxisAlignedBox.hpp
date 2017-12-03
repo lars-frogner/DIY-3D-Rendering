@@ -68,6 +68,12 @@ struct AABBContainer
     AxisAlignedBox aabb;
     Point centroid;
     imp_uint id;
+	
+	AABBContainer();
+
+	AABBContainer(const AxisAlignedBox& new_aabb,
+				  const Point& new_centroid,
+				  imp_uint new_id);
 };
 
 } // Geometry3D

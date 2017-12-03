@@ -24,8 +24,8 @@ protected:
     bool _has_children = false;
 
     BVHNode(const AxisAlignedBox& new_bounding_volume, const AABBContainer& new_object);
-	/*BVHNode(const BVHNode& other);
-	BVHNode& operator=(const BVHNode& other);*/
+	BVHNode(const BVHNode& other);
+	BVHNode& operator=(const BVHNode& other);
 
     void _insertObject(const AABBContainer& object);
     const AxisAlignedBox& _computeBoundingVolumes();

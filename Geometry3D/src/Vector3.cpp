@@ -83,6 +83,8 @@ Vector Vector::operator*(imp_float factor) const
 
 Vector Vector::operator/(imp_float divisor) const
 {
+	assert(divisor != 0);
+
     imp_float factor = 1/divisor;
     return Vector(x*factor, y*factor, z*factor);
 }
@@ -97,6 +99,8 @@ Vector& Vector::operator*=(imp_float factor)
 
 Vector& Vector::operator/=(imp_float divisor)
 {
+	assert(divisor != 0);
+
     imp_float factor = 1/divisor;
 	x *= factor;
 	y *= factor;
@@ -355,7 +359,12 @@ Vector operator*(imp_float factor, const Vector& vector)
 
 Vector operator/(imp_float factor, const Vector& vector)
 {
-	assert(vector.x != 0 || vector.y != 0 || vector.z != 0);
+	assert(vector.x != 0 && vector.y != 0 && vector.z != 0);
+    return Vector(factor/vector.x, factor/vector.y, factor/vector.z);
+}
+
+Vector zeroAllowedDivision(imp_float factor, const Vector& vector)
+{
     return Vector(factor/vector.x, factor/vector.y, factor/vector.z);
 }
 

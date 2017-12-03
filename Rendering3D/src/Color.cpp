@@ -121,6 +121,8 @@ Color Color::operator*(imp_float factor) const
 
 Color Color::operator/(imp_float divisor) const
 {
+	assert(divisor != 0);
+
     return (*this)*(1/divisor);
 }
 
@@ -146,6 +148,8 @@ Color& Color::operator*=(imp_float factor)
 
 Color& Color::operator/=(imp_float divisor)
 {
+	assert(divisor != 0);
+
     return *this *= (1/divisor);
 }
 
@@ -181,12 +185,25 @@ Color& Color::clamp()
     return *this;
 }
 
-float Color::getMin() const
+Color& Color::normalize()
+{
+	assert(r != 0 || g != 0 || b != 0);
+
+	imp_float norm = 1/(r*r + g*g + b*b);
+
+	r *= norm;
+	g *= norm;
+	b *= norm;
+
+    return *this;
+}
+
+imp_float Color::getMin() const
 {
     return std::min(r, std::min(g, b));
 }
 
-float Color::getMax() const
+imp_float Color::getMax() const
 {
     return std::max(r, std::max(g, b));
 }

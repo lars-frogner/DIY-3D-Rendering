@@ -1,6 +1,5 @@
 #pragma once
 #include "precision.hpp"
-#include "Transformation.hpp"
 #include "LinearTransformation.hpp"
 #include "Point3.hpp"
 #include "Vector3.hpp"
@@ -9,29 +8,23 @@
 #include "Ray.hpp"
 #include "Box.hpp"
 #include "CoordinateFrame.hpp"
-#include <armadillo>
+#include "Matrix4.hpp"
 #include <string>
 
 namespace Impact {
 namespace Geometry3D {
 
-class AffineTransformation : public Transformation {
-
-friend LinearTransformation;
-friend ProjectiveTransformation;
+class AffineTransformation {
 
 protected:
-    arma::Mat<imp_float> _matrix;
-    arma::Mat<imp_float> _normal_transform_matrix;
-
-    AffineTransformation(const arma::Mat<imp_float>& new_matrix);
-    AffineTransformation(const arma::Mat<imp_float>& new_matrix,
-						 const arma::Mat<imp_float>& new_normal_transform_matrix);
+    Matrix4 _matrix;
 
 public:
     AffineTransformation();
+    AffineTransformation(const Matrix4& new_matrix);
     AffineTransformation(const LinearTransformation& other);
 
+	static AffineTransformation identity();
     static AffineTransformation translation(imp_float dx, imp_float dy, imp_float dz);
     static AffineTransformation translation(const Vector& displacement);
     static AffineTransformation translationTo(const Point& position);
@@ -55,26 +48,24 @@ public:
     static AffineTransformation toCoordinateFrame(const CoordinateFrame& cframe);
     static AffineTransformation windowing(imp_float width, imp_float height);
     
-    AffineTransformation operator*(const LinearTransformation& other) const;
-    AffineTransformation operator*(const AffineTransformation& other) const;
-    ProjectiveTransformation operator*(const ProjectiveTransformation& other) const;
+    AffineTransformation operator()(const LinearTransformation& other) const;
+    AffineTransformation operator()(const AffineTransformation& other) const;
+    ProjectiveTransformation operator()(const ProjectiveTransformation& other) const;
 
-    Point operator*(const Point& point) const;
-    Vector operator*(const Vector& vector) const;
-    Triangle operator*(const Triangle& triangle) const;
-    Plane operator*(const Plane& plane) const;
-    Ray operator*(const Ray& ray) const;
-    Box operator*(const Box& box) const;
+    Point operator()(const Point& point) const;
+    Vector operator()(const Vector& vector) const;
+    Triangle operator()(const Triangle& triangle) const;
+    Plane operator()(const Plane& plane) const;
+    Ray operator()(const Ray& ray) const;
+    Box operator()(const Box& box) const;
 
-    Vector normalTransform(const Vector& normal) const;
-
-	void setToIdentity();
-
+	AffineTransformation& setToIdentity();
+	
+    AffineTransformation& invert();
     AffineTransformation getInverse() const;
-    const arma::Mat<imp_float>& getMatrix() const;
-    const arma::Mat<imp_float>& getNormalTransformMatrix() const;
 
-    std::string getTransformationType() const;
+    const Matrix4& getMatrix() const;
+    Matrix3 getNormalTransformMatrix() const;
 };
 
 } // Geometry3D

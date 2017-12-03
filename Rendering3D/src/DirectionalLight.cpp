@@ -33,7 +33,8 @@ Geometry3D::Vector4 DirectionalLight::getRandomPoint() const
 }
 
 Biradiance DirectionalLight::getBiradiance(const Vector4& source_point,
-                                           const Point& surface_point) const
+                                           const Point& surface_point,
+										   imp_float distance) const
 {
     assert(source_point.w == 0);
     return _biradiance;
@@ -51,12 +52,12 @@ void DirectionalLight::setCoordinateFrame(const CoordinateFrame& cframe)
 
 void DirectionalLight::applyTransformation(const LinearTransformation& transformation)
 {
-    _direction = (transformation*_direction).normalize();
+    _direction = transformation(_direction).normalize();
 }
 
 void DirectionalLight::applyTransformation(const AffineTransformation& transformation)
 {
-    _direction = (transformation*_direction).normalize();
+    _direction = transformation(_direction).normalize();
 }
 
 } // Rendering3D

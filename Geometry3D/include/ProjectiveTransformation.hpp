@@ -1,6 +1,5 @@
 #pragma once
 #include "precision.hpp"
-#include "Transformation.hpp"
 #include "LinearTransformation.hpp"
 #include "AffineTransformation.hpp"
 #include "Point3.hpp"
@@ -11,18 +10,14 @@
 namespace Impact {
 namespace Geometry3D {
 
-class ProjectiveTransformation : public Transformation {
-
-friend LinearTransformation;
-friend AffineTransformation;
+class ProjectiveTransformation {
 
 protected:
     arma::Mat<imp_float> _matrix;
 
-    ProjectiveTransformation(const arma::Mat<imp_float>& new_matrix);
-
 public:
     ProjectiveTransformation();
+    ProjectiveTransformation(const arma::Mat<imp_float>& new_matrix);
     ProjectiveTransformation(const LinearTransformation& other);
     ProjectiveTransformation(const AffineTransformation& other);
 
@@ -39,17 +34,17 @@ public:
     static ProjectiveTransformation unhinging(imp_float near_plane_distance,
                                               imp_float far_plane_distance);
     
-    ProjectiveTransformation operator*(const LinearTransformation& other) const;
-    ProjectiveTransformation operator*(const AffineTransformation& other) const;
-    ProjectiveTransformation operator*(const ProjectiveTransformation& other) const;
+    ProjectiveTransformation operator()(const LinearTransformation& other) const;
+    ProjectiveTransformation operator()(const AffineTransformation& other) const;
+    ProjectiveTransformation operator()(const ProjectiveTransformation& other) const;
 
-    Point operator*(const Point& point) const;
-    Triangle operator*(const Triangle& triangle) const;
-
+    Point operator()(const Point& point) const;
+    Triangle operator()(const Triangle& triangle) const;
+	
+    ProjectiveTransformation& invert();
     ProjectiveTransformation getInverse() const;
-    const arma::Mat<imp_float>& getMatrix() const;
 
-    std::string getTransformationType() const;
+    const arma::Mat<imp_float>& getMatrix() const;
 };
 
 } // Geometry3D

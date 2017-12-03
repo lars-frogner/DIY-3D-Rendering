@@ -24,9 +24,8 @@ private:
 public:
     BoundingVolumeHierarchy();
     BoundingVolumeHierarchy(const AxisAlignedBox& bounding_volume, const std::vector< AABBContainer >& objects);
-	/*BoundingVolumeHierarchy(const BoundingVolumeHierarchy& other);
-	~BoundingVolumeHierarchy();
-	BoundingVolumeHierarchy& operator=(const BoundingVolumeHierarchy& other);*/
+	BoundingVolumeHierarchy(const BoundingVolumeHierarchy& other);
+	BoundingVolumeHierarchy& operator=(const BoundingVolumeHierarchy& other);
 
     imp_float evaluateRayIntersection(const TriangleMesh& mesh, const Ray& ray) const;
     std::vector<imp_uint> getIntersectedObjectIDs(const Ray& ray) const;

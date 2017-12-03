@@ -79,6 +79,11 @@ void BlinnPhongMaterial::setName(const std::string& name)
     _name = name;
 }
 
+const Color& BlinnPhongMaterial::getBaseColor() const
+{
+	return _diffuse_reflectance;
+}
+
 BlinnPhongMaterial& BlinnPhongMaterial::setDiffuseReflectance(const Reflectance& new_diffuse_reflectance)
 {
     _diffuse_reflectance = new_diffuse_reflectance;

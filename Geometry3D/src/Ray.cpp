@@ -7,7 +7,7 @@ Ray::Ray(const Point&  new_origin,
          const Vector& new_direction)
     : origin(new_origin),
       direction(new_direction),
-      inverse_direction(1.0f/new_direction),
+      inverse_direction(zeroAllowedDivision(1, new_direction)),
       max_distance(IMP_FLOAT_INF) {}
 
 Ray::Ray(const Point&  new_origin,
@@ -15,7 +15,7 @@ Ray::Ray(const Point&  new_origin,
          imp_float new_max_distance)
     : origin(new_origin),
       direction(new_direction),
-      inverse_direction(1.0f/new_direction),
+      inverse_direction(zeroAllowedDivision(1, new_direction)),
       max_distance(new_max_distance) {}
 
 Point Ray::operator()(imp_float distance) const

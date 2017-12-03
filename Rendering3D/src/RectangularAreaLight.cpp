@@ -65,14 +65,14 @@ Geometry3D::Vector4 RectangularAreaLight::getRandomPoint() const
 }
 
 Biradiance RectangularAreaLight::getBiradiance(const Vector4& source_point,
-                                                  const Point& surface_point) const
+                                               const Point& surface_point,
+											   imp_float distance) const
 {
     assert(source_point.w == 1);
     const Vector& ray_distance_vector = surface_point - source_point.getXYZ();
-    imp_float squared_distance = ray_distance_vector.getSquaredLength();
 
-    return _power*std::max<imp_float>(_direction.dot(ray_distance_vector/sqrt(squared_distance)), 0)
-           /(IMP_PI*squared_distance);
+    return _power*std::max<imp_float>(_direction.dot(ray_distance_vector/distance), 0)
+           /(IMP_PI*distance*distance);
 }
 
 Power RectangularAreaLight::getTotalPower() const
@@ -90,20 +90,20 @@ void RectangularAreaLight::setCoordinateFrame(const CoordinateFrame& cframe)
 
 void RectangularAreaLight::applyTransformation(const LinearTransformation& transformation)
 {
-    _origin = transformation*_origin;
-    _width_vector = transformation*_width_vector;
-    _height_vector = transformation*_height_vector;
-    _direction = (transformation*_direction).normalize();
+    _origin = transformation(_origin);
+    _width_vector = transformation(_width_vector);
+    _height_vector = transformation(_height_vector);
+    _direction = transformation(_direction).normalize();
     _width = _width_vector.getLength();
     _height = _height_vector.getLength();
 }
 
 void RectangularAreaLight::applyTransformation(const AffineTransformation& transformation)
 {
-    _origin = transformation*_origin;
-    _width_vector = transformation*_width_vector;
-    _height_vector = transformation*_height_vector;
-    _direction = (transformation*_direction).normalize();
+    _origin = transformation(_origin);
+    _width_vector = transformation(_width_vector);
+    _height_vector = transformation(_height_vector);
+    _direction = transformation(_direction).normalize();
     _width = _width_vector.getLength();
     _height = _height_vector.getLength();
 }

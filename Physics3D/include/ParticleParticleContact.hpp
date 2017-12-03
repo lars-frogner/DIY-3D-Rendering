@@ -6,6 +6,7 @@
 #include "Point3.hpp"
 #include "Vector3.hpp"
 #include <vector>
+#include <list>
 
 namespace Impact {
 namespace Physics3D {
@@ -25,8 +26,7 @@ public:
 							Particle* new_particle_2,
 							imp_float new_restitution_coef);
 
-	virtual imp_uint generateContacts(imp_uint n_available_contacts,
-									  ParticleContact* first_available_contact) const;
+	virtual void generateContacts(std::list<ParticleContact>& contact_list) const;
 };
 
 } // Physics3D

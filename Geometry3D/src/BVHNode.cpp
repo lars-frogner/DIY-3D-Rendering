@@ -10,39 +10,19 @@ BVHNode::BVHNode(const AxisAlignedBox& new_bounding_volume, const AABBContainer&
       _object(new_object),
       _child_nodes(8) {}
 
-/*BVHNode::~BVHNode()
-{
-	_child_nodes.clear();
-}
-
 BVHNode::BVHNode(const BVHNode& other)
 	: _octants(other._octants),
       _object(other._object),
-	  _has_children(other._has_children)
-{
-	_child_nodes.reserve(other._child_nodes.size());
-
-	for (std::vector<node_ptr>::const_iterator iter = other._child_nodes.begin(); iter != other._child_nodes.end(); iter++)
-	{
-		_child_nodes.push_back(node_ptr(new BVHNode(*(*iter))));
-	}
-}
+	  _has_children(other._has_children),
+	  _child_nodes(other._child_nodes) {}
 
 BVHNode& BVHNode::operator=(const BVHNode& other)
 {
 	_octants = other._octants;
 	_object = other._object;
 	_has_children = other._has_children;
-
-	_child_nodes.reserve(other._child_nodes.size());
-
-	for (std::vector<node_ptr>::const_iterator iter = other._child_nodes.begin(); iter != other._child_nodes.end(); iter++)
-	{
-		_child_nodes.push_back(node_ptr(new BVHNode(*(*iter))));
-	}
-
-	return *this;
-}*/
+	_child_nodes = other._child_nodes;
+}
 
 void BVHNode::_insertObject(const AABBContainer& object)
 {

@@ -6,8 +6,8 @@
 #include "Camera.hpp"
 #include "Renderer.hpp"
 #include "Animator.hpp"
-#include "RenderableObject.hpp"
-#include "RenderableParticle.hpp"
+#include "Model.hpp"
+#include "ParticleModel.hpp"
 #include "Point3.hpp"
 #include "Vector3.hpp"
 #include "Box.hpp"
@@ -47,7 +47,8 @@ protected:
 
 	// Rendering assets
 	std::vector<Light*> _lights;
-	std::vector<RenderableObject*> _objects;
+	std::vector<Model*> _models;
+	std::vector<Material*> _materials;
 	
 	// Physics assets
 	std::vector<Particle*> _particles;
@@ -60,6 +61,9 @@ protected:
 	ParticleWorld* _physics_world;
 	Renderer* _renderer;
 	Animator* _animator;
+
+	void (*_performTimeTriggeredEvent)(World*) = nullptr;
+	imp_float _trigger_time;
 
 public:
 	bool use_omp = true;
@@ -76,25 +80,37 @@ public:
 						   const Vector& up_direction = Vector::unitY());
 	
 	void addLight(Light* light);
-	void addObject(RenderableObject* object);
+	void addModel(Model* model);
+	void addMaterial(Material* material);
 
 	void addParticle(Particle* particle);
 	void addParticleForceGenerator(ParticleForceGenerator* force_generator);
 	void addParticleContact(ParticleContactGenerator* contact_generator);
 
-	void addRenderableParticle(RenderableParticle* renderable_particle);
+	void addParticleModel(ParticleModel* particle_model);
 	void addParticleForce(ParticleForceGenerator* force_generator, Particle* particle);
 
 	void clearLights();
-	void clearObjects();
+	void clearModels();
+	void clearMaterials();
 
 	void clearParticles();
 	void clearParticleForces();
 	void clearParticleContacts();
+	
+	Light* getLight(imp_uint idx);
+	Model* getModel(imp_uint idx);
+	Material* getMaterial(imp_uint idx);
+	
+	Particle* getParticle(imp_uint idx);
 
 	imp_uint getNumberOfParticles() const;
+	imp_uint getNumberOfForceGenerators() const;
+
+	void setTimeTrigger(void (*performTimeTriggeredEvent)(World*), imp_float trigger_time);
 
 	void initialize();
+	void performPerFrameInitialization();
 	void render();
 
 	void processKeyPress(unsigned char key, int x, int y);
@@ -186,6 +202,12 @@ public:
 
 	void addGroundContact(imp_float restitution_coef,
 						  imp_int particle_idx);
+
+	void removeForceGenerator(imp_uint generator_idx, imp_uint particle_idx);
+	
+	void clearAllForces();
+
+	void removeAllGravityForces(imp_uint generator_start_idx);
 };
 
 } // Rendering3D

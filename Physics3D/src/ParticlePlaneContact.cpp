@@ -19,28 +19,30 @@ std::vector<Particle*> ParticlePlaneContact::getInvolvedParticles() const
 	return particles;
 }
 
-imp_uint ParticlePlaneContact::generateContacts(imp_uint n_available_contacts,
-												ParticleContact* first_available_contact) const
+void ParticlePlaneContact::generateContacts(std::list<ParticleContact>& contact_list) const
 {
-	assert(n_available_contacts >= 1);
-
 	imp_float separation = _plane.getNormalVector().dot(_particle->getPosition() - _plane.origin);
 	imp_float penetration_depth = _particle->getRadius() - abs(separation);
 
 	if (penetration_depth < 0)
-		return 0;
-
-	first_available_contact->setParticles(_particle, nullptr);
+		return;
 
 	if (separation >= 0)
-		first_available_contact->setContactNormal(_plane.getNormalVector());
+	{
+		contact_list.emplace_back(_particle,
+								   nullptr,
+								   _plane.getNormalVector(),
+								   penetration_depth,
+								   _restitution_coef);
+	}
 	else
-		first_available_contact->setContactNormal(-_plane.getNormalVector());
-
-	first_available_contact->setPenetrationDepth(penetration_depth);
-	first_available_contact->setRestitutionCoefficient(_restitution_coef);
-
-	return 1;
+	{
+		contact_list.emplace_back(_particle,
+								   nullptr,
+								   -_plane.getNormalVector(),
+								   penetration_depth,
+								   _restitution_coef);
+	}
 }
 
 } // Physics3D

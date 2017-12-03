@@ -12,7 +12,7 @@
 namespace Impact {
 namespace Rendering3D {
 
-class RenderableObject {
+class Model {
 
 private:
 	typedef Geometry3D::Point Point;
@@ -30,7 +30,9 @@ protected:
 
 public:
     bool uses_direct_lighting = true;
+	
 	bool casts_shadows = false;
+	bool shadows_toggable = true;
 	
     bool render_faces = true;
     bool render_edges = false;
@@ -41,18 +43,23 @@ public:
 	bool is_visible = true;
 	bool is_currently_visible = is_visible;
 
-    RenderableObject(const TriangleMesh* new_mesh,
-					 const Material* new_material,
-					 const AffineTransformation& new_transformation);
+    Model(const TriangleMesh* new_mesh,
+		  const Material* new_material,
+		  const AffineTransformation& new_transformation);
 
-    RenderableObject(const TriangleMesh* new_mesh,
-					 const Material* new_material);
+    Model(const TriangleMesh* new_mesh,
+		  const Material* new_material);
+
+	void applyTransformation(const AffineTransformation& transformation);
 
 	virtual TriangleMesh getTransformedMesh() const;
+	virtual TriangleMesh getTransformedMesh(const AffineTransformation& additional_transformation) const;
 
 	const TriangleMesh* getMesh() const;
 
 	const Material* getMaterial() const;
+
+	const AffineTransformation& getTransformation() const;
 };
 
 } // Rendering3D

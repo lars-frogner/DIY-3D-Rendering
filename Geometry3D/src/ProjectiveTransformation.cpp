@@ -8,10 +8,10 @@ ProjectiveTransformation::ProjectiveTransformation()
     : _matrix(4, 4, arma::fill::eye) {}
 
 ProjectiveTransformation::ProjectiveTransformation(const LinearTransformation& other)
-    : _matrix(other._matrix) {}
+    : _matrix(other.getMatrix().toArma4x4Matrix()) {}
 
 ProjectiveTransformation::ProjectiveTransformation(const AffineTransformation& other)
-    : _matrix(other._matrix) {}
+    : _matrix(other.getMatrix().toArma4x4Matrix()) {}
 
 ProjectiveTransformation::ProjectiveTransformation(const arma::Mat<imp_float>& new_matrix)
     : _matrix(new_matrix) {}
@@ -73,22 +73,22 @@ ProjectiveTransformation ProjectiveTransformation::unhinging(imp_float near_plan
     return ProjectiveTransformation(matrix);
 }
 
-ProjectiveTransformation ProjectiveTransformation::operator*(const LinearTransformation& other) const
+ProjectiveTransformation ProjectiveTransformation::operator()(const LinearTransformation& other) const
+{
+    return ProjectiveTransformation(_matrix*other.getMatrix().toArma4x4Matrix());
+}
+
+ProjectiveTransformation ProjectiveTransformation::operator()(const AffineTransformation& other) const
+{
+    return ProjectiveTransformation(_matrix*other.getMatrix().toArma4x4Matrix());
+}
+
+ProjectiveTransformation ProjectiveTransformation::operator()(const ProjectiveTransformation& other) const
 {
     return ProjectiveTransformation(_matrix*other._matrix);
 }
 
-ProjectiveTransformation ProjectiveTransformation::operator*(const AffineTransformation& other) const
-{
-    return ProjectiveTransformation(_matrix*other._matrix);
-}
-
-ProjectiveTransformation ProjectiveTransformation::operator*(const ProjectiveTransformation& other) const
-{
-    return ProjectiveTransformation(_matrix*other._matrix);
-}
-
-Geometry3D::Point ProjectiveTransformation::operator*(const Point& point) const
+Point ProjectiveTransformation::operator()(const Point& point) const
 {
     imp_float w = _matrix(3, 0)*point.x + _matrix(3, 1)*point.y + _matrix(3, 2)*point.z + _matrix(3, 3);
     assert(w != 0);
@@ -99,11 +99,17 @@ Geometry3D::Point ProjectiveTransformation::operator*(const Point& point) const
                  (_matrix(2, 0)*point.x + _matrix(2, 1)*point.y + _matrix(2, 2)*point.z + _matrix(2, 3))*w_inv);
 }
 
-Geometry3D::Triangle ProjectiveTransformation::operator*(const Triangle& triangle) const
+Triangle ProjectiveTransformation::operator()(const Triangle& triangle) const
 {
-    return Triangle((*this)*triangle.getPointA(),
-                    (*this)*triangle.getPointB(),
-                    (*this)*triangle.getPointC());
+    return Triangle((*this)(triangle.getPointA()),
+                    (*this)(triangle.getPointB()),
+                    (*this)(triangle.getPointC()));
+}
+
+ProjectiveTransformation& ProjectiveTransformation::invert()
+{
+    _matrix = _matrix.i();
+	return *this;
 }
 
 ProjectiveTransformation ProjectiveTransformation::getInverse() const
@@ -114,11 +120,6 @@ ProjectiveTransformation ProjectiveTransformation::getInverse() const
 const arma::Mat<imp_float>& ProjectiveTransformation::getMatrix() const
 {
     return _matrix;
-}
-
-std::string ProjectiveTransformation::getTransformationType() const
-{
-    return std::string("Projective transformation");
 }
 
 } // Geometry3D

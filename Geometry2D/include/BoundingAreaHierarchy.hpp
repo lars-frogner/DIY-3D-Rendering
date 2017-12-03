@@ -21,9 +21,8 @@ public:
     BoundingAreaHierarchy();
     BoundingAreaHierarchy(const AxisAlignedRectangle& bounding_area,
 						  const std::vector<AABRContainer>& objects);
-	/*BoundingAreaHierarchy(const BoundingAreaHierarchy& other);
-	~BoundingAreaHierarchy();
-	BoundingAreaHierarchy& operator=(const BoundingAreaHierarchy& other);*/
+	BoundingAreaHierarchy(const BoundingAreaHierarchy& other);
+	BoundingAreaHierarchy& operator=(const BoundingAreaHierarchy& other);
 
     std::vector<imp_uint> getIntersectedObjectIDs(const Point& point) const;
 };

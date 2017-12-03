@@ -28,6 +28,8 @@
     <ClInclude Include="include\Camera.hpp" />
     <ClInclude Include="include\CoordinateFrame.hpp" />
     <ClInclude Include="include\LinearTransformation.hpp" />
+    <ClInclude Include="include\Matrix3.hpp" />
+    <ClInclude Include="include\Matrix4.hpp" />
     <ClInclude Include="include\mesh_assets.hpp" />
     <ClInclude Include="include\Plane.hpp" />
     <ClInclude Include="include\Point3.hpp" />
@@ -35,7 +37,6 @@
     <ClInclude Include="include\Quaternion.hpp" />
     <ClInclude Include="include\Ray.hpp" />
     <ClInclude Include="include\Sphere.hpp" />
-    <ClInclude Include="include\Transformation.hpp" />
     <ClInclude Include="include\Triangle3.hpp" />
     <ClInclude Include="include\TriangleMesh.hpp" />
     <ClInclude Include="include\Vector3.hpp" />
@@ -51,6 +52,8 @@
     <ClCompile Include="src\Camera.cpp" />
     <ClCompile Include="src\CoordinateFrame.cpp" />
     <ClCompile Include="src\LinearTransformation.cpp" />
+    <ClCompile Include="src\Matrix3.cpp" />
+    <ClCompile Include="src\Matrix4.cpp" />
     <ClCompile Include="src\mesh_assets.cpp" />
     <ClCompile Include="src\Plane.cpp" />
     <ClCompile Include="src\Point3.cpp" />

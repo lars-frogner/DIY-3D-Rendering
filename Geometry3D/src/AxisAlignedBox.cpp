@@ -303,5 +303,14 @@ AxisAlignedBox& AxisAlignedBox::validateOrientation()
     return *this;
 }
 
+AABBContainer::AABBContainer() {}
+
+AABBContainer::AABBContainer(const AxisAlignedBox& new_aabb,
+							 const Point& new_centroid,
+							 imp_uint new_id)
+	: aabb(new_aabb),
+	  centroid(new_centroid),
+	  id(new_id) {}
+
 } // Geometry3D
 } // Impact

@@ -24,9 +24,9 @@ World::World(imp_uint image_width,
 			 imp_uint image_height)
 	: _image(new Image(image_width, image_height)),
 	  _camera(new Camera()),
-	  _physics_world(new ParticleWorld(1000)),
+	  _physics_world(new ParticleWorld()),
 	  _renderer(new Renderer(_image, _camera,
-							 &_lights, &_objects)),
+							 &_lights, &_models)),
 	  _animator(new Animator(_renderer, _physics_world)) {}
 
 World::~World()
@@ -41,9 +41,10 @@ World::~World()
 	clearParticles();
 	
 	delete _physics_world;
-
-	clearObjects();
+	
 	clearLights();
+	clearModels();
+	clearMaterials();
 }
 
 void World::setCameraPointing(const Point& position,
@@ -68,9 +69,14 @@ void World::addLight(Light* light)
 	_lights.push_back(light);
 }
 
-void World::addObject(RenderableObject* object)
+void World::addModel(Model* model)
 {
-	_objects.push_back(object);
+	_models.push_back(model);
+}
+
+void World::addMaterial(Material* material)
+{
+	_materials.push_back(material);
 }
 
 void World::addParticle(Particle* particle)
@@ -90,10 +96,10 @@ void World::addParticleContact(ParticleContactGenerator* contact_generator)
 	_physics_world->addContactGenerator(contact_generator);
 }
 
-void World::addRenderableParticle(RenderableParticle* renderable_particle)
+void World::addParticleModel(ParticleModel* particle_model)
 {
-	addObject(renderable_particle);
-	addParticle(renderable_particle->getParticle());
+	addModel(particle_model);
+	addParticle(particle_model->getParticle());
 }
 
 void World::addParticleForce(ParticleForceGenerator* force_generator, Particle* particle)
@@ -112,15 +118,26 @@ void World::clearLights()
 	_lights.clear();
 }
 
-void World::clearObjects()
+void World::clearModels()
 {
-	for (std::vector<RenderableObject*>::iterator iter = _objects.begin(); iter != _objects.end(); iter++)
+	for (std::vector<Model*>::iterator iter = _models.begin(); iter != _models.end(); iter++)
 	{
 		if (*iter)
 			delete *iter;
 	}
 
-	_objects.clear();
+	_models.clear();
+}
+
+void World::clearMaterials()
+{
+	for (std::vector<Material*>::iterator iter = _materials.begin(); iter != _materials.end(); iter++)
+	{
+		if (*iter)
+			delete *iter;
+	}
+
+	_materials.clear();
 }
 
 void World::clearParticles()
@@ -162,9 +179,44 @@ void World::clearParticleContacts()
 	_contact_generators.clear();
 }
 
+Light* World::getLight(imp_uint idx)
+{
+	assert(idx < static_cast<imp_uint>(_lights.size()));
+	return _lights[idx];
+}
+
+Model* World::getModel(imp_uint idx)
+{
+	assert(idx < static_cast<imp_uint>(_models.size()));
+	return _models[idx];
+}
+
+Material* World::getMaterial(imp_uint idx)
+{
+	assert(idx < static_cast<imp_uint>(_materials.size()));
+	return _materials[idx];
+}
+
+Physics3D::Particle* World::getParticle(imp_uint idx)
+{
+	assert(idx < static_cast<imp_uint>(_particles.size()));
+	return _particles[idx];
+}
+
 imp_uint World::getNumberOfParticles() const
 {
 	return static_cast<imp_uint>(_particles.size());
+}
+
+imp_uint World::getNumberOfForceGenerators() const
+{
+	return static_cast<imp_uint>(_force_generators.size());
+}
+
+void World::setTimeTrigger(void (*performTimeTriggeredEvent)(World*), imp_float trigger_time)
+{
+	_performTimeTriggeredEvent = performTimeTriggeredEvent;
+	_trigger_time = trigger_time;
 }
 
 void World::initialize()
@@ -180,13 +232,26 @@ void World::initialize()
 
 	_image->use_omp = use_omp;
 	_renderer->use_omp = use_omp;
+	_physics_world->use_omp = use_omp;
 
 	_renderer->initialize();
 	_animator->initialize(_image->getWidth(), _image->getHeight());
+	_physics_world->initialize();
+}
+
+void World::performPerFrameInitialization()
+{
+	if (_performTimeTriggeredEvent && _animator->getElapsedSimulationTime() > _trigger_time)
+	{
+		_performTimeTriggeredEvent(this);
+		_performTimeTriggeredEvent = nullptr;
+	}
 }
 
 void World::render()
 {
+	performPerFrameInitialization();
+
 	glClearColor(0, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT);
 
@@ -211,7 +276,7 @@ void World::processKeyPress(unsigned char key, int x, int y)
 		_animator->cycleRenderingMode();
 		break;
 	case 'u':
-		_renderer->toggleObjectShadows();
+		_renderer->toggleModelShadows();
 		break;
 	case 'c':
 		_animator->toggleInteractiveCamera();
@@ -302,29 +367,30 @@ void World::toggleParallelization()
 
 	_image->use_omp = use_omp;
 	_renderer->use_omp = use_omp;
+	_physics_world->use_omp = use_omp;
 }
 
 void World::addRoom(imp_float width, imp_float height, imp_float depth, const Material* material)
 {
-	addObject(new RenderableObject(&Geometry3D::IMP_ROOM_MESH,
-								   material,
-								   LinearTransformation::scaling(width, height, depth)));
+	addModel(new Model(&Geometry3D::IMP_ROOM_MESH,
+					   material,
+					   LinearTransformation::scaling(width, height, depth)));
 }
 
 void World::addGround(imp_float width, imp_float depth, const Material* material)
 {
-	addObject(new RenderableObject(&Geometry3D::IMP_SHEET_MESH,
-								   material,
-								   LinearTransformation::scaling(width, 1, depth)));
+	addModel(new Model(&Geometry3D::IMP_SHEET_MESH,
+					   material,
+					   LinearTransformation::scaling(width, 1, depth)));
 }
 
 void World::addBox(const Box& box, const Material* material)
 {
-	addObject(new RenderableObject(&Geometry3D::IMP_BOX_MESH,
-								   material,
-								   AffineTransformation::translationTo(box.getCenter())*
-								   LinearTransformation::vectorsToVectors(Vector::unitX(), Vector::unitY(), Vector::unitZ(),
-									  									  box.getWidthVector(), box.getHeightVector(), box.getDepthVector())));
+	addModel(new Model(&Geometry3D::IMP_BOX_MESH,
+					   material,
+					   AffineTransformation::translationTo(box.getCenter())(
+					   LinearTransformation::vectorsToVectors(Vector::unitX(), Vector::unitY(), Vector::unitZ(),
+									  						  box.getWidthVector(), box.getHeightVector(), box.getDepthVector()))));
 }
 
 void World::addSphere(const Sphere& sphere,
@@ -333,10 +399,10 @@ void World::addSphere(const Sphere& sphere,
 {
 	assert(quality < IMP_N_SPHERE_MESHES);
 
-	addObject(new RenderableObject(Geometry3D::IMP_SPHERE_MESHES + quality,
-								   material,
-								   AffineTransformation::translationTo(sphere.center)*
-								   LinearTransformation::scaling(sphere.radius)));
+	addModel(new Model(Geometry3D::IMP_SPHERE_MESHES + quality,
+					   material,
+					   AffineTransformation::translationTo(sphere.center)(
+					   LinearTransformation::scaling(sphere.radius))));
 }
 
 void World::addParticle(const Point& position,
@@ -350,15 +416,15 @@ void World::addParticle(const Point& position,
 {
 	assert(quality < IMP_N_SPHERE_MESHES);
 
-	addRenderableParticle(new RenderableParticle(Geometry3D::IMP_SPHERE_MESHES + quality,
-								   material,
-												 new Particle(position,
-															  velocity,
-															  acceleration,
-															  mass,
-															  radius,
-															  damping),
-											     LinearTransformation::scaling(radius)));
+	addParticleModel(new ParticleModel(Geometry3D::IMP_SPHERE_MESHES + quality,
+									   material,
+									   new Particle(position,
+										 		    velocity,
+													acceleration,
+													mass,
+													radius,
+													damping),
+									   LinearTransformation::scaling(radius)));
 }
 
 void World::addDragForce(imp_float coef_1,
@@ -412,6 +478,7 @@ void World::addGravityForce(imp_float gravitational_constant,
 																						   _particles[particle_idx_2],
 																						   gravitational_constant);
 
+	addParticleForceGenerator(force_generator);
 	addParticleForce(force_generator, _particles[particle_idx_1]);
 	addParticleForce(force_generator, _particles[particle_idx_2]);
 }
@@ -440,7 +507,8 @@ void World::addSpringForce(imp_float spring_constant,
 	Physics3D::ParticleSpringForce* force_generator = new Physics3D::ParticleSpringForce(_particles[particle_idx_1],
 																						 _particles[particle_idx_2],
 																						 spring_constant, rest_length);
-
+	
+	addParticleForceGenerator(force_generator);
 	addParticleForce(force_generator, _particles[particle_idx_1]);
 	addParticleForce(force_generator, _particles[particle_idx_2]);
 }
@@ -455,7 +523,8 @@ void World::addBungeeForce(imp_float spring_constant,
 	Physics3D::ParticleBungeeForce* force_generator = new Physics3D::ParticleBungeeForce(_particles[particle_idx_1],
 																						 _particles[particle_idx_2],
 																						 spring_constant, rest_length);
-
+	
+	addParticleForceGenerator(force_generator);
 	addParticleForce(force_generator, _particles[particle_idx_1]);
 	addParticleForce(force_generator, _particles[particle_idx_2]);
 }
@@ -670,6 +739,36 @@ void World::addGroundContact(imp_float restitution_coef,
 	for (imp_uint idx = start_idx; idx < end_idx; idx++)
 	{
 		addPlaneContact(ground, restitution_coef, idx);
+	}
+}
+
+void World::removeForceGenerator(imp_uint generator_idx, imp_uint particle_idx)
+{
+	assert(particle_idx < getNumberOfParticles() && generator_idx < getNumberOfForceGenerators());
+	_physics_world->removeForceGenerator(_particles[particle_idx], _force_generators[generator_idx]);
+}
+
+void World::clearAllForces()
+{
+	_physics_world->clearForceGenerators();
+}
+
+void World::removeAllGravityForces(imp_uint generator_start_idx)
+{
+	imp_uint i, j, n;
+	imp_uint n_particles = getNumberOfParticles();
+
+	n = 0;
+
+	for (i = 0; i < n_particles-1; i++)
+	{
+		for (j = i+1; j < n_particles; j++)
+		{
+			removeForceGenerator(generator_start_idx + n, i);
+			removeForceGenerator(generator_start_idx + n, j);
+
+			n++;
+		}
 	}
 }
 

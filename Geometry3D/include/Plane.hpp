@@ -15,6 +15,8 @@ private:
 public:
     Point origin;
 
+	Plane();
+
     Plane(const Point&  new_origin,
           const Vector& new_normal);
 
@@ -45,6 +47,8 @@ public:
     Plane& rotateFromXToY(imp_float angle);
     Plane& rotateFromYToZ(imp_float angle);
     Plane& rotateFromZToX(imp_float angle);
+
+	bool hasOnPositiveSide(const Point& point) const;
 };
 
 } // Geometry3D

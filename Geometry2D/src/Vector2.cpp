@@ -65,6 +65,8 @@ Vector Vector::operator*(imp_float factor) const
 
 Vector Vector::operator/(imp_float divisor) const
 {
+	assert(divisor != 0);
+
     return (*this)*(1/divisor);
 }
 
@@ -75,6 +77,8 @@ Vector& Vector::operator*=(imp_float factor)
 
 Vector& Vector::operator/=(imp_float divisor)
 {
+	assert(divisor != 0);
+
     return *this *= (1/divisor);
 }
 

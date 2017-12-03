@@ -1,34 +1,49 @@
-#include "RenderableObject.hpp"
+#include "Model.hpp"
 #include <cassert>
 
 namespace Impact {
 namespace Rendering3D {
 
-RenderableObject::RenderableObject(const TriangleMesh* new_mesh,
-								   const Material* new_material,
-								   const AffineTransformation& new_transformation)
+Model::Model(const TriangleMesh* new_mesh,
+			 const Material* new_material,
+			 const AffineTransformation& new_transformation)
 	: _mesh(new_mesh),
 	  _material(new_material),
 	  _transformation(new_transformation) {}
 
-RenderableObject::RenderableObject(const TriangleMesh* new_mesh,
-								   const Material* new_material)
+Model::Model(const TriangleMesh* new_mesh,
+			 const Material* new_material)
 	: _mesh(new_mesh),
 	  _material(new_material) {}
 
-Geometry3D::TriangleMesh RenderableObject::getTransformedMesh() const
+void Model::applyTransformation(const AffineTransformation& transformation)
+{
+	_transformation = transformation(_transformation);
+}
+
+Geometry3D::TriangleMesh Model::getTransformedMesh() const
 {
 	return TriangleMesh(*_mesh).applyTransformation(_transformation);
 }
 
-const Geometry3D::TriangleMesh* RenderableObject::getMesh() const
+Geometry3D::TriangleMesh Model::getTransformedMesh(const AffineTransformation& additional_transformation) const
+{
+	return TriangleMesh(*_mesh).applyTransformation(additional_transformation(_transformation));
+}
+
+const Geometry3D::TriangleMesh* Model::getMesh() const
 {
 	return _mesh;
 }
 
-const Material* RenderableObject::getMaterial() const
+const Material* Model::getMaterial() const
 {
 	return _material;
+}
+
+const Geometry3D::AffineTransformation& Model::getTransformation() const
+{
+	return _transformation;
 }
 
 /*RenderableTriangleMesh RenderableTriangleMesh::file(const std::string& filename)

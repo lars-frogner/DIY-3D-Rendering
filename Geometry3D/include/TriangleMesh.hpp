@@ -7,6 +7,7 @@
 #include "AxisAlignedBox.hpp"
 #include "Triangle3.hpp"
 #include "BoundingVolumeHierarchy.hpp"
+#include "Camera.hpp"
 #include "Point2.hpp"
 #include "Triangle2.hpp"
 #include "BoundingAreaHierarchy.hpp"
@@ -177,6 +178,11 @@ public:
 	bool allZAbove(imp_float z_low) const;
 	bool isInsideParallelViewVolume() const;
 	bool faceFacesOrigin(imp_uint face_idx) const;
+	bool isOutsideViewFrustum(const Plane& lower_plane,
+							  const Plane& upper_plane,
+							  const Plane& left_plane,
+							  const Plane& right_plane,
+							  imp_float far_plane_distance) const;
 	
     void saveAs(const std::string& filename) const;
 };

@@ -1049,7 +1049,7 @@ void TriangleMesh::computeBoundingVolumeHierarchy()
 	assert(_has_aabb);
 
     imp_uint n_triangles = getNumberOfFaces();
-    std::vector< AABBContainer > objects(n_triangles);
+    std::vector<AABBContainer> objects(n_triangles);
 
     for (imp_uint face_idx = 0; face_idx < n_triangles; face_idx++)
     {
@@ -1070,22 +1070,25 @@ void TriangleMesh::computeBoundingAreaHierarchy(imp_float image_width,
 												imp_float inverse_image_height_at_unit_distance_from_camera)
 {
     imp_uint n_triangles = getNumberOfFaces();
-    std::vector< AABRContainer > objects(n_triangles);
+    std::vector<AABRContainer> objects;
+
+	objects.reserve(n_triangles);
 
     AxisAlignedRectangle aabr(Point2::max(), Point2::min());
 
     for (imp_uint face_idx = 0; face_idx < n_triangles; face_idx++)
     {
+		if (!faceFacesOrigin(face_idx))
+			continue;
+
         const Triangle2& projected_face = getProjectedFace(face_idx,
 														   image_width,
 														   image_height,
 														   inverse_image_width_at_unit_distance_from_camera,
 														   inverse_image_height_at_unit_distance_from_camera);
 
-        objects[face_idx].aabr = projected_face.getAABR();
-        aabr.merge(objects[face_idx].aabr);
-        objects[face_idx].centroid = projected_face.getCentroid();
-        objects[face_idx].id = face_idx;
+		objects.emplace_back(projected_face.getAABR(), projected_face.getCentroid(), face_idx);
+        aabr.merge(objects.back().aabr);
     }
 
     _bounding_area_hierarchy = BoundingAreaHierarchy(aabr, objects);
@@ -1278,11 +1281,11 @@ imp_float TriangleMesh::evaluateRayFaceIntersectionDistanceOnly(const Ray& ray, 
 
 TriangleMesh& TriangleMesh::applyTransformation(const LinearTransformation& transformation)
 {
-    _vertices.rows(0, 2) = transformation.getMatrix().submat(0, 0, 2, 2)*_vertices.rows(0, 2);
+    _vertices.rows(0, 2) = transformation.getMatrix().toArma3x3Matrix()*_vertices.rows(0, 2);
 
     if (_has_normals)
 	{
-        _normals = transformation.getNormalTransformMatrix()*_normals;
+        _normals = transformation.getNormalTransformMatrix().toArma3x3Matrix()*_normals;
 		normalizeNormalVectors();
 	}
 
@@ -1293,14 +1296,24 @@ TriangleMesh& TriangleMesh::applyTransformation(const LinearTransformation& tran
 
 TriangleMesh& TriangleMesh::applyTransformation(const AffineTransformation& transformation)
 {
-    _vertices = transformation.getMatrix()*_vertices;
+    _vertices = transformation.getMatrix().toArma4x4Matrix()*_vertices;
 
     if (_has_normals)
 	{
-        _normals = transformation.getNormalTransformMatrix()*_normals;
+        _normals = transformation.getNormalTransformMatrix().toArma3x3Matrix()*_normals;
 		normalizeNormalVectors();
 	}
 	
+    _has_aabb = false;
+
+	return *this;
+}
+
+TriangleMesh& TriangleMesh::applyWindowingTransformation(const AffineTransformation& transformation)
+{
+    assert(_is_homogenized);
+    _vertices.rows(0, 1) = transformation.getMatrix().toArma4x4Matrix().submat(0, 0, 1, 3)*_vertices;
+    _has_normals = false;
     _has_aabb = false;
 
 	return *this;
@@ -1310,16 +1323,6 @@ TriangleMesh& TriangleMesh::applyTransformation(const ProjectiveTransformation& 
 {
     _vertices = transformation.getMatrix()*_vertices;
     _is_homogenized = false;
-    _has_normals = false;
-    _has_aabb = false;
-
-	return *this;
-}
-
-TriangleMesh& TriangleMesh::applyWindowingTransformation(const AffineTransformation& transformation)
-{
-    assert(_is_homogenized);
-    _vertices.rows(0, 1) = transformation.getMatrix().submat(0, 0, 1, 3)*_vertices;
     _has_normals = false;
     _has_aabb = false;
 
@@ -1469,6 +1472,35 @@ bool TriangleMesh::faceFacesOrigin(imp_uint face_idx) const
 	return (_vertices(0, i)*normal.x +
 		    _vertices(1, i)*normal.y +
 		    _vertices(2, i)*normal.z) < 0;
+}
+
+bool TriangleMesh::isOutsideViewFrustum(const Plane& lower_plane,
+										const Plane& upper_plane,
+										const Plane& left_plane,
+										const Plane& right_plane,
+										imp_float far_plane_distance) const
+{
+	assert(_has_aabb);
+
+	// Plane normals are assumed to point outwards from the frustum volume,
+	// and the AABB is assumed to be expressed in the camera coordinate system.
+
+	if (lower_plane.hasOnPositiveSide(_aabb.upper_corner))
+		return true;
+
+	if (upper_plane.hasOnPositiveSide(_aabb.lower_corner))
+		return true;
+
+	if (left_plane.hasOnPositiveSide(_aabb.upper_corner))
+		return true;
+
+	if (right_plane.hasOnPositiveSide(_aabb.lower_corner))
+		return true;
+
+	if (far_plane_distance < -_aabb.lower_corner.z)
+		return true;
+
+	return false;
 }
 
 std::vector<imp_uint> TriangleMesh::getIntersectedFaceIndices(const Ray& ray) const

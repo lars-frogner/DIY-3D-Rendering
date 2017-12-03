@@ -45,6 +45,8 @@ public:
 
     void setName(const std::string& name);
 
+	const Color& getBaseColor() const;
+
     BlinnPhongMaterial& setDiffuseReflectance(const Reflectance& new_diffuse_reflectance);
     BlinnPhongMaterial& setGlossyReflectance(const Reflectance& new_glossy_reflectance);
     BlinnPhongMaterial& setSmoothness(imp_float new_smoothness);

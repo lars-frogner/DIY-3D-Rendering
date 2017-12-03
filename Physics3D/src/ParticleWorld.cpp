@@ -7,62 +7,63 @@
 namespace Impact {
 namespace Physics3D {
 
-ParticleWorld::ParticleWorld(imp_uint new_max_contacts,
-							 imp_uint max_iterations /* = 0 */)
-	: _max_contacts(new_max_contacts),
-	  _calculate_iterations(max_iterations == 0),
-	  _contacts(new ParticleContact[new_max_contacts]),
+ParticleWorld::ParticleWorld(imp_uint max_iterations /* = 0 */)
+	: _calculate_iterations(max_iterations == 0),
 	  _contact_resolver(max_iterations) {}
-
-ParticleWorld::~ParticleWorld()
-{
-	delete _contacts;
-}
 
 void ParticleWorld::resetForces()
 {
-	std::vector<Particle*>::iterator iter = _particles.begin();
-
-	for (; iter != _particles.end(); iter++)
+	int idx;
+	int n_particles = static_cast<int>(_particles.size());
+	
+	#pragma omp parallel for default(shared) \
+							 private(idx) \
+							 shared(n_particles, duration) \
+							 schedule(static) \
+							 if (use_omp)
+	for (idx = 0; idx < n_particles; idx++)
 	{
-		(*iter)->resetAccumulatedForce();
+		_particles[idx]->resetAccumulatedForce();
 	}
 }
 
-imp_uint ParticleWorld::generateContacts()
+void ParticleWorld::generateContacts()
 {
+	int idx;
+	int n_contact_generators = static_cast<int>(_contact_generators.size());
+	std::list<ParticleContact> contact_list, contact_sublist;
 
-	imp_uint n_generated_contacts;
-	imp_uint n_available_contacts = _max_contacts;
-	ParticleContact* first_available_contact = _contacts;
-
-	std::vector<ParticleContactGenerator*>::const_iterator iter = _contact_generators.begin();
-
-	for (; iter != _contact_generators.end(); iter++)
+	#pragma omp parallel default(shared) \
+						 private(idx, contact_sublist) \
+						 shared(n_contact_generators, contact_list) \
+						 if (use_omp)
 	{
-		n_generated_contacts = (*iter)->generateContacts(n_available_contacts,
-														 first_available_contact);
-
-		n_available_contacts -= n_generated_contacts;
-		first_available_contact += n_generated_contacts;
-
-		if (n_available_contacts <= 0)
+		#pragma omp for schedule(dynamic)
+		for (idx = 0; idx < n_contact_generators; idx++)
 		{
-			std::cerr << "Warning: max number of generated contacts exceeded (" << _max_contacts << ")" << std::endl;
-			break;
+			_contact_generators[idx]->generateContacts(contact_sublist);
 		}
+
+		#pragma omp critical
+		contact_list.splice(contact_list.end(), contact_sublist);
 	}
 
-	return _max_contacts - n_available_contacts;
+	_contacts.assign(contact_list.begin(), contact_list.end());
 }
 
 void ParticleWorld::integrateMotion(imp_float duration)
 {
-	std::vector<Particle*>::iterator iter = _particles.begin();
-
-	for (; iter != _particles.end(); iter++)
+	int idx;
+	int n_particles = static_cast<int>(_particles.size());
+	
+	#pragma omp parallel for default(shared) \
+							 private(idx) \
+							 shared(n_particles, duration) \
+							 schedule(static) \
+							 if (use_omp)
+	for (idx = 0; idx < n_particles; idx++)
 	{
-		(*iter)->integrateMotion(duration);
+		_particles[idx]->integrateMotion(duration);
 	}
 }
 
@@ -136,9 +137,14 @@ imp_uint ParticleWorld::getNumberOfParticles() const
 	return static_cast<imp_uint>(_particles.size());
 }
 
+void ParticleWorld::initialize()
+{
+}
+
 void ParticleWorld::performPerFrameInitialization()
 {
 	resetForces();
+	_contact_resolver.use_omp = use_omp;
 }
 
 void ParticleWorld::advance(imp_float duration)
@@ -147,12 +153,12 @@ void ParticleWorld::advance(imp_float duration)
 
 	integrateMotion(duration);
 
-	imp_uint n_generated_contacts = generateContacts();
+	generateContacts();
 
 	if (_calculate_iterations)
-		_contact_resolver.setMaxIterations(2*n_generated_contacts);
+		_contact_resolver.setMaxIterations(2*static_cast<imp_uint>(_contacts.size()));
 
-	_contact_resolver.resolveContacts(n_generated_contacts, _contacts, duration);
+	_contact_resolver.resolveContacts(_contacts, duration);
 }
 
 void ParticleWorld::updateTransformations()

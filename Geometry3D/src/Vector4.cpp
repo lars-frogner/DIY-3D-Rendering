@@ -84,6 +84,8 @@ Vector4 Vector4::operator*(imp_float factor) const
 
 Vector4 Vector4::operator/(imp_float divisor) const
 {
+	assert(divisor != 0);
+
     return (*this)*(1/divisor);
 }
 
@@ -94,6 +96,8 @@ Vector4& Vector4::operator*=(imp_float factor)
 
 Vector4& Vector4::operator/=(imp_float divisor)
 {
+	assert(divisor != 0);
+
     return *this *= (1/divisor);
 }
 

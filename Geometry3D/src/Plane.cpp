@@ -5,6 +5,8 @@
 namespace Impact {
 namespace Geometry3D {
 
+Plane::Plane() {}
+
 Plane::Plane(const Point&  new_origin,
              const Vector& new_normal)
     : origin(new_origin), _normal(new_normal) {}
@@ -125,6 +127,11 @@ Plane& Plane::rotateFromZToX(imp_float angle)
         _basis_2.rotateFromZToX(angle);
     }
     return *this;
+}
+
+bool Plane::hasOnPositiveSide(const Point& point) const
+{
+	return _normal.dot(point - origin) > 0;
 }
 
 } // Geometry3D

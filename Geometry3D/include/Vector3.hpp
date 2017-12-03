@@ -87,5 +87,7 @@ Vector operator*(imp_float factor, const Vector& vector);
 
 Vector operator/(imp_float factor, const Vector& vector);
 
+Vector zeroAllowedDivision(imp_float factor, const Vector& vector);
+
 } // Geometry3D
 } // Impact

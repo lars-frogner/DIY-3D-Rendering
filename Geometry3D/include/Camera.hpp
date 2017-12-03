@@ -3,6 +3,7 @@
 #include "Point3.hpp"
 #include "Vector3.hpp"
 #include "Ray.hpp"
+#include "Plane.hpp"
 #include "CoordinateFrame.hpp"
 #include "AffineTransformation.hpp"
 #include "ProjectiveTransformation.hpp"
@@ -34,6 +35,12 @@ public:
 											  const Vector& up_direction);
 
 	void transformLookRay(const AffineTransformation& transformation);
+
+	void getViewFrustumInCameraSystem(imp_float aspect_ratio,
+									  Plane& lower_plane,
+									  Plane& upper_plane,
+									  Plane& left_plane,
+									  Plane& right_plane) const;
     
     const Point& getPosition() const;
 	const Vector& getLookDirection() const;

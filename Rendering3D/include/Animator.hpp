@@ -117,6 +117,8 @@ public:
 	void toggleSinglestepping();
 	void performSingleStep();
 	void terminate();
+
+	imp_float getElapsedSimulationTime() const;
 };
 
 } // Rendering3D

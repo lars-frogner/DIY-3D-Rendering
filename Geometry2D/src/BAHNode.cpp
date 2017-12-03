@@ -12,39 +12,20 @@ BAHNode::BAHNode(const AxisAlignedRectangle& new_bounding_area,
       _object(new_object),
       _child_nodes(4) {}
 
-/*BAHNode::~BAHNode()
-{
-	_child_nodes.clear();
-}
-
 BAHNode::BAHNode(const BAHNode& other)
 	: _quadrants(other._quadrants),
       _object(other._object),
-	  _has_children(other._has_children)
-{
-	_child_nodes.reserve(other._child_nodes.size());
-
-	for (std::vector<node_ptr>::const_iterator iter = other._child_nodes.begin(); iter != other._child_nodes.end(); iter++)
-	{
-		_child_nodes.push_back(node_ptr(new BAHNode(*(*iter))));
-	}
-}
+	  _has_children(other._has_children),
+	  _child_nodes(other._child_nodes) {}
 
 BAHNode& BAHNode::operator=(const BAHNode& other)
 {
 	_quadrants = other._quadrants;
 	_object = other._object;
-	 _has_children = other._has_children;
-
-	_child_nodes.reserve(other._child_nodes.size());
-
-	for (std::vector<node_ptr>::const_iterator iter = other._child_nodes.begin(); iter != other._child_nodes.end(); iter++)
-	{
-		_child_nodes.push_back(node_ptr(new BAHNode(*(*iter))));
-	}
-
+	_has_children = other._has_children;
+	_child_nodes = other._child_nodes;
 	return *this;
-}*/
+}
 
 void BAHNode::_insertObject(const AABRContainer& object)
 {
@@ -99,7 +80,7 @@ std::vector<imp_uint> BAHNode::_getIntersectedObjectIDs(const Point& point) cons
 
     if (_has_children && _aabr.containsInclusive(point))
     {
-        for (std::vector<node_ptr>::const_iterator iter = _child_nodes.begin(); iter != _child_nodes.end(); ++iter)
+        for (std::vector<node_ptr>::const_iterator iter = _child_nodes.begin(); iter != _child_nodes.end(); iter++)
         {
             const std::vector<imp_uint>& child_object_ids = (*iter)->_getIntersectedObjectIDs(point);
             object_ids.insert(object_ids.end(), child_object_ids.begin(), child_object_ids.end());

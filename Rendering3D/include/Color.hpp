@@ -46,6 +46,8 @@ public:
     Color& operator/= (const Color& other);
 
     Color& clamp();
+
+	Color& normalize();
     
     imp_float getMin() const;
     imp_float getMax() const;

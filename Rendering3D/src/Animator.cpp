@@ -245,8 +245,8 @@ void Animator::moveCamera(imp_float frame_duration)
 	{
 		const CoordinateFrame& cframe = _renderer->getCamera().getCoordinateFrame();
 
-		_camera_look_ray_transformation = AffineTransformation::translation(-du*cframe.basis_1 + dv*cframe.basis_2 - dw*cframe.basis_3)
-										  *_camera_look_ray_transformation;
+		_camera_look_ray_transformation = AffineTransformation::translation(-du*cframe.basis_1 + dv*cframe.basis_2 - dw*cframe.basis_3)(
+										  _camera_look_ray_transformation);
 
 		_camera_moved = true;
 	}
@@ -262,9 +262,9 @@ void Animator::rotateCamera(int x, int y)
 
 	const CoordinateFrame& cframe = _renderer->getCamera().getCoordinateFrame();
 
-	_camera_look_ray_transformation = AffineTransformation::rotationAboutRay(Ray(cframe.origin, cframe.basis_1), dtheta)
-									  *AffineTransformation::rotationAboutRay(Ray(cframe.origin, cframe.basis_2), dphi)
-									  *_camera_look_ray_transformation;
+	_camera_look_ray_transformation = AffineTransformation::rotationAboutRay(Ray(cframe.origin, cframe.basis_1), dtheta)(
+									  AffineTransformation::rotationAboutRay(Ray(cframe.origin, cframe.basis_2), dphi)(
+									  _camera_look_ray_transformation));
 	
 	_camera_moved = true;
 }
@@ -398,6 +398,11 @@ void Animator::saveFrame()
     string_stream << "data/saved_frames/frame_" << std::setfill('0') << std::setw(4) << _saved_frames_count << ".ppm";
 	_renderer->saveImage(string_stream.str());
 	_saved_frames_count++;
+}
+
+imp_float Animator::getElapsedSimulationTime() const
+{
+	return _elapsed_simulation_time;
 }
 
 } // Rendering3D

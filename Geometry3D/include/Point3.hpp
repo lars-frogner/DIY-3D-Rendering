@@ -38,7 +38,8 @@ public:
   
     Vector4 operator+ (const Vector4& vector4) const;
     Vector4 operator- (const Vector4& vector4) const;
-
+	
+    Point& moveToOrigin();
     Point& moveTo(imp_float x_new, imp_float y_new, imp_float z_new);
     Point& translate(imp_float dx, imp_float dy, imp_float dz);
 	

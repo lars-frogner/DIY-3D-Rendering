@@ -10,26 +10,16 @@ namespace Geometry3D {
 
 BoundingVolumeHierarchy::BoundingVolumeHierarchy() {}
 
-/*BoundingVolumeHierarchy::BoundingVolumeHierarchy(const BoundingVolumeHierarchy& other)
-{
-	if (other._root_node)
-		_root_node = node_ptr(new BVHNode(*other._root_node));
-}
-
-BoundingVolumeHierarchy::~BoundingVolumeHierarchy()
-{
-	_root_node.reset();
-}
+BoundingVolumeHierarchy::BoundingVolumeHierarchy(const BoundingVolumeHierarchy& other)
+	: _root_node(other._root_node) {}
 
 BoundingVolumeHierarchy& BoundingVolumeHierarchy::operator=(const BoundingVolumeHierarchy& other)
 {
-	if (other._root_node)
-		_root_node = node_ptr(new BVHNode(*other._root_node));
-
+	_root_node = other._root_node;
 	return *this;
-}*/
+}
 
-BoundingVolumeHierarchy::BoundingVolumeHierarchy(const AxisAlignedBox& bounding_volume, const std::vector< AABBContainer >& objects)
+BoundingVolumeHierarchy::BoundingVolumeHierarchy(const AxisAlignedBox& bounding_volume, const std::vector<AABBContainer>& objects)
 {
     imp_uint n_objects = static_cast<imp_uint>(objects.size());
     assert(n_objects > 0);

@@ -37,8 +37,33 @@ CoordinateFrame Camera::getCoordinateFrame(const Point& position,
 
 void Camera::transformLookRay(const AffineTransformation& transformation)
 {
-	_look_ray = transformation*_look_ray;
+	_look_ray = transformation(_look_ray);
 	_coordinate_frame = getCoordinateFrame(_look_ray.origin, _look_ray.direction, _up_direction);
+}
+
+void Camera::getViewFrustumInCameraSystem(imp_float aspect_ratio,
+										  Plane& lower_plane,
+										  Plane& upper_plane,
+										  Plane& left_plane,
+										  Plane& right_plane) const
+{
+    imp_float far_plane_halfwidth = _far_plane_distance*tan(_field_of_view/2);
+    imp_float far_plane_halfheight = far_plane_halfwidth/aspect_ratio;
+
+	Vector lower_left_corner(-far_plane_halfwidth, -far_plane_halfheight, -_far_plane_distance);
+	Vector lower_right_corner(far_plane_halfwidth, -far_plane_halfheight, -_far_plane_distance);
+	Vector upper_left_corner(-far_plane_halfwidth, far_plane_halfheight, -_far_plane_distance);
+	Vector upper_right_corner(far_plane_halfwidth, far_plane_halfheight, -_far_plane_distance);
+
+	lower_plane.origin.moveToOrigin();
+	upper_plane.origin.moveToOrigin();
+	left_plane.origin.moveToOrigin();
+	right_plane.origin.moveToOrigin();
+
+	lower_plane.setNormalVector(lower_left_corner.getUnitNormalWith(lower_right_corner));
+	upper_plane.setNormalVector(upper_right_corner.getUnitNormalWith(upper_left_corner));
+	left_plane.setNormalVector(upper_left_corner.getUnitNormalWith(lower_left_corner));
+	right_plane.setNormalVector(lower_right_corner.getUnitNormalWith(upper_right_corner));
 }
 
 const Point& Camera::getPosition() const
@@ -85,7 +110,6 @@ AffineTransformation Camera::getWindowingTransformation(imp_uint width, imp_floa
 
 AffineTransformation Camera::getWorldToPerspectiveViewVolumeTransformation(imp_float aspect_ratio) const
 {
-    
     imp_float horizontal_angle = _field_of_view/2;
     imp_float far_plane_halfwidth = _far_plane_distance*tan(horizontal_angle);
     imp_float far_plane_halfheight = far_plane_halfwidth/aspect_ratio;
@@ -107,7 +131,7 @@ ProjectiveTransformation Camera::getPerspectiveToParallelViewVolumeTransformatio
 
 ProjectiveTransformation Camera::getWorldToParallelViewVolumeTransformation(imp_float aspect_ratio) const
 {
-    return getPerspectiveToParallelViewVolumeTransformation()*getWorldToPerspectiveViewVolumeTransformation(aspect_ratio);
+    return getPerspectiveToParallelViewVolumeTransformation()(getWorldToPerspectiveViewVolumeTransformation(aspect_ratio));
 }
 
 } // Geometry3D

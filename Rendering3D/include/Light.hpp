@@ -30,7 +30,8 @@ public:
 
     virtual Vector4 getRandomPoint() const = 0;
     virtual Biradiance getBiradiance(const Vector4& source_point,
-                                     const Point& surface_point) const = 0;
+                                     const Point& surface_point,
+									 imp_float distance) const = 0;
 
     virtual Power getTotalPower() const = 0;
     //virtual Color getEmittedPhoton(Point& photon_origin,

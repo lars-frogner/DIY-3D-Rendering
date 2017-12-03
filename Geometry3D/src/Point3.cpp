@@ -67,6 +67,8 @@ Point Point::operator*(imp_float factor) const
 
 Point Point::operator/(imp_float divisor) const
 {
+	assert(divisor != 0);
+
     imp_float factor = 1/divisor;
     return Point(x*factor, y*factor, z*factor);
 }
@@ -81,6 +83,8 @@ Point& Point::operator*=(imp_float factor)
 
 Point& Point::operator/=(imp_float divisor)
 {
+	assert(divisor != 0);
+
     imp_float factor = 1/divisor;
 	x *= factor;
 	y *= factor;
@@ -96,6 +100,14 @@ Vector4 Point::operator+(const Vector4& vector4) const
 Vector4 Point::operator-(const Vector4& vector4) const
 {
     return Vector4(x - vector4.x, y - vector4.y, z - vector4.z, 1 - vector4.w);
+}
+
+Point& Point::moveToOrigin()
+{
+	x = 0;
+	y = 0;
+	z = 0;
+	return *this;
 }
 
 Point& Point::moveTo(imp_float x_new, imp_float y_new, imp_float z_new)

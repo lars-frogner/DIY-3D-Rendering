@@ -7,6 +7,7 @@
 #include "Vector3.hpp"
 #include "Plane.hpp"
 #include <vector>
+#include <list>
 
 namespace Impact {
 namespace Physics3D {
@@ -30,8 +31,7 @@ public:
 	
 	std::vector<Particle*> getInvolvedParticles() const;
 
-	virtual imp_uint generateContacts(imp_uint n_available_contacts,
-									  ParticleContact* first_available_contact) const;
+	virtual void generateContacts(std::list<ParticleContact>& contact_list) const;
 };
 
 } // Physics3D

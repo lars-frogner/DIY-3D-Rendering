@@ -25,8 +25,8 @@ protected:
 
     BAHNode(const AxisAlignedRectangle& new_bounding_area,
 			const AABRContainer& new_object);
-	/*BAHNode(const BAHNode& other);
-	BAHNode& operator=(const BAHNode& other);*/
+	BAHNode(const BAHNode& other);
+	BAHNode& operator=(const BAHNode& other);
 
     void _insertObject(const AABRContainer& object);
     const AxisAlignedRectangle& _computeBoundingAreas();

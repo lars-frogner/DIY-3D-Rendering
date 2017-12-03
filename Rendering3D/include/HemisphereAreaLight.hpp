@@ -42,7 +42,8 @@ public:
 
     Vector4 getRandomPoint() const;
     Biradiance getBiradiance(const Vector4& source_point,
-                             const Point& surface_point) const;
+                             const Point& surface_point,
+							 imp_float distance) const;
 
     Power getTotalPower() const;
 

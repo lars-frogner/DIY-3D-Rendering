@@ -90,7 +90,7 @@ bool RigidBody::hasInfiniteMass() const
 
 void RigidBody::calculateDerivedData()
 {
-	_transform = LinearTransformation::rotation(_orientation)*AffineTransformation::translation(_position.toVector());
+	_transform = LinearTransformation::rotation(_orientation)(AffineTransformation::translation(_position.toVector()));
 }
 
 void RigidBody::integrateMotion(imp_float duration)
