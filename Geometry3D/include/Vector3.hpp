@@ -25,7 +25,11 @@ public:
     static Vector unitY();
     static Vector unitZ();
 
+	static Vector randomCosineWeightedDirectionOnHemisphere(const Vector& normal);
+
 	void setToZero();
+
+	bool nonZero() const;
 
     Vector  operator+ (const Vector& other)  const;
     Point   operator+ (const Point&  point)  const;
@@ -57,6 +61,17 @@ public:
     Vector getRotatedFromXToY(imp_float angle) const;
     Vector getRotatedFromYToZ(imp_float angle) const;
     Vector getRotatedFromZToX(imp_float angle) const;
+
+	Vector getReflectedAbout(const Vector& direction) const;
+
+	Vector getSnellRefracted(const Vector& surface_normal,
+							 imp_float refractive_index_incoming,
+							 imp_float refractive_index_outgoing) const;
+	
+	Vector getSnellRefracted(const Vector& surface_normal,
+							 imp_float cos_incoming_angle,
+							 imp_float refractive_index_incoming,
+							 imp_float refractive_index_outgoing) const;
 
     imp_float getSmallestComponent() const;
     imp_uint getSmallestComponentIndex() const;

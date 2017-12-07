@@ -1,6 +1,6 @@
 #include "HemisphereAreaLight.hpp"
+#include "math_util.hpp"
 #include <cassert>
-#include <algorithm>
 
 namespace Impact {
 namespace Rendering3D {
@@ -36,30 +36,28 @@ imp_uint HemisphereAreaLight::getNumberOfSamples() const
     return _n_samples;
 }
 
-Geometry3D::Vector4 HemisphereAreaLight::getRandomPoint() const
+Geometry3D::Point HemisphereAreaLight::getRandomPoint() const
 {
-    imp_float num = 1 - IMP_RAND_NORM*rand();
+    imp_float num = 1 - math_util::random();
 
     imp_float r_cos_latitude = _radius*sqrt(1 - num*num);
-    imp_float longitude = 2*IMP_PI*IMP_RAND_NORM*rand();
+    imp_float longitude = math_util::random()*IMP_TWO_PI;
 
     Point point(_center.x + r_cos_latitude*cos(longitude),
                 _center.y + r_cos_latitude*sin(longitude),
                 _center.z + _radius*num);
 
-    return _rotation(point).toVector4();
+    return _rotation(point);
 }
 
-Biradiance HemisphereAreaLight::getBiradiance(const Vector4& source_point,
-                                              const Point& surface_point,
-										      imp_float distance) const
+SurfaceElement HemisphereAreaLight::getRandomSurfaceElement() const
 {
-    const Vector& ray_direction = (_center - source_point.getXYZ())/_radius;
-    assert(source_point.w == 1 && abs(ray_direction.getLength() - 1.0) < 1.0e-5);
-    const Vector& ray_distance_vector = surface_point - source_point.getXYZ();
+	SurfaceElement surface_element;
 
-    return _power*std::max<imp_float>(ray_direction.dot(ray_distance_vector/distance), 0)
-           /(IMP_PI*distance*distance);
+	surface_element.geometric.position = getRandomPoint();
+	surface_element.geometric.normal = (surface_element.geometric.position - _center).getNormalized();
+
+	return surface_element;
 }
 
 Power HemisphereAreaLight::getTotalPower() const

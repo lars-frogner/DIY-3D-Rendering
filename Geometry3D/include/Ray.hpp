@@ -25,6 +25,9 @@ public:
 
     Ray& alignWith(const Vector& other_direction);
     Ray& pointAt(const Point& point);
+
+	Ray& nudge(imp_float nudge_distance);
+	Ray& nudge(imp_float nudge_distance, const Vector& nudge_direction);
 };
 
 } // Geometry3D

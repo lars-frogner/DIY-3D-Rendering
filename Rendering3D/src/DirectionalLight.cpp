@@ -17,32 +17,14 @@ Geometry3D::CoordinateFrame DirectionalLight::getCoordinateFrame() const
                            Vector::zero());
 }
 
-imp_float DirectionalLight::getSurfaceArea() const
+const Geometry3D::Vector& DirectionalLight::getDirection() const
 {
-    return 0;
+    return _direction;
 }
 
-imp_uint DirectionalLight::getNumberOfSamples() const
+const Biradiance& DirectionalLight::getBiradiance() const
 {
-    return 1;
-}
-
-Geometry3D::Vector4 DirectionalLight::getRandomPoint() const
-{
-    return -_direction.toVector4();
-}
-
-Biradiance DirectionalLight::getBiradiance(const Vector4& source_point,
-                                           const Point& surface_point,
-										   imp_float distance) const
-{
-    assert(source_point.w == 0);
     return _biradiance;
-}
-
-Power DirectionalLight::getTotalPower() const
-{
-    return Power(IMP_FLOAT_INF, IMP_FLOAT_INF, IMP_FLOAT_INF);
 }
 
 void DirectionalLight::setCoordinateFrame(const CoordinateFrame& cframe)

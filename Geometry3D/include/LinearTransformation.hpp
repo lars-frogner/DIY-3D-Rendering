@@ -33,6 +33,8 @@ public:
     static LinearTransformation scaling(imp_float scale);
     static LinearTransformation rotation(const Vector& axis, imp_float angle);
     static LinearTransformation rotation(const Quaternion& quaternion);
+    static LinearTransformation rotationFromDirectionToDirection(const Vector& from_vector,
+																 const Vector& to_vector);
     static LinearTransformation rotationFromVectorToVector(const Vector& from_vector,
                                                            const Vector& to_vector);
     static LinearTransformation rotationFromXToY(imp_float angle);
@@ -45,6 +47,9 @@ public:
                                                  const Vector& to_vec_1,
                                                  const Vector& to_vec_2,
                                                  const Vector& to_vec_3);
+	
+	static Vector getVectorRotatedFromYAxisToDirection(const Vector& vector,
+													   const Vector& direction);
 
     LinearTransformation operator()(const LinearTransformation& other) const;
     AffineTransformation operator()(const AffineTransformation& other) const;

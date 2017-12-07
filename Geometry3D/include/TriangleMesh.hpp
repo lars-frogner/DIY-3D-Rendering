@@ -16,6 +16,7 @@
 #include "ProjectiveTransformation.hpp"
 #include <armadillo>
 #include <vector>
+#include <list>
 #include <string>
 
 namespace Impact {
@@ -79,10 +80,16 @@ public:
     static TriangleMesh triangle(const Triangle& triangle_obj);
     static TriangleMesh box(const Box& box_obj);
     static TriangleMesh room(const Box& box_obj);
-    static TriangleMesh sheet(const Point& origin,
-                              const Vector& width_vector,
-                              const Vector& height_vector);
+    static TriangleMesh sheet(const Point& center,
+							  const Vector& normal,
+							  const Vector& width_vector,
+							  imp_float height);
+    static TriangleMesh twoSidedSheet(const Point& center,
+									  const Vector& normal,
+									  const Vector& width_vector,
+									  imp_float height);
     static TriangleMesh sphere(const Sphere& sphere_obj, imp_uint resolution);
+    static TriangleMesh twoSidedSphere(const Sphere& sphere_obj, imp_uint resolution);
 
 	void initializeVertexData3();
 	void setVertexData3(imp_uint idx,
@@ -123,7 +130,7 @@ public:
 
     void homogenizeVertices();
 
-    imp_float evaluateRayIntersection(const Ray& ray) const;
+    imp_float evaluateRayIntersection(const Ray& ray, imp_uint& intersected_face_idx) const;
     bool evaluateRayAABBIntersection(const Ray& ray) const;
     imp_float evaluateRayFaceIntersectionNonOptimized(const Ray& ray, imp_uint face_idx, imp_float& alpha, imp_float& beta, imp_float& gamma) const;
     imp_float evaluateRayFaceIntersection(const Ray& ray, imp_uint face_idx, imp_float& alpha, imp_float& beta, imp_float& gamma) const;
@@ -158,11 +165,15 @@ public:
 							   imp_float image_height,
 							   imp_float inverse_image_width_at_unit_distance_from_camera,
 							   imp_float inverse_image_height_at_unit_distance_from_camera) const;
+
+	void getGeometricAndShadingNormal(imp_uint face_idx, const Point& position,
+		 							  Vector& geometric_normal, Vector& shading_normal) const;
 	
-    std::vector<imp_uint> getIntersectedFaceIndices(const Ray& ray) const;
-    std::vector<imp_uint> getIntersectedFaceIndices(const Point2& pixel_center) const;
+    std::vector<imp_uint> getPotentiallyIntersectedFaceIndices(const Ray& ray) const;
+    void addPotentiallyIntersectedFaceIndices(const Point2& pixel_center, std::list<imp_uint>& face_indices) const;
 
     const AxisAlignedBox& getAABB() const;
+	Point getCentroid() const;
 
     imp_uint getNumberOfVertices() const;
     imp_uint getNumberOfFaces() const;

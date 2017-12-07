@@ -26,7 +26,7 @@ World::World(imp_uint image_width,
 	  _camera(new Camera()),
 	  _physics_world(new ParticleWorld()),
 	  _renderer(new Renderer(_image, _camera,
-							 &_lights, &_models)),
+							 &_point_lights, &_directional_lights, &_area_lights, &_models)),
 	  _animator(new Animator(_renderer, _physics_world)) {}
 
 World::~World()
@@ -44,6 +44,7 @@ World::~World()
 	
 	clearLights();
 	clearModels();
+	clearMeshes();
 	clearMaterials();
 }
 
@@ -64,9 +65,24 @@ void World::setCameraPointing(const Point& position,
 																							 new_frame.basis_3));
 }
 	
-void World::addLight(Light* light)
+void World::addLight(OmnidirectionalLight* light)
 {
-	_lights.push_back(light);
+	_point_lights.push_back(light);
+}
+	
+void World::addLight(DirectionalLight* light)
+{
+	_directional_lights.push_back(light);
+}
+	
+void World::addLight(AreaLight* light)
+{
+	_area_lights.push_back(light);
+}
+
+void World::addMesh(TriangleMesh* mesh)
+{
+	_meshes.push_back(mesh);
 }
 
 void World::addModel(Model* model)
@@ -109,13 +125,40 @@ void World::addParticleForce(ParticleForceGenerator* force_generator, Particle* 
 
 void World::clearLights()
 {
-	for (std::vector<Light*>::iterator iter = _lights.begin(); iter != _lights.end(); iter++)
+	for (std::vector<OmnidirectionalLight*>::iterator iter = _point_lights.begin(); iter != _point_lights.end(); iter++)
 	{
 		if (*iter)
 			delete *iter;
 	}
 
-	_lights.clear();
+	_point_lights.clear();
+
+	for (std::vector<DirectionalLight*>::iterator iter = _directional_lights.begin(); iter != _directional_lights.end(); iter++)
+	{
+		if (*iter)
+			delete *iter;
+	}
+
+	_directional_lights.clear();
+	
+	for (std::vector<AreaLight*>::iterator iter = _area_lights.begin(); iter != _area_lights.end(); iter++)
+	{
+		if (*iter)
+			delete *iter;
+	}
+
+	_area_lights.clear();
+}
+
+void World::clearMeshes()
+{
+	for (std::vector<TriangleMesh*>::iterator iter = _meshes.begin(); iter != _meshes.end(); iter++)
+	{
+		if (*iter)
+			delete *iter;
+	}
+
+	_meshes.clear();
 }
 
 void World::clearModels()
@@ -179,10 +222,28 @@ void World::clearParticleContacts()
 	_contact_generators.clear();
 }
 
-Light* World::getLight(imp_uint idx)
+OmnidirectionalLight* World::getPointLight(imp_uint idx)
 {
-	assert(idx < static_cast<imp_uint>(_lights.size()));
-	return _lights[idx];
+	assert(idx < static_cast<imp_uint>(_point_lights.size()));
+	return _point_lights[idx];
+}
+
+DirectionalLight* World::getDirectionalLight(imp_uint idx)
+{
+	assert(idx < static_cast<imp_uint>(_directional_lights.size()));
+	return _directional_lights[idx];
+}
+
+AreaLight* World::getAreaLight(imp_uint idx)
+{
+	assert(idx < static_cast<imp_uint>(_area_lights.size()));
+	return _area_lights[idx];
+}
+
+Geometry3D::TriangleMesh* World::getMesh(imp_uint idx)
+{
+	assert(idx < static_cast<imp_uint>(_meshes.size()));
+	return _meshes[idx];
 }
 
 Model* World::getModel(imp_uint idx)
@@ -278,11 +339,20 @@ void World::processKeyPress(unsigned char key, int x, int y)
 	case 'u':
 		_renderer->toggleModelShadows();
 		break;
+	case '0':
+		toggleFresnel();
+		break;
 	case 'c':
 		_animator->toggleInteractiveCamera();
 		break;
 	case 'r':
 		_animator->toggleRealtimeSimulation();
+		break;
+	case '8':
+		_animator->decreasePathTracingSamples();
+		break;
+	case '9':
+		_animator->increasePathTracingSamples();
 		break;
 	case 'j':
 		_animator->decreaseFixedSimulationTimestep();
@@ -329,6 +399,9 @@ void World::processKeyPress(unsigned char key, int x, int y)
 	case 'v':
 		_animator->performSingleStep();
 		break;
+	case ' ':
+		_animator->saveSnapshot();
+		break;
 	case 'f':
 		addParticle(_camera->getPosition() + _camera->getLookDirection()*3.0f,
 					_camera->getLookDirection()*20.0f,
@@ -358,7 +431,12 @@ void World::processMouseMovement(int x, int y)
 
 void World::processMouseClick(int button, int state, int x, int y)
 {
-	
+	if (state == GLUT_DOWN)
+	{
+		_renderer->pixel_was_picked = true;
+		_renderer->picked_x = static_cast<imp_uint>(x);
+		_renderer->picked_y = static_cast<imp_uint>(y);
+	}
 }
 
 void World::toggleParallelization()
@@ -370,27 +448,38 @@ void World::toggleParallelization()
 	_physics_world->use_omp = use_omp;
 }
 
+void World::toggleFresnel()
+{
+	for (std::vector<Material*>::iterator iter = _materials.begin(); iter != _materials.end(); iter++)
+	{
+		(*iter)->use_fresnel = !((*iter)->use_fresnel);
+	}
+}
+
 void World::addRoom(imp_float width, imp_float height, imp_float depth, const Material* material)
 {
-	addModel(new Model(&Geometry3D::IMP_ROOM_MESH,
-					   material,
-					   LinearTransformation::scaling(width, height, depth)));
+	Model* model = new Model(&Geometry3D::IMP_ROOM_MESH,
+							 material,
+							 LinearTransformation::scaling(width, height, depth));
+	addModel(model);
 }
 
 void World::addGround(imp_float width, imp_float depth, const Material* material)
 {
-	addModel(new Model(&Geometry3D::IMP_SHEET_MESH,
-					   material,
-					   LinearTransformation::scaling(width, 1, depth)));
+	Model* model = new Model(&Geometry3D::IMP_SHEET_MESH,
+							 material,
+							 LinearTransformation::scaling(width, 1, depth));
+	addModel(model);
 }
 
 void World::addBox(const Box& box, const Material* material)
 {
-	addModel(new Model(&Geometry3D::IMP_BOX_MESH,
-					   material,
-					   AffineTransformation::translationTo(box.getCenter())(
-					   LinearTransformation::vectorsToVectors(Vector::unitX(), Vector::unitY(), Vector::unitZ(),
-									  						  box.getWidthVector(), box.getHeightVector(), box.getDepthVector()))));
+	Model* model = new Model(&Geometry3D::IMP_BOX_MESH,
+						     material,
+						     AffineTransformation::translationTo(box.getCenter())(
+						     LinearTransformation::vectorsToVectors(Vector::unitX(), Vector::unitY(), Vector::unitZ(),
+									  							    box.getWidthVector(), box.getHeightVector(), box.getDepthVector())));
+	addModel(model);
 }
 
 void World::addSphere(const Sphere& sphere,
@@ -399,10 +488,24 @@ void World::addSphere(const Sphere& sphere,
 {
 	assert(quality < IMP_N_SPHERE_MESHES);
 
-	addModel(new Model(Geometry3D::IMP_SPHERE_MESHES + quality,
-					   material,
-					   AffineTransformation::translationTo(sphere.center)(
-					   LinearTransformation::scaling(sphere.radius))));
+	Model* model = new Model(Geometry3D::IMP_SPHERE_MESHES + quality,
+						     material,
+						     AffineTransformation::translationTo(sphere.center)(
+						     LinearTransformation::scaling(sphere.radius)));
+	addModel(model);
+}
+
+void World::addTwoSidedSphere(const Sphere& sphere,
+							  const Material* material,
+							  imp_uint quality /* = 0 */)
+{
+	assert(quality < IMP_N_SPHERE_MESHES);
+
+	Model* model = new Model(Geometry3D::IMP_TWOSIDED_SPHERE_MESHES + quality,
+						     material,
+						     AffineTransformation::translationTo(sphere.center)(
+						     LinearTransformation::scaling(sphere.radius)));
+	addModel(model);
 }
 
 void World::addParticle(const Point& position,
@@ -416,15 +519,17 @@ void World::addParticle(const Point& position,
 {
 	assert(quality < IMP_N_SPHERE_MESHES);
 
-	addParticleModel(new ParticleModel(Geometry3D::IMP_SPHERE_MESHES + quality,
-									   material,
-									   new Particle(position,
-										 		    velocity,
-													acceleration,
-													mass,
-													radius,
-													damping),
-									   LinearTransformation::scaling(radius)));
+	ParticleModel* model = new ParticleModel(Geometry3D::IMP_SPHERE_MESHES + quality,
+											 material,
+											 new Particle(position,
+										 				  velocity,
+														  acceleration,
+														  mass,
+														  radius,
+														  damping),
+											 LinearTransformation::scaling(radius));
+
+	addParticleModel(model);
 }
 
 void World::addDragForce(imp_float coef_1,
@@ -607,9 +712,11 @@ void World::addPlaneContact(const Plane& plane,
 {
 	assert(particle_idx < getNumberOfParticles());
 
-	addParticleContact(new Physics3D::ParticlePlaneContact(_particles[particle_idx],
-														   plane,
-														   restitution_coef));
+	ParticleContactGenerator* contact = new Physics3D::ParticlePlaneContact(_particles[particle_idx],
+																		    plane,
+																			restitution_coef);
+
+	addParticleContact(contact);
 }
 
 void World::addCableContact(imp_float cable_length,
@@ -619,10 +726,12 @@ void World::addCableContact(imp_float cable_length,
 {
 	assert(particle_idx_1 < getNumberOfParticles() && particle_idx_2 < getNumberOfParticles());
 
-	addParticleContact(new Physics3D::ParticleCableContact(_particles[particle_idx_1],
-														   _particles[particle_idx_2],
-														   cable_length,
-														   restitution_coef));
+	ParticleContactGenerator* contact = new Physics3D::ParticleCableContact(_particles[particle_idx_1],
+																		    _particles[particle_idx_2],
+																		    cable_length,
+																		    restitution_coef);
+
+	addParticleContact(contact);
 }
 
 void World::addRodContact(imp_float rod_length,
@@ -631,9 +740,11 @@ void World::addRodContact(imp_float rod_length,
 {
 	assert(particle_idx_1 < getNumberOfParticles() && particle_idx_2 < getNumberOfParticles());
 
-	addParticleContact(new Physics3D::ParticleRodContact(_particles[particle_idx_1],
-														 _particles[particle_idx_2],
-														 rod_length));
+	ParticleContactGenerator* contact = new Physics3D::ParticleRodContact(_particles[particle_idx_1],
+																		  _particles[particle_idx_2],
+																		  rod_length);
+
+	addParticleContact(contact);
 }
 
 void World::addParticleContact(imp_float restitution_coef,
@@ -642,9 +753,11 @@ void World::addParticleContact(imp_float restitution_coef,
 {
 	assert(particle_idx_1 < getNumberOfParticles() && particle_idx_2 < getNumberOfParticles());
 
-	addParticleContact(new Physics3D::ParticleParticleContact(_particles[particle_idx_1],
-															  _particles[particle_idx_2],
-															  restitution_coef));
+	ParticleContactGenerator* contact = new Physics3D::ParticleParticleContact(_particles[particle_idx_1],
+																			   _particles[particle_idx_2],
+																			   restitution_coef);
+
+	addParticleContact(contact);
 }
 
 void World::addParticleContacts(imp_float restitution_coef,

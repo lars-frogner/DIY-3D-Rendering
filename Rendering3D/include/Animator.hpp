@@ -65,6 +65,8 @@ private:
 	imp_float _camera_movement_speed = 5.0f;
 	imp_float _camera_rotation_speed = 0.001f;
 
+	imp_uint _n_path_tracing_samples = 1;
+
 	std::map<unsigned char, bool> _keys_pressed;
 	bool _camera_moved = false;
 	int _image_center_x, _image_center_y;
@@ -102,6 +104,8 @@ public:
 	void cycleRenderingMode();
 	void toggleInteractiveCamera();
 	void toggleRealtimeSimulation();
+	void increasePathTracingSamples();
+	void decreasePathTracingSamples();
 	void increaseFixedSimulationTimestep();
 	void decreaseFixedSimulationTimestep();
 	void increaseSimulationFrequency();
@@ -117,6 +121,8 @@ public:
 	void toggleSinglestepping();
 	void performSingleStep();
 	void terminate();
+	
+	void saveSnapshot();
 
 	imp_float getElapsedSimulationTime() const;
 };

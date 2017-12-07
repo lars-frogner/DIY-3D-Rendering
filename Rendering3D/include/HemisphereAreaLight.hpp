@@ -1,24 +1,25 @@
 #pragma once
 #include "precision.hpp"
-#include "Light.hpp"
+#include "AreaLight.hpp"
 #include "Color.hpp"
+#include "SurfaceElement.hpp"
 #include "Point3.hpp"
 #include "Vector3.hpp"
-#include "Vector4.hpp"
 #include "CoordinateFrame.hpp"
+#include "TriangleMesh.hpp"
 #include "LinearTransformation.hpp"
 #include "AffineTransformation.hpp"
 
 namespace Impact {
 namespace Rendering3D {
 
-class HemisphereAreaLight : public Light {
+class HemisphereAreaLight : public AreaLight {
     
 private:
     typedef Geometry3D::Point Point;
     typedef Geometry3D::Vector Vector;
-    typedef Geometry3D::Vector4 Vector4;
     typedef Geometry3D::CoordinateFrame CoordinateFrame;
+    typedef Geometry3D::TriangleMesh TriangleMesh;
     typedef Geometry3D::LinearTransformation LinearTransformation;
     typedef Geometry3D::AffineTransformation AffineTransformation;
     
@@ -39,11 +40,11 @@ public:
     CoordinateFrame getCoordinateFrame() const;
     imp_float getSurfaceArea() const;
     imp_uint getNumberOfSamples() const;
+	virtual TriangleMesh getMesh() const = 0;
 
-    Vector4 getRandomPoint() const;
-    Biradiance getBiradiance(const Vector4& source_point,
-                             const Point& surface_point,
-							 imp_float distance) const;
+    Point getRandomPoint() const;
+
+    SurfaceElement getRandomSurfaceElement() const;
 
     Power getTotalPower() const;
 

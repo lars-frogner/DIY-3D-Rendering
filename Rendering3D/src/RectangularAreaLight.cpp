@@ -1,6 +1,6 @@
 #include "RectangularAreaLight.hpp"
+#include "math_util.hpp"
 #include <cassert>
-#include <algorithm>
 
 namespace Impact {
 namespace Rendering3D {
@@ -57,22 +57,26 @@ imp_uint RectangularAreaLight::getNumberOfSamples() const
     return _n_samples;
 }
 
-Geometry3D::Vector4 RectangularAreaLight::getRandomPoint() const
+Geometry3D::TriangleMesh RectangularAreaLight::getMesh() const
 {
-    return (_origin +
-            (IMP_RAND_NORM*rand())*_width_vector +
-            (IMP_RAND_NORM*rand())*_height_vector).toVector4();
+    return TriangleMesh::sheet(_origin + (_width_vector + _height_vector)/2, _direction, _width_vector, _height);
 }
 
-Biradiance RectangularAreaLight::getBiradiance(const Vector4& source_point,
-                                               const Point& surface_point,
-											   imp_float distance) const
+Geometry3D::Point RectangularAreaLight::getRandomPoint() const
 {
-    assert(source_point.w == 1);
-    const Vector& ray_distance_vector = surface_point - source_point.getXYZ();
+    return (_origin +
+            math_util::random()*_width_vector +
+            math_util::random()*_height_vector);
+}
 
-    return _power*std::max<imp_float>(_direction.dot(ray_distance_vector/distance), 0)
-           /(IMP_PI*distance*distance);
+SurfaceElement RectangularAreaLight::getRandomSurfaceElement() const
+{
+	SurfaceElement surface_element;
+
+	surface_element.geometric.position = getRandomPoint();
+	surface_element.geometric.normal = _direction;
+
+	return surface_element;
 }
 
 Power RectangularAreaLight::getTotalPower() const

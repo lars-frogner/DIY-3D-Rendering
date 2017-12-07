@@ -91,9 +91,24 @@ Color Color::operator+(const Color& other) const
     return Color(r + other.r, g + other.g, b + other.b);
 }
 
+Color Color::operator+(imp_float value) const
+{
+    return Color(r + value, g + value, b + value);
+}
+
 Color Color::operator-(const Color& other) const
 {
     return Color(r - other.r, g - other.g, b - other.b);
+}
+
+Color Color::operator-(imp_float value) const
+{
+    return Color(r - value, g - value, b - value);
+}
+
+Color Color::operator-() const
+{
+    return Color(-r, -g, -b);
 }
 
 Color& Color::operator+=(const Color& other)
@@ -208,9 +223,29 @@ imp_float Color::getMax() const
     return std::max(r, std::max(g, b));
 }
 
+imp_float Color::getMean() const
+{
+    return (r + g + b)/3;
+}
+
+bool Color::nonZero() const
+{
+    return r != 0 || g != 0 || b != 0;
+}
+
 Color operator*(imp_float factor, const Color& color)
 {
     return color*factor;
+}
+
+Color operator+(imp_float value, const Color& color)
+{
+	return Color(value + color.r, value + color.g, value + color.b);
+}
+
+Color operator-(imp_float value, const Color& color)
+{
+	return Color(value - color.r, value - color.g, value - color.b);
 }
 
 std::string Color::toString() const

@@ -2,7 +2,9 @@
 #include "precision.hpp"
 #include "Material.hpp"
 #include "Color.hpp"
+#include "SurfaceElement.hpp"
 #include "Vector3.hpp"
+#include <vector>
 
 namespace Impact {
 namespace Rendering3D {
@@ -12,49 +14,76 @@ class BlinnPhongMaterial : public Material {
 private:
     typedef Geometry3D::Vector Vector;
 
-    Reflectance _diffuse_reflectance;
+protected:
+    Reflectance _lambertian_reflectance;
+    Color _refractive_index;
+    Color _coefficient_of_extinction;
+	Color _attenuation;
+    imp_float _glossy_exponent;
+	bool _has_transparency;
+
+	
     Reflectance _glossy_reflectance;
-    float _smoothness;
-    std::string _name;
-
-    Color _diffuse_scattering_density;
-    Color _glossy_scattering_density_factor;
-
-    static imp_float _shininessToSmoothness(imp_float shininess);
-    static imp_float _smoothnessToShininess(imp_float smoothness);
+    Color _normalized_lambertian_reflectance;
+    imp_float _glossy_reflectance_normalization;
+	Color _normalized_glossy_reflectance;
+	
+    void _convert_glossy_reflectance_to_refractive_index();
     void _initialize();
 
+	Vector getRandomGlossyDirection(const Vector& surface_normal,
+									const Vector& incoming_direction) const;
+
 public:
-    
     BlinnPhongMaterial();
-    BlinnPhongMaterial(const Reflectance& new_diffuse_reflectance,
-                       const Reflectance& new_glossy_reflectance,
-                       imp_float new_smoothness,
-                       const std::string& new_name = std::string());
-    BlinnPhongMaterial(const Color& color,
-                       imp_float reflectance,
-                       imp_float glossiness,
-                       imp_float new_shininess,
-                       const std::string& new_name = std::string());
+
+    BlinnPhongMaterial(const Reflectance& new_lambertian_reflectance,
+                       const Color& new_glossy_reflectance,
+                       imp_float new_glossy_exponent);
+
+    BlinnPhongMaterial(const Reflectance& new_lambertian_reflectance,
+                       const Color& new_refractive_index,
+                       const Color& new_coefficient_of_extinction,
+                       const Color& new_attenuation,
+                       imp_float new_glossy_exponent);
+
     BlinnPhongMaterial(const BlinnPhongMaterial& other);
 
-    const Reflectance& getDiffuseReflectance() const;
+    const Reflectance& getLambertianReflectance() const;
     const Reflectance& getGlossyReflectance() const;
-    float getShininess() const;
-    const std::string& getName() const;
-
-    void setName(const std::string& name);
-
+    const Color& getRefractiveIndex() const;
+    const Color& getCoefficientOfExtinction() const;
+    const Color& getAttenuation() const;
+    imp_float getGlossyExponent() const;
+	const Radiance& getEmittedRadiance() const;
+	
 	const Color& getBaseColor() const;
 
-    BlinnPhongMaterial& setDiffuseReflectance(const Reflectance& new_diffuse_reflectance);
-    BlinnPhongMaterial& setGlossyReflectance(const Reflectance& new_glossy_reflectance);
-    BlinnPhongMaterial& setSmoothness(imp_float new_smoothness);
-    BlinnPhongMaterial& setShininess(imp_float new_shininess);
+	void setEmittedRadiance(const Radiance& emitted_radiance);
 
-    Color getScatteringDensity(const Vector& surface_normal,
-                               const Vector& direction_to_source,
-                               const Vector& scatter_direction) const;
+    void setLambertianReflectance(const Reflectance& lambertian_reflectance);
+    void setGlossyReflectance(const Reflectance& glossy_reflectance);
+    void setRefractiveIndex(const Color& refractive_index);
+    void setCoefficientOfExtinction(const Color& coefficient_of_extinction);
+    void setAttenuation(const Color& attenuation);
+    void setGlossyExponent(imp_float glossy_exponent);
+
+    Color evaluateFiniteBSDF(const Vector& surface_normal,
+					         const Vector& incoming_direction,
+							 const Vector& outgoing_direction,
+							 imp_float cos_incoming_angle) const;
+
+	void getBSDFImpulses(const Vector& surface_normal,
+						 const Vector& incoming_direction,
+						 std::vector<Impulse>& impulses) const;
+
+	bool scatter(const SurfaceElement& surface_element,
+				 Medium& ray_medium,
+				 const Vector& incoming_direction,
+				 Vector& outgoing_direction,
+				 Color& weight) const;
+
+	void attenuate(imp_float distance, Radiance& radiance) const;
 };
 
 } // Rendering3D

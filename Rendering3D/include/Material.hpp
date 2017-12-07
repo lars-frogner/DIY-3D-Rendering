@@ -1,25 +1,65 @@
 #pragma once
+#include "precision.hpp"
 #include "Color.hpp"
 #include "Vector3.hpp"
-#include <string>
+#include <vector>
 
 namespace Impact {
 namespace Rendering3D {
+
+// Forward declaration of SurfaceElement class
+class SurfaceElement;
+
+// Forward declaration of Medium struct
+struct Medium;
 
 class Material {
     
 private:
     typedef Geometry3D::Vector Vector;
 
+protected:
+	Radiance _emitted_radiance = Radiance::black();
+
 public:
-    virtual const std::string& getName() const = 0;
-    virtual void setName(const std::string& name) = 0;
+	struct Impulse
+	{
+		Vector direction;
+		Color magnitude;
+	};
+
+	bool use_fresnel = true;
+
+	static Reflectance getFresnelReflectance(const Color& normal_incidence_reflection, imp_float cos_incoming_angle);
+
+    virtual Color evaluateFiniteBSDF(const Vector& surface_normal,
+									 const Vector& incoming_direction,
+									 const Vector& outgoing_direction,
+									 imp_float cos_incoming_angle) const = 0;
+
+	virtual void getBSDFImpulses(const Vector& surface_normal,
+								 const Vector& incoming_direction,
+								 std::vector<Impulse>& impulses) const = 0;
+
+	virtual bool scatter(const SurfaceElement& surface_element,
+						 Medium& ray_medium,
+						 const Vector& incoming_direction,
+						 Vector& outgoing_direction,
+						 Color& weight) const = 0;
+
+	virtual void attenuate(imp_float distance, Radiance& radiance) const = 0;
+	
+	virtual const Color& getRefractiveIndex() const = 0;
 
 	virtual const Color& getBaseColor() const = 0;
+	virtual void setEmittedRadiance(const Radiance&) = 0;
+	virtual const Radiance& getEmittedRadiance() const = 0;
+};
 
-    virtual Color getScatteringDensity(const Vector& surface_normal,
-                                       const Vector& direction_to_source,
-                                       const Vector& scatter_direction) const = 0;
+struct Medium
+{
+	const Material* material = nullptr;
+	imp_uint model_id;
 };
 
 } // Rendering3D

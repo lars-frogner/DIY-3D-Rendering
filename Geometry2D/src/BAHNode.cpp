@@ -74,16 +74,13 @@ const AxisAlignedRectangle& BAHNode::_computeBoundingAreas()
     return _aabr;
 }
 
-std::vector<imp_uint> BAHNode::_getIntersectedObjectIDs(const Point& point) const
+void BAHNode::_addPotentiallyIntersectedObjectIDs(const Point& point, std::list<imp_uint>& object_ids) const
 {
-    std::vector<imp_uint> object_ids;
-
     if (_has_children && _aabr.containsInclusive(point))
     {
         for (std::vector<node_ptr>::const_iterator iter = _child_nodes.begin(); iter != _child_nodes.end(); iter++)
         {
-            const std::vector<imp_uint>& child_object_ids = (*iter)->_getIntersectedObjectIDs(point);
-            object_ids.insert(object_ids.end(), child_object_ids.begin(), child_object_ids.end());
+            (*iter)->_addPotentiallyIntersectedObjectIDs(point, object_ids);
         }
     }
 
@@ -91,8 +88,6 @@ std::vector<imp_uint> BAHNode::_getIntersectedObjectIDs(const Point& point) cons
 	{
 		object_ids.push_back(_object.id);
 	}
-    
-    return object_ids;
 }
 
 } // Geometry2D

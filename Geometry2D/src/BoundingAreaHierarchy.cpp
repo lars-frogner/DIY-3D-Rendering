@@ -32,10 +32,10 @@ BoundingAreaHierarchy::BoundingAreaHierarchy(const AxisAlignedRectangle& boundin
     _root_node->_computeBoundingAreas();
 }
 
-std::vector<imp_uint> BoundingAreaHierarchy::getIntersectedObjectIDs(const Point& point) const
+void BoundingAreaHierarchy::addPotentiallyIntersectedObjectIDs(const Point& point, std::list<imp_uint>& object_ids) const
 {
     assert(_root_node);
-    return _root_node->_getIntersectedObjectIDs(point);
+    _root_node->_addPotentiallyIntersectedObjectIDs(point, object_ids);
 }
 
 } // Geometry2D

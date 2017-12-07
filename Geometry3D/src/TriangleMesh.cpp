@@ -414,9 +414,13 @@ TriangleMesh TriangleMesh::room(const Box& box_obj)
     return room_mesh;
 }
 
-TriangleMesh TriangleMesh::sheet(const Point& origin, const Vector& width_vector, const Vector& height_vector)
+TriangleMesh TriangleMesh::sheet(const Point& center, const Vector& normal, const Vector& width_vector, imp_float height)
 {
     TriangleMesh sheet_mesh;
+
+	const Vector& nnormal = normal.getNormalized();
+	const Vector& height_vector = nnormal.getUnitNormalWith(width_vector)*height;
+	const Point& origin = center - width_vector*0.5f - height_vector*0.5f;
 
     const Point& corner_1 = origin;
     const Point& corner_2 = corner_1 + width_vector;
@@ -432,7 +436,42 @@ TriangleMesh TriangleMesh::sheet(const Point& origin, const Vector& width_vector
                          {2, 2},
                          {0, 3}};
 
-	sheet_mesh.computeNormalVectors();
+	sheet_mesh._normals = {{nnormal.x, nnormal.x, nnormal.x, nnormal.x},
+						   {nnormal.y, nnormal.y, nnormal.y, nnormal.y},
+						   {nnormal.z, nnormal.z, nnormal.z, nnormal.z}};
+
+	sheet_mesh._has_normals = true;
+
+    return sheet_mesh;
+}
+
+TriangleMesh TriangleMesh::twoSidedSheet(const Point& center, const Vector& normal, const Vector& width_vector, imp_float height)
+{
+    TriangleMesh sheet_mesh;
+
+	const Vector& nnormal = normal.getNormalized();
+	const Vector& height_vector = nnormal.getUnitNormalWith(width_vector)*height;
+	const Point& origin = center - width_vector*0.5f - height_vector*0.5f;
+
+    const Point& corner_1 = origin;
+    const Point& corner_2 = corner_1 + width_vector;
+    const Point& corner_3 = corner_2 + height_vector;
+    const Point& corner_4 = corner_1 + height_vector;
+
+    sheet_mesh._vertices = {{corner_1.x, corner_2.x, corner_3.x, corner_4.x},
+                            {corner_1.y, corner_2.y, corner_3.y, corner_4.y},
+                            {corner_1.z, corner_2.z, corner_3.z, corner_4.z},
+                            {         1,          1,          1,          1}};
+
+    sheet_mesh._faces = {{1, 0, 1, 2},
+                         {2, 2, 0, 0},
+                         {0, 3, 2, 3}};
+
+	sheet_mesh._normals = {{nnormal.x, nnormal.x, nnormal.x, nnormal.x},
+						   {nnormal.y, nnormal.y, nnormal.y, nnormal.y},
+						   {nnormal.z, nnormal.z, nnormal.z, nnormal.z}};
+
+	sheet_mesh._has_normals = true;
 
     return sheet_mesh;
 }
@@ -574,6 +613,214 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
     sphere_mesh._faces(2, n) = n_vertices - 1;
 
 	sphere_mesh._has_normals = true;
+
+    return sphere_mesh;
+}
+
+TriangleMesh TriangleMesh::twoSidedSphere(const Sphere& sphere_obj, imp_uint resolution)
+{
+    assert(resolution >= 1);
+
+    TriangleMesh sphere_mesh;
+
+    imp_float x0 = sphere_obj.center.x;
+    imp_float y0 = sphere_obj.center.y;
+    imp_float z0 = sphere_obj.center.z;
+    imp_float r = sphere_obj.radius;
+    
+    imp_uint n_lat = resolution + 2;
+    imp_uint n_lon = 2*n_lat;
+
+    imp_uint n_vertices = 2 + (n_lat - 2)*n_lon;
+    imp_uint n_faces = 2*(n_lat - 2)*n_lon;
+    imp_uint i, j, n;
+
+    imp_float dtheta = IMP_PI/(static_cast<imp_float>(n_lat) - 1);
+    imp_float dphi = 2*IMP_PI/static_cast<imp_float>(n_lon);
+
+    imp_float theta, phi;
+    imp_float sin_theta;
+    imp_uint offset, offset_prev;
+    imp_uint current, right, above, above_right;
+    
+    sphere_mesh._normals = arma::Mat<imp_float>(3, n_vertices);
+    sphere_mesh._vertices = arma::Mat<imp_float>(4, n_vertices);
+    sphere_mesh._vertices.row(3).ones();
+
+    // Top vertex
+    sphere_mesh._normals(0, 0) = 0;
+    sphere_mesh._normals(1, 0) = 0;
+    sphere_mesh._normals(2, 0) = 1;
+    sphere_mesh._vertices(0, 0) = x0;
+    sphere_mesh._vertices(1, 0) = y0;
+    sphere_mesh._vertices(2, 0) = z0 + r;
+
+    n = 1;
+    for (i = 1; i < n_lat - 1; i++) {
+        for (j = 0; j < n_lon; j++)
+        {
+            theta = i*dtheta;
+            phi = j*dphi;
+            sin_theta = sin(theta);
+
+            sphere_mesh._normals(0, n) = sin_theta*cos(phi);
+            sphere_mesh._normals(1, n) = sin_theta*sin(phi);
+            sphere_mesh._normals(2, n) = cos(theta);
+
+            sphere_mesh._vertices(0, n) = x0 + r*sphere_mesh._normals(0, n);
+            sphere_mesh._vertices(1, n) = y0 + r*sphere_mesh._normals(1, n);
+            sphere_mesh._vertices(2, n) = z0 + r*sphere_mesh._normals(2, n);
+
+            n++;
+        }
+    }
+    
+    // Bottom vertex
+    sphere_mesh._normals(0, n) = 0;
+    sphere_mesh._normals(1, n) = 0;
+    sphere_mesh._normals(2, n) = -1;
+    sphere_mesh._vertices(0, n) = x0;
+    sphere_mesh._vertices(1, n) = y0;
+    sphere_mesh._vertices(2, n) = z0 - r;
+
+    sphere_mesh._faces = arma::Mat<imp_uint>(3, 2*n_faces);
+
+	sphere_mesh._has_normals = true;
+    
+    // Top cone
+    n = 0;
+    for (j = 1; j < n_lon; j++)
+    {
+        sphere_mesh._faces(0, n) = j;
+        sphere_mesh._faces(1, n) = j + 1;
+        sphere_mesh._faces(2, n) = 0;
+        n++;
+    }
+    sphere_mesh._faces(0, n) = n_lon;
+    sphere_mesh._faces(1, n) = 1;
+    sphere_mesh._faces(2, n) = 0;
+    n++;
+    
+    for (i = 1; i < n_lat-2; i++)
+    {
+        offset = 1 + i*n_lon;
+        offset_prev = offset - n_lon;
+
+        for (j = 0; j < n_lon-1; j++)
+        {
+            current = offset + j;
+            right = current + 1;
+            above = offset_prev + j;
+            above_right = above + 1;
+
+            sphere_mesh._faces(0, n) = current;
+            sphere_mesh._faces(1, n) = right;
+            sphere_mesh._faces(2, n) = above_right;
+            n++;
+
+            sphere_mesh._faces(0, n) = above_right;
+            sphere_mesh._faces(1, n) = above;
+            sphere_mesh._faces(2, n) = current;
+            n++;
+        }
+        
+        j = n_lon - 1;
+
+        current =     offset + j;
+        right =       offset;
+        above =       offset_prev + j;
+        above_right = offset_prev;
+
+        sphere_mesh._faces(0, n) = current;
+        sphere_mesh._faces(1, n) = right;
+        sphere_mesh._faces(2, n) = above_right;
+        n++;
+
+        sphere_mesh._faces(0, n) = above_right;
+        sphere_mesh._faces(1, n) = above;
+        sphere_mesh._faces(2, n) = current;
+        n++;
+    }
+
+    // Bottom cone
+    offset = 1 + (n_lat - 3)*n_lon;
+    for (j = 0; j < n_lon-1; j++)
+    {
+        sphere_mesh._faces(0, n) = offset + j + 1;
+        sphere_mesh._faces(1, n) = offset + j;
+        sphere_mesh._faces(2, n) = n_vertices - 1;
+        n++;
+    }
+    sphere_mesh._faces(0, n) = offset;
+    sphere_mesh._faces(1, n) = offset + n_lon - 1;
+    sphere_mesh._faces(2, n) = n_vertices - 1;
+    
+    // Top cone (inside)
+    for (j = 1; j < n_lon; j++)
+    {
+        sphere_mesh._faces(1, n) = j;
+        sphere_mesh._faces(0, n) = j + 1;
+        sphere_mesh._faces(2, n) = 0;
+        n++;
+    }
+    sphere_mesh._faces(1, n) = n_lon;
+    sphere_mesh._faces(0, n) = 1;
+    sphere_mesh._faces(2, n) = 0;
+    n++;
+    
+    for (i = 1; i < n_lat-2; i++)
+    {
+        offset = 1 + i*n_lon;
+        offset_prev = offset - n_lon;
+
+        for (j = 0; j < n_lon-1; j++)
+        {
+            current = offset + j;
+            right = current + 1;
+            above = offset_prev + j;
+            above_right = above + 1;
+
+            sphere_mesh._faces(1, n) = current;
+            sphere_mesh._faces(0, n) = right;
+            sphere_mesh._faces(2, n) = above_right;
+            n++;
+
+            sphere_mesh._faces(1, n) = above_right;
+            sphere_mesh._faces(0, n) = above;
+            sphere_mesh._faces(2, n) = current;
+            n++;
+        }
+        
+        j = n_lon - 1;
+
+        current =     offset + j;
+        right =       offset;
+        above =       offset_prev + j;
+        above_right = offset_prev;
+
+        sphere_mesh._faces(1, n) = current;
+        sphere_mesh._faces(0, n) = right;
+        sphere_mesh._faces(2, n) = above_right;
+        n++;
+
+        sphere_mesh._faces(1, n) = above_right;
+        sphere_mesh._faces(0, n) = above;
+        sphere_mesh._faces(2, n) = current;
+        n++;
+    }
+
+    // Bottom cone (inside)
+    offset = 1 + (n_lat - 3)*n_lon;
+    for (j = 0; j < n_lon-1; j++)
+    {
+        sphere_mesh._faces(1, n) = offset + j + 1;
+        sphere_mesh._faces(0, n) = offset + j;
+        sphere_mesh._faces(2, n) = n_vertices - 1;
+        n++;
+    }
+    sphere_mesh._faces(1, n) = offset;
+    sphere_mesh._faces(0, n) = offset + n_lon - 1;
+    sphere_mesh._faces(2, n) = n_vertices - 1;
 
     return sphere_mesh;
 }
@@ -1149,10 +1396,10 @@ void TriangleMesh::homogenizeVertices()
     _has_aabb = false;
 }
 
-imp_float TriangleMesh::evaluateRayIntersection(const Ray& ray) const
+imp_float TriangleMesh::evaluateRayIntersection(const Ray& ray, imp_uint& intersected_face_idx) const
 {
 	assert(_has_aabb);
-    return _bounding_volume_hierarchy.evaluateRayIntersection(*this, ray);
+    return _bounding_volume_hierarchy.evaluateRayIntersection(*this, ray, intersected_face_idx);
 }
 
 bool TriangleMesh::evaluateRayAABBIntersection(const Ray& ray) const
@@ -1449,6 +1696,33 @@ Geometry2D::Triangle TriangleMesh::getProjectedFace(imp_uint face_idx,
     return Triangle2(vertex_A, vertex_B, vertex_C);
 }
 
+void TriangleMesh::getGeometricAndShadingNormal(imp_uint face_idx, const Point& position,
+		 										Vector& geometric_normal, Vector& shading_normal) const
+{
+	assert(_has_normals);
+
+	imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+
+    Triangle face(Point(_vertices(0, i), _vertices(1, i), _vertices(2, i)),
+                  Point(_vertices(0, j), _vertices(1, j), _vertices(2, j)),
+                  Point(_vertices(0, k), _vertices(1, k), _vertices(2, k)));
+
+    face.computeNormalVectors();
+
+	assert(!face.isDegenerate());
+
+	imp_float alpha, beta, gamma;
+    face.getBarycentricCoordinatesInside(position, alpha, beta, gamma);
+
+	geometric_normal = face.getNormalVector();
+
+	shading_normal = Vector(alpha*_normals(0, i) + beta*_normals(0, j) + gamma*_normals(0, k),
+							alpha*_normals(1, i) + beta*_normals(1, j) + gamma*_normals(1, k),
+							alpha*_normals(2, i) + beta*_normals(2, j) + gamma*_normals(2, k));
+
+	shading_normal.normalize();
+}
+
 bool TriangleMesh::allZAbove(imp_float z_low) const
 {
 	return arma::all(_vertices.row(2) > z_low);
@@ -1503,21 +1777,27 @@ bool TriangleMesh::isOutsideViewFrustum(const Plane& lower_plane,
 	return false;
 }
 
-std::vector<imp_uint> TriangleMesh::getIntersectedFaceIndices(const Ray& ray) const
+std::vector<imp_uint> TriangleMesh::getPotentiallyIntersectedFaceIndices(const Ray& ray) const
 {
 	assert(_has_aabb);
-    return _bounding_volume_hierarchy.getIntersectedObjectIDs(ray);
+    return _bounding_volume_hierarchy.getPotentiallyIntersectedObjectIDs(ray);
 }
 
-std::vector<imp_uint> TriangleMesh::getIntersectedFaceIndices(const Point2& pixel_center) const
+void TriangleMesh::addPotentiallyIntersectedFaceIndices(const Point2& pixel_center, std::list<imp_uint>& face_indices) const
 {
-    return _bounding_area_hierarchy.getIntersectedObjectIDs(pixel_center);
+    _bounding_area_hierarchy.addPotentiallyIntersectedObjectIDs(pixel_center, face_indices);
 }
 
 const AxisAlignedBox& TriangleMesh::getAABB() const
 {
 	assert(_has_aabb);
     return _aabb;
+}
+
+Point TriangleMesh::getCentroid() const
+{
+	const arma::Col<imp_float>& mean = arma::mean(_vertices, 1);
+	return Point(mean(0), mean(1), mean(2));
 }
 
 imp_uint TriangleMesh::getNumberOfVertices() const

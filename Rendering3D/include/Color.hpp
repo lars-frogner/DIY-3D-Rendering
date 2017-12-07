@@ -33,7 +33,10 @@ public:
     static Color gold();
     
     Color  operator+ (const Color& other) const;
+    Color  operator+ (imp_float value) const;
+    Color  operator- () const;
     Color  operator- (const Color& other) const;
+    Color  operator- (imp_float value) const;
     Color& operator+= (const Color& other);
     Color& operator-= (const Color& other);
     Color  operator* (imp_float factor) const;
@@ -51,11 +54,16 @@ public:
     
     imp_float getMin() const;
     imp_float getMax() const;
+	imp_float getMean() const;
+
+	bool nonZero() const;
     
     std::string toString() const;
 };
 
 Color operator*(imp_float factor, const Color& color);
+Color operator+(imp_float term, const Color& color);
+Color operator-(imp_float term, const Color& color);
 
 typedef Color Power;
 typedef Color Radiance;

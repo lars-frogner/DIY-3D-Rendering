@@ -1,7 +1,9 @@
 #pragma once
 #include "precision.hpp"
 #include "Material.hpp"
-#include "Light.hpp"
+#include "OmnidirectionalLight.hpp"
+#include "DirectionalLight.hpp"
+#include "AreaLight.hpp"
 #include "Image.hpp"
 #include "Camera.hpp"
 #include "Renderer.hpp"
@@ -46,7 +48,10 @@ private:
 protected:
 
 	// Rendering assets
-	std::vector<Light*> _lights;
+	std::vector<OmnidirectionalLight*> _point_lights;
+	std::vector<DirectionalLight*> _directional_lights;
+	std::vector<AreaLight*> _area_lights;
+	std::vector<TriangleMesh*> _meshes;
 	std::vector<Model*> _models;
 	std::vector<Material*> _materials;
 	
@@ -79,7 +84,10 @@ public:
 						   const Vector& look_direction = -Vector::unitZ(),
 						   const Vector& up_direction = Vector::unitY());
 	
-	void addLight(Light* light);
+	void addLight(OmnidirectionalLight* light);
+	void addLight(DirectionalLight* light);
+	void addLight(AreaLight* light);
+	void addMesh(TriangleMesh* mesh);
 	void addModel(Model* model);
 	void addMaterial(Material* material);
 
@@ -91,6 +99,7 @@ public:
 	void addParticleForce(ParticleForceGenerator* force_generator, Particle* particle);
 
 	void clearLights();
+	void clearMeshes();
 	void clearModels();
 	void clearMaterials();
 
@@ -98,7 +107,10 @@ public:
 	void clearParticleForces();
 	void clearParticleContacts();
 	
-	Light* getLight(imp_uint idx);
+	OmnidirectionalLight* getPointLight(imp_uint idx);
+	DirectionalLight* getDirectionalLight(imp_uint idx);
+	AreaLight* getAreaLight(imp_uint idx);
+	TriangleMesh* getMesh(imp_uint idx);
 	Model* getModel(imp_uint idx);
 	Material* getMaterial(imp_uint idx);
 	
@@ -119,11 +131,13 @@ public:
 	void processMouseClick(int button, int state, int x, int y);
 	
 	void toggleParallelization();
+	void toggleFresnel();
 
 	void addRoom(imp_float width, imp_float height, imp_float depth, const Material* material);
 	void addGround(imp_float width, imp_float depth, const Material* material);
 	void addBox(const Box& box, const Material* material);
 	void addSphere(const Sphere& sphere, const Material* material, imp_uint quality = 0);
+	void addTwoSidedSphere(const Sphere& sphere, const Material* material, imp_uint quality = 0);
 
 	void addParticle(const Point& position,
 					 const Vector& velocity,

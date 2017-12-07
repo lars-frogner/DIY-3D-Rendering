@@ -3,6 +3,7 @@
 #include "Point2.hpp"
 #include "AxisAlignedRectangle.hpp"
 #include <vector>
+#include <list>
 #include <memory>
 
 namespace Impact {
@@ -24,7 +25,7 @@ public:
 	BoundingAreaHierarchy(const BoundingAreaHierarchy& other);
 	BoundingAreaHierarchy& operator=(const BoundingAreaHierarchy& other);
 
-    std::vector<imp_uint> getIntersectedObjectIDs(const Point& point) const;
+    void addPotentiallyIntersectedObjectIDs(const Point& point, std::list<imp_uint>& object_ids) const;
 };
 
 } // Geometry2D

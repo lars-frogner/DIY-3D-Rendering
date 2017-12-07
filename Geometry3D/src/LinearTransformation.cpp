@@ -58,13 +58,13 @@ LinearTransformation LinearTransformation::rotation(const Quaternion& q)
 											2*(q.x*q.z + q.y*q.w),	   2*(q.y*q.z - q.x*q.w), 1 - 2*(q.x*q.x + q.y*q.y)));
 }
 
-LinearTransformation LinearTransformation::rotationFromVectorToVector(const Vector& from_vector,
-                                                                      const Vector& to_vector)
+LinearTransformation LinearTransformation::rotationFromDirectionToDirection(const Vector& from_vector,
+																			const Vector& to_vector)
 {
     const imp_float eps = static_cast<imp_float>(1e-6);
     Vector reference = Vector::zero();
 
-    imp_float angle = acos(from_vector.getNormalized().dot(to_vector.getNormalized()));
+    imp_float angle = acos(from_vector.dot(to_vector));
 
     if (angle < eps)
     {
@@ -85,6 +85,12 @@ LinearTransformation LinearTransformation::rotationFromVectorToVector(const Vect
     const Vector& axis = from_vector.cross(reference).normalize();
 
     return rotation(axis, angle);
+}
+
+LinearTransformation LinearTransformation::rotationFromVectorToVector(const Vector& from_vector,
+                                                                      const Vector& to_vector)
+{
+    return rotationFromDirectionToDirection(from_vector.getNormalized(), to_vector.getNormalized());
 }
 
 LinearTransformation LinearTransformation::rotationFromXToY(imp_float angle)
@@ -159,6 +165,40 @@ LinearTransformation LinearTransformation::vectorsToVectors(const Vector& from_v
     const Matrix3& matrix = to_mat*(from_mat.getInverse());
 	
     return LinearTransformation(matrix);
+}
+
+Vector LinearTransformation::getVectorRotatedFromYAxisToDirection(const Vector& vector,
+																  const Vector& direction)
+{
+	if (abs(direction.y - 1.0f) < 1e-4f)
+    {
+        return vector;
+    }
+	
+	imp_float a = sqrt(1 - direction.y*direction.y);
+	imp_float b = 1 - direction.y;
+    
+	if (abs(direction.y) < 1e-4f)
+    {
+		return Vector((1-b)*vector.x + a*vector.y, -a*vector.x + (1-b)*vector.y, vector.z);
+    }
+    else
+    {
+		imp_float norm = 1/sqrt(direction.x*direction.x + direction.z*direction.z);
+        imp_float x = direction.x*norm;
+        imp_float z = direction.z*norm;
+
+		imp_float x2 = x*x;
+		imp_float z2 = z*z;
+		imp_float xz = x*z;
+		imp_float ax = a*x;
+		imp_float az = a*z;
+
+		return Geometry3D::Matrix3(1 - b*x2,			  ax,    -b*xz,
+										-ax, 1 - b*(x2 + z2),      -az,
+									  -b*xz,			  az, 1 - b*z2)
+			   *vector;
+    }
 }
 
 LinearTransformation LinearTransformation::operator()(const LinearTransformation& other) const

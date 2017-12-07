@@ -19,9 +19,11 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\math_util.cpp" />
     <ClCompile Include="src\string_util.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\math_util.hpp" />
     <ClInclude Include="include\precision.hpp" />
     <ClInclude Include="include\string_util.hpp" />
   </ItemGroup>

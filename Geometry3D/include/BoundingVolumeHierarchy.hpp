@@ -27,8 +27,10 @@ public:
 	BoundingVolumeHierarchy(const BoundingVolumeHierarchy& other);
 	BoundingVolumeHierarchy& operator=(const BoundingVolumeHierarchy& other);
 
-    imp_float evaluateRayIntersection(const TriangleMesh& mesh, const Ray& ray) const;
-    std::vector<imp_uint> getIntersectedObjectIDs(const Ray& ray) const;
+    imp_float evaluateRayIntersection(const TriangleMesh& mesh, const Ray& ray, imp_uint& intersected_face_idx) const;
+	imp_float evaluateRayIntersection(const std::vector<TriangleMesh>& meshes, const Ray& ray, imp_uint& intersected_mesh_idx, imp_uint& intersected_face_idx) const;
+
+    std::vector<imp_uint> getPotentiallyIntersectedObjectIDs(const Ray& ray) const;
 };
 
 struct BVHQueueElement 

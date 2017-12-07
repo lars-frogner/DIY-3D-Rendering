@@ -18,12 +18,18 @@
     <ClCompile Include="src\string_util.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\math_util.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\precision.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\string_util.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\math_util.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

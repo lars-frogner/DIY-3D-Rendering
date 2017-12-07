@@ -1,5 +1,7 @@
 #include "Vector3.hpp"
 #include "Vector4.hpp"
+#include "math_util.hpp"
+#include "LinearTransformation.hpp"
 #include <cassert>
 #include <cmath>
 #include <sstream>
@@ -33,11 +35,28 @@ Vector Vector::unitZ()
     return Vector(0, 0, 1);
 }
 
+Vector Vector::randomCosineWeightedDirectionOnHemisphere(const Vector& normal)
+{
+	imp_float theta = math_util::random()*IMP_TWO_PI;
+	imp_float s = math_util::random();
+
+	imp_float y = sqrt(s);
+	imp_float r = sqrt(1 - s);
+	
+	return LinearTransformation::getVectorRotatedFromYAxisToDirection(Vector(r*cos(theta), y, r*sin(theta)),
+																	  normal);
+}
+
 void Vector::setToZero()
 {
 	x = 0;
 	y = 0;
 	z = 0;
+}
+
+bool Vector::nonZero() const
+{
+	return x != 0 || y != 0 || z != 0;
 }
 
 Vector Vector::operator+(const Vector& other) const
@@ -214,6 +233,36 @@ Vector Vector::getRotatedFromYToZ(imp_float angle) const
 Vector Vector::getRotatedFromZToX(imp_float angle) const
 {
     return Vector(*this).rotateFromZToX(angle);
+}
+
+Vector Vector::getReflectedAbout(const Vector& direction) const
+{
+	return direction*(2*(this->dot(direction))) - *this;
+}
+
+Vector Vector::getSnellRefracted(const Vector& surface_normal,
+								 imp_float refractive_index_incoming,
+								 imp_float refractive_index_outgoing) const
+{
+	return this->getSnellRefracted(surface_normal,
+								   this->dot(surface_normal),
+								   refractive_index_incoming,
+								   refractive_index_outgoing);
+}
+
+Vector Vector::getSnellRefracted(const Vector& surface_normal,
+								 imp_float cos_incoming_angle,
+								 imp_float refractive_index_incoming,
+								 imp_float refractive_index_outgoing) const
+{
+	imp_float refractive_index_ratio = refractive_index_incoming/refractive_index_outgoing;
+	imp_float inverse_refractive_index_ratio = 1/refractive_index_ratio;
+	imp_float argument_to_sqrt = cos_incoming_angle*cos_incoming_angle + inverse_refractive_index_ratio*inverse_refractive_index_ratio - 1;
+
+	if (argument_to_sqrt < 0)
+		return zero();
+
+	return ((*this)*refractive_index_ratio + surface_normal*((cos_incoming_angle - sqrt(argument_to_sqrt))*refractive_index_ratio)).getNormalized();
 }
 
 imp_float Vector::getSmallestComponent() const

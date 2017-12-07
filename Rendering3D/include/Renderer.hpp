@@ -2,7 +2,10 @@
 #include "precision.hpp"
 #include "Model.hpp"
 #include "Material.hpp"
-#include "Light.hpp"
+#include "SurfaceElement.hpp"
+#include "OmnidirectionalLight.hpp"
+#include "DirectionalLight.hpp"
+#include "AreaLight.hpp"
 #include "Image.hpp"
 #include "Point2.hpp"
 #include "Vector2.hpp"
@@ -16,6 +19,8 @@
 #include "Plane.hpp"
 #include "CoordinateFrame.hpp"
 #include "TriangleMesh.hpp"
+#include "AxisAlignedBox.hpp"
+#include "BoundingVolumeHierarchy.hpp"
 #include "AffineTransformation.hpp"
 #include "ProjectiveTransformation.hpp"
 #include <vector>
@@ -39,20 +44,28 @@ private:
     typedef Geometry3D::Plane Plane;
     typedef Geometry3D::CoordinateFrame CoordinateFrame;
     typedef Geometry3D::TriangleMesh TriangleMesh;
+    typedef Geometry3D::AxisAlignedBox AxisAlignedBox;
+    typedef Geometry3D::AABBContainer AABBContainer;
+    typedef Geometry3D::BoundingVolumeHierarchy BoundingVolumeHierarchy;
     typedef Geometry3D::AffineTransformation AffineTransformation;
     typedef Geometry3D::ProjectiveTransformation ProjectiveTransformation;
 
 protected:
 
     const imp_float _ray_origin_offset = static_cast<imp_float>(1e-4);
+	const imp_uint _max_scattering_count = 5;
 	
     Image* _image;
     Camera* _camera;
-	std::vector<Light*>* _lights;
+	std::vector<OmnidirectionalLight*>* _point_lights;
+	std::vector<DirectionalLight*>* _directional_lights;
+	std::vector<AreaLight*>* _area_lights;
 	std::vector<Model*>* _models;
 	std::vector<CoordinateFrame> _light_world_cframes;
 
 	std::vector<TriangleMesh> _mesh_copies;
+
+	BoundingVolumeHierarchy _mesh_BVH;
 
 	bool _lights_in_camera_system = false;
     
@@ -91,30 +104,50 @@ protected:
 	void createTransformedMeshCopies();
 	void createTransformedMeshCopies(const AffineTransformation& additional_transformation);
 
+	void buildMeshBVH();
+	void buildMeshBVHForShadowsOnly();
+
+	bool findIntersectedSurface(const Ray& ray, imp_float& distance, SurfaceElement& surface_element) const;
+
     Ray getEyeRay(const Point2& pixel_center) const;
 
-    Radiance getScatteredRadiance(const Point&  surface_point,
-								  const Vector& surface_normal,
-								  const Vector& scatter_direction,
-								  const Material* material) const;
+    Radiance getDirectlyScatteredRadianceFromLights(const SurfaceElement& surface_element,
+													const Vector& scatter_directionl) const;
 
-    bool evaluateSourceVisibility(const Point& surface_point,
-								  const Vector& direction_to_source,
-								  imp_float distance_to_source) const;
+	Radiance getDirectlyScatteredRadianceFromPointLights(const SurfaceElement& surface_element,
+													     const Vector& scatter_direction) const;
 
-	void computeRadianceAtAllVertices(TriangleMesh& mesh, const Material* material);
+	Radiance getDirectlyScatteredRadianceFromDirectionalLights(const SurfaceElement& surface_element,
+															   const Vector& scatter_direction) const;
+	
+	Radiance getDirectlyScatteredRadianceFromAreaLights(const SurfaceElement& surface_element,
+													    const Vector& scatter_direction) const;
 
-	bool computeRadianceAtIntersectedPosition(const TriangleMesh& mesh,
-											  const Material* material,
-											  const Ray& ray,
-											  imp_uint face_idx,
-										  	  Radiance& pixel_radiance,
-											  imp_float& closest_distance) const;
+	Radiance getScatteredRadianceFromSurface(const SurfaceElement& surface_element,
+											 Medium& ray_medium,
+										     const Vector& scatter_direction,
+										     imp_uint scattering_count) const;
+
+    bool sourceIsVisible(const Point& surface_point,
+						 const Vector& direction_to_source,
+					     imp_float distance_to_source) const;
+
+	bool clearLineOfSightBetween(const SurfaceElement& surface_element,
+								 const Point& end_point) const;
+
+	bool clearLineOfSightBetween(const SurfaceElement& surface_element_1,
+							     const SurfaceElement& surface_element_2) const;
+
+	Radiance pathTrace(const Ray& ray, Medium& ray_medium, imp_uint scattering_count) const;
+
+	void computeRadianceAtAllVertices(TriangleMesh& mesh, const SurfaceElement& surface_element);
 
 	void drawFaces(const TriangleMesh& mesh) const;
 	void drawFaces(const TriangleMesh& mesh, Color color) const;
 
 	void drawEdges(const TriangleMesh& mesh, float luminance) const;
+	
+	void printPickInfo();
 
 public:
 
@@ -129,9 +162,15 @@ public:
 	Color bg_color = Color::black();
     float edge_brightness = 0;
 
+	imp_uint picked_x;
+	imp_uint picked_y;
+	bool pixel_was_picked = false;
+
     Renderer(Image* new_image,
 			 Camera* new_camera,
-			 std::vector<Light*>* new_lights,
+			 std::vector<OmnidirectionalLight*>* new_point_lights,
+			 std::vector<DirectionalLight*>* new_directional_lights,
+			 std::vector<AreaLight*>* new_area_lights,
 			 std::vector<Model*>* new_models);
 
     Renderer(const Renderer& other) = delete;
@@ -144,6 +183,7 @@ public:
     void renderDirect();
     void rayTrace();
     void rasterize();
+    void pathTrace(imp_uint n_samples);
 
 	void saveImage(const std::string& filename);
 

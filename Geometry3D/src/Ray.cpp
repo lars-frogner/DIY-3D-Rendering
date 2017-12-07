@@ -34,5 +34,17 @@ Ray& Ray::pointAt(const Point& point)
     return alignWith(point - origin);
 }
 
+Ray& Ray::nudge(imp_float nudge_distance)
+{
+	origin += nudge_distance*direction;
+	return *this;
+}
+
+Ray& Ray::nudge(imp_float nudge_distance, const Vector& nudge_direction)
+{
+	origin += nudge_distance*nudge_direction;
+	return *this;
+}
+
 } // Geometry3D
 } // Impact

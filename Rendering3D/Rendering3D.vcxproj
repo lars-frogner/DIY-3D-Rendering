@@ -22,10 +22,11 @@
     <ClInclude Include="include\Animator.hpp" />
     <ClInclude Include="include\BlinnPhongMaterial.hpp" />
     <ClInclude Include="include\Color.hpp" />
+    <ClInclude Include="include\CookTorranceMaterial.hpp" />
     <ClInclude Include="include\DirectionalLight.hpp" />
     <ClInclude Include="include\HemisphereAreaLight.hpp" />
     <ClInclude Include="include\Image.hpp" />
-    <ClInclude Include="include\Light.hpp" />
+    <ClInclude Include="include\AreaLight.hpp" />
     <ClInclude Include="include\Material.hpp" />
     <ClInclude Include="include\material_assets.hpp" />
     <ClInclude Include="include\OmnidirectionalLight.hpp" />
@@ -34,6 +35,7 @@
     <ClInclude Include="include\Renderer.hpp" />
     <ClInclude Include="include\SceneGraph.hpp" />
     <ClInclude Include="include\Model.hpp" />
+    <ClInclude Include="include\SurfaceElement.hpp" />
     <ClInclude Include="include\World.hpp" />
   </ItemGroup>
   <ItemGroup>
@@ -43,6 +45,7 @@
     <ClCompile Include="src\DirectionalLight.cpp" />
     <ClCompile Include="src\HemisphereAreaLight.cpp" />
     <ClCompile Include="src\Image.cpp" />
+    <ClCompile Include="src\Material.cpp" />
     <ClCompile Include="src\material_assets.cpp" />
     <ClCompile Include="src\OmnidirectionalLight.cpp" />
     <ClCompile Include="src\RectangularAreaLight.cpp" />

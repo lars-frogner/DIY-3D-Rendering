@@ -1,5 +1,7 @@
 #include "Renderer.hpp"
+#include "math_util.hpp"
 #include <cassert>
+#include <list>
 #include <omp.h>
 
 namespace Impact {
@@ -7,11 +9,15 @@ namespace Rendering3D {
 
 Renderer::Renderer(Image* new_image,
 				   Camera* new_camera,
-				   std::vector<Light*>* new_lights,
+				   std::vector<OmnidirectionalLight*>* new_point_lights,
+				   std::vector<DirectionalLight*>* new_directional_lights,
+				   std::vector<AreaLight*>* new_area_lights,
 				   std::vector<Model*>* new_models)
     : _image(new_image),
 	  _camera(new_camera),
-	  _lights(new_lights),
+	  _point_lights(new_point_lights),
+	  _directional_lights(new_directional_lights),
+	  _area_lights(new_area_lights),
 	  _models(new_models) {}
 
 void Renderer::computeViewData()
@@ -51,20 +57,43 @@ void Renderer::computeViewData()
 
 void Renderer::storeLightWorldCoordinateFrames()
 {
-	imp_uint n_lights = static_cast<imp_uint>(_lights->size());
+	imp_uint idx;
+	imp_uint n_point_lights = static_cast<imp_uint>(_point_lights->size());
+	imp_uint n_directional_lights = static_cast<imp_uint>(_directional_lights->size());
+	imp_uint n_area_lights = static_cast<imp_uint>(_area_lights->size());
 
 	_light_world_cframes.clear();
-	_light_world_cframes.reserve(n_lights);
+	_light_world_cframes.reserve(n_point_lights + n_directional_lights + n_area_lights);
 
-	for (imp_uint idx = 0; idx < n_lights; idx++)
+	for (idx = 0; idx < n_point_lights; idx++)
 	{
-		_light_world_cframes.push_back(_lights->operator[](idx)->getCoordinateFrame());
+		_light_world_cframes.push_back(_point_lights->operator[](idx)->getCoordinateFrame());
+	}
+
+	for (idx = 0; idx < n_directional_lights; idx++)
+	{
+		_light_world_cframes.push_back(_directional_lights->operator[](idx)->getCoordinateFrame());
+	}
+
+	for (idx = 0; idx < n_area_lights; idx++)
+	{
+		_light_world_cframes.push_back(_area_lights->operator[](idx)->getCoordinateFrame());
 	}
 }
 
 void Renderer::transformLightsToCameraSystem()
 {
-	for (std::vector<Light*>::iterator iter = _lights->begin(); iter != _lights->end(); iter++)
+	for (std::vector<OmnidirectionalLight*>::iterator iter = _point_lights->begin(); iter != _point_lights->end(); iter++)
+	{
+		(*iter)->applyTransformation(_transformation_to_camera_system);
+	}
+
+	for (std::vector<DirectionalLight*>::iterator iter = _directional_lights->begin(); iter != _directional_lights->end(); iter++)
+	{
+		(*iter)->applyTransformation(_transformation_to_camera_system);
+	}
+
+	for (std::vector<AreaLight*>::iterator iter = _area_lights->begin(); iter != _area_lights->end(); iter++)
 	{
 		(*iter)->applyTransformation(_transformation_to_camera_system);
 	}
@@ -72,11 +101,24 @@ void Renderer::transformLightsToCameraSystem()
 
 void Renderer::transformLightsToWorldSystem()
 {
-	imp_uint n_lights = static_cast<imp_uint>(_lights->size());
+	imp_uint idx;
+	imp_uint n_point_lights = static_cast<imp_uint>(_point_lights->size());
+	imp_uint n_directional_lights = static_cast<imp_uint>(_directional_lights->size());
+	imp_uint n_area_lights = static_cast<imp_uint>(_area_lights->size());
 
-	for (imp_uint idx = 0; idx < n_lights; idx++)
+	for (idx = 0; idx < n_point_lights; idx++)
 	{
-		_lights->operator[](idx)->setCoordinateFrame(_light_world_cframes[idx]);
+		_point_lights->operator[](idx)->setCoordinateFrame(_light_world_cframes[idx]);
+	}
+
+	for (idx = 0; idx < n_directional_lights; idx++)
+	{
+		_directional_lights->operator[](idx)->setCoordinateFrame(_light_world_cframes[n_point_lights + idx]);
+	}
+
+	for (idx = 0; idx < n_area_lights; idx++)
+	{
+		_area_lights->operator[](idx)->setCoordinateFrame(_light_world_cframes[(n_point_lights + n_directional_lights) + idx]);
 	}
 }
 
@@ -104,6 +146,78 @@ void Renderer::createTransformedMeshCopies(const AffineTransformation& additiona
 	}
 }
 
+void Renderer::buildMeshBVH()
+{
+	int idx;
+	int n_meshes = static_cast<int>(_mesh_copies.size());
+
+    std::vector<AABBContainer> objects(n_meshes);
+	AxisAlignedBox aabb(Point::max(), Point::min());
+	
+    #pragma omp parallel for default(shared) \
+                             private(idx) \
+                             shared(n_meshes, objects, aabb) \
+                             schedule(dynamic) \
+                             if (use_omp)
+	for (idx = 0; idx < n_meshes; idx++)
+	{
+		_mesh_copies[idx].computeAABB();
+		_mesh_copies[idx].computeBoundingVolumeHierarchy();
+
+        objects[idx].aabb = _mesh_copies[idx].getAABB();
+        objects[idx].centroid = _mesh_copies[idx].getCentroid();
+        objects[idx].id = idx;
+
+		#pragma omp critical
+		aabb.merge(objects[idx].aabb);
+	}
+
+    _mesh_BVH = BoundingVolumeHierarchy(aabb, objects);
+	
+    objects.clear();
+}
+
+void Renderer::buildMeshBVHForShadowsOnly()
+{
+	int idx;
+	int n_meshes = static_cast<int>(_mesh_copies.size());
+
+    std::vector<AABBContainer> objects;
+	AxisAlignedBox aabb(Point::max(), Point::min());
+
+	objects.reserve(n_meshes);
+	
+    #pragma omp parallel for default(shared) \
+                             private(idx) \
+                             shared(n_meshes, objects, aabb) \
+                             schedule(dynamic) \
+                             if (use_omp)
+	for (idx = 0; idx < n_meshes; idx++)
+	{
+		if (_models->operator[](idx)->casts_shadows)
+		{
+			_mesh_copies[idx].computeAABB();
+			_mesh_copies[idx].computeBoundingVolumeHierarchy();
+
+			#pragma omp critical
+			{
+				objects.emplace_back(_mesh_copies[idx].getAABB(),
+									 _mesh_copies[idx].getCentroid(),
+									 idx);
+
+				aabb.merge(objects.back().aabb);
+			}
+		}
+	}
+
+	if (objects.size() > 0)
+	    _mesh_BVH = BoundingVolumeHierarchy(aabb, objects);
+	else
+	    _mesh_BVH = BoundingVolumeHierarchy();
+	
+    objects.clear();
+}
+
 void Renderer::transformCameraLookRay(const AffineTransformation& transformation)
 {
 	_camera->transformLookRay(transformation);
@@ -126,6 +240,7 @@ void Renderer::renderDirect()
 {
 	int n_models = static_cast<int>(_models->size());
 	int obj_idx;
+	SurfaceElement surface_element;
 
 	if (_lights_in_camera_system)
 	{
@@ -137,34 +252,18 @@ void Renderer::renderDirect()
 	
 	_image->setBackgroundColor(bg_color);
     _image->initializeDepthBuffer(-1.0);
-	
-    #pragma omp parallel for default(shared) \
-                             private(obj_idx) \
-                             shared(n_models) \
-                             schedule(dynamic) \
-                             if (use_omp)
-    for (obj_idx = 0; obj_idx < n_models; obj_idx++)
-    {
-		const Model* model = _models->operator[](obj_idx);
-        TriangleMesh& mesh = _mesh_copies[obj_idx];
 
-        if (n_splits > 0)
-            mesh.splitFaces(n_splits);
-
-		if (model->casts_shadows)
-		{
-			mesh.computeAABB();
-			mesh.computeBoundingVolumeHierarchy();
-		}
-	}
+	buildMeshBVHForShadowsOnly();
 
     for (obj_idx = 0; obj_idx < n_models; obj_idx++)
     {
 		const Model* model = _models->operator[](obj_idx);
         TriangleMesh& mesh = _mesh_copies[obj_idx];
+
+		surface_element.material = model->getMaterial();
 
         if (model->uses_direct_lighting)
-            computeRadianceAtAllVertices(mesh, model->getMaterial());
+            computeRadianceAtAllVertices(mesh, surface_element);
 	}
 
     #pragma omp parallel for default(shared) \
@@ -251,14 +350,13 @@ void Renderer::renderDirect()
 
 void Renderer::rayTrace()
 {
+    int x, y;
 	int image_width = static_cast<int>(_image_width);
     int image_height = static_cast<int>(_image_height);
-    int n_models = static_cast<int>(_models->size());
-    int x, y, obj_idx;
-    std::vector<imp_uint>::const_iterator iter;
     imp_float closest_distance;
     Point2 pixel_center;
     Radiance pixel_radiance;
+	SurfaceElement surface_element;
 
 	if (!_lights_in_camera_system)
 	{
@@ -268,109 +366,32 @@ void Renderer::rayTrace()
 
 	createTransformedMeshCopies(_transformation_to_camera_system);
 
+    buildMeshBVH();
+
+	printPickInfo();
+
 	_image->setBackgroundColor(bg_color);
-    
+
     #pragma omp parallel for default(shared) \
-                             private(obj_idx) \
-                             shared(n_models) \
-                             schedule(dynamic) \
-                             if (use_omp)
-    for (obj_idx = 0; obj_idx < n_models; obj_idx++)
-    {
-		Model* model = _models->operator[](obj_idx);
-        TriangleMesh& mesh = _mesh_copies[obj_idx];
-
-		if (mesh.allZAbove(-_near_plane_distance))
+							 private(x, y, pixel_center, closest_distance, surface_element) \
+							 shared(image_height, image_width) \
+							 schedule(dynamic) \
+							 if (use_omp)
+	for (y = 0; y < image_height; y++) {
+		for (x = 0; x < image_width; x++)
 		{
-			model->is_currently_visible = false;
+			pixel_center.moveTo(static_cast<imp_float>(x) + 0.5f, static_cast<imp_float>(y) + 0.5f);
 
-			if (model->casts_shadows)
-			{
-				mesh.computeAABB();
-				mesh.computeBoundingVolumeHierarchy();
-			}
-
-			continue;
-		}
-
-		if (model->perform_clipping)
-	        mesh.clipNearPlaneAt(-_near_plane_distance);
-
-		mesh.computeAABB();
-
-		if (mesh.isOutsideViewFrustum(_frustum_lower_plane,
-									  _frustum_upper_plane,
-								      _frustum_left_plane,
-									  _frustum_right_plane,
-									  _far_plane_distance))
-		{
-			model->is_currently_visible = false;
-
-			if (model->casts_shadows)
-			{
-				mesh.computeAABB();
-				mesh.computeBoundingVolumeHierarchy();
-			}
-
-			continue;
-		}
-
-		mesh.computeBoundingAreaHierarchy(_image_width,
-									      _image_height,
-									      _inverse_image_width_at_unit_distance_from_camera,
-									      _inverse_image_height_at_unit_distance_from_camera);
-
-		if (model->casts_shadows)
-			mesh.computeBoundingVolumeHierarchy();
-    }
-    
-    #pragma omp parallel for default(shared) \
-                             private(x, y, pixel_center, obj_idx, iter, closest_distance, pixel_radiance) \
-                             shared(image_height, image_width, n_models) \
-                             schedule(dynamic) \
-                             if (use_omp)
-    for (y = 0; y < image_height; y++) {
-        for (x = 0; x < image_width; x++)
-        {
-            pixel_center.moveTo(static_cast<imp_float>(x) + 0.5f, static_cast<imp_float>(y) + 0.5f);
-
-            const Ray& eye_ray = getEyeRay(pixel_center);
+			const Ray& eye_ray = getEyeRay(pixel_center);
                 
-            closest_distance = _far_plane_distance;
+			closest_distance = _far_plane_distance;
 
-            for (obj_idx = 0; obj_idx < n_models; obj_idx++)
-            {
-				const Model* model = _models->operator[](obj_idx);
-
-				if (model->is_currently_visible)
-				{
-					const TriangleMesh& mesh = _mesh_copies[obj_idx];
-					const Material* material = model->getMaterial();
-
-					const std::vector<imp_uint>& intersected_faces = mesh.getIntersectedFaceIndices(pixel_center);
-
-					for (iter = intersected_faces.begin(); iter != intersected_faces.end(); iter++)
-					{
-						if (computeRadianceAtIntersectedPosition(mesh, material, eye_ray, *iter, pixel_radiance, closest_distance))
-						{
-							_image->setRadiance(x, y, (model->uses_direct_lighting)? pixel_radiance : model->getMaterial()->getBaseColor());
-						}
-					}
-				}
-            }
-        }
-    }
-    
-    for (obj_idx = 0; obj_idx < n_models; obj_idx++)
-    {
-		Model* model = _models->operator[](obj_idx);
-		//const TriangleMesh& mesh = _mesh_copies[obj_idx];
-
-		//if (model->render_edges)
-			//drawEdges(mesh, edge_brightness);
-
-		model->is_currently_visible = model->is_visible;
-    }
+			if (findIntersectedSurface(eye_ray, closest_distance, surface_element))
+			{
+				_image->setRadiance(x, y, getDirectlyScatteredRadianceFromLights(surface_element, -eye_ray.direction));
+			}
+		}
+	}
 
 	if (gamma_encode)
 		_image->gammaEncodeApprox(1.0f);
@@ -393,6 +414,8 @@ void Renderer::rasterize()
     imp_float inverse_depths[3];
     imp_float interpolated_inverse_depth;
     imp_float depth;
+
+	SurfaceElement surface_element;
 
 	if (!_lights_in_camera_system)
 	{
@@ -418,13 +441,6 @@ void Renderer::rasterize()
 		if (mesh.allZAbove(-_near_plane_distance))
 		{
 			model->is_currently_visible = false;
-
-			if (model->casts_shadows)
-			{
-				mesh.computeAABB();
-				mesh.computeBoundingVolumeHierarchy();
-			}
-
 			continue;
 		}
 
@@ -440,36 +456,30 @@ void Renderer::rasterize()
 									  _far_plane_distance))
 		{
 			model->is_currently_visible = false;
-
-			if (model->casts_shadows)
-			{
-				mesh.computeAABB();
-				mesh.computeBoundingVolumeHierarchy();
-			}
-
 			continue;
 		}
-
-		if (model->casts_shadows)
-			mesh.computeBoundingVolumeHierarchy();
     }
+
+	buildMeshBVHForShadowsOnly();
         
     #pragma omp parallel for default(shared) \
-                             private(x, y, obj_idx, face_idx, vertex_idx, n_triangles, x_min, x_max, y_min, y_max, pixel_center, alpha, beta, gamma, inverse_depths, vertices, normals, interpolated_inverse_depth, depth) \
+                             private(x, y, obj_idx, face_idx, vertex_idx, n_triangles, x_min, x_max, y_min, y_max, pixel_center, alpha, beta, gamma, inverse_depths, vertices, normals, interpolated_inverse_depth, depth, surface_element) \
                              shared(n_models) \
 							 schedule(dynamic) \
                              if (use_omp)
     for (obj_idx = 0; obj_idx < n_models; obj_idx++)
     {
 		Model* model = _models->operator[](obj_idx);
-        const TriangleMesh& mesh = _mesh_copies[obj_idx];
-		const Material* material = model->getMaterial();
 
 		if (!model->is_currently_visible)
 		{
 			model->is_currently_visible = model->is_visible;
 			continue;
 		}
+
+		surface_element.material = model->getMaterial();
+
+        const TriangleMesh& mesh = _mesh_copies[obj_idx];
 
         n_triangles = mesh.getNumberOfFaces();
 
@@ -513,10 +523,13 @@ void Renderer::rasterize()
                     {
                         interpolated_inverse_depth = alpha*inverse_depths[0] + beta*inverse_depths[1] + gamma*inverse_depths[2];
 
-                        const Point& surface_point = (vertices[0] + (vertices[1] - vertices[0])*beta + (vertices[2] - vertices[0])*gamma)/interpolated_inverse_depth;
-                        const Vector& surface_normal = ((normals[0]*alpha + normals[1]*beta + normals[2]*gamma)/interpolated_inverse_depth).normalize();
+						surface_element.geometric.position = (vertices[0] + (vertices[1] - vertices[0])*beta + (vertices[2] - vertices[0])*gamma)/interpolated_inverse_depth;
+						surface_element.geometric.normal = ((normals[0]*alpha + normals[1]*beta + normals[2]*gamma)/interpolated_inverse_depth).normalize();
 
-                        const Vector& displacement_to_camera = -(surface_point.toVector());
+						surface_element.shading.position = surface_element.geometric.position;
+						surface_element.shading.normal = surface_element.geometric.normal;
+
+                        const Vector& displacement_to_camera = -(surface_element.shading.position.toVector());
 
                         depth = displacement_to_camera.getLength();
 
@@ -524,10 +537,8 @@ void Renderer::rasterize()
                         {
 							if (model->uses_direct_lighting)
 							{
-								const Radiance& radiance = getScatteredRadiance(surface_point,
-																				surface_normal,
-																				displacement_to_camera/depth,
-																				material);
+								const Radiance& radiance = getDirectlyScatteredRadianceFromLights(surface_element,
+																								  displacement_to_camera/depth);
 
 								#pragma omp critical
 								if (depth < _image->getDepth(x, y))
@@ -560,6 +571,109 @@ void Renderer::rasterize()
 	_mesh_copies.clear();
 }
 
+void Renderer::pathTrace(imp_uint n_samples)
+{
+    int x, y;
+	int image_width = static_cast<int>(_image_width);
+    int image_height = static_cast<int>(_image_height);
+	imp_uint n;
+    Point2 pixel_center;
+	Radiance pixel_radiance;
+	imp_float sample_normalizatiion = 1/static_cast<imp_float>(n_samples);
+	Medium ray_medium;
+
+	if (!_lights_in_camera_system)
+	{
+		transformLightsToCameraSystem();
+		_lights_in_camera_system = true;
+	}
+
+	createTransformedMeshCopies(_transformation_to_camera_system);
+
+    buildMeshBVH();
+
+	printPickInfo();
+
+	_image->setBackgroundColor(bg_color);
+
+    #pragma omp parallel for default(shared) \
+							 private(x, y, n, pixel_center, pixel_radiance, ray_medium) \
+							 shared(image_height, image_width, n_samples, sample_normalizatiion) \
+							 schedule(dynamic) \
+							 if (use_omp)
+	for (y = 0; y < image_height; y++) {
+		for (x = 0; x < image_width; x++)
+		{
+			pixel_radiance = Radiance::black();
+			
+			for (n = 0; n < n_samples; n++)
+			{
+				pixel_center.moveTo(static_cast<imp_float>(x) + math_util::random(), static_cast<imp_float>(y) + math_util::random());
+				pixel_radiance += pathTrace(getEyeRay(pixel_center), ray_medium, 0);
+			}
+
+			_image->setRadiance(x, y, pixel_radiance*sample_normalizatiion);
+		}
+	}
+
+	if (gamma_encode)
+		_image->gammaEncodeApprox(1.0f);
+
+	_mesh_copies.clear();
+}
+
+Radiance Renderer::pathTrace(const Ray& ray, Medium& ray_medium, imp_uint scattering_count) const
+{
+	Radiance radiance = Radiance::black();
+	SurfaceElement surface_element;
+
+	imp_float distance = IMP_FLOAT_INF;
+
+	if (scattering_count <= _max_scattering_count && findIntersectedSurface(ray, distance, surface_element))
+	{
+		if (scattering_count == 0)
+			radiance += surface_element.material->getEmittedRadiance();
+		else if (ray_medium.material)
+			ray_medium.material->attenuate(distance, radiance);
+
+		const Vector& scatter_direction = -ray.direction;
+		
+		radiance += getDirectlyScatteredRadianceFromPointLights(surface_element, scatter_direction);
+		radiance += getDirectlyScatteredRadianceFromAreaLights(surface_element, scatter_direction);
+		radiance += getScatteredRadianceFromSurface(surface_element, ray_medium, scatter_direction, scattering_count);
+	}
+
+	return radiance;
+}
+
+bool Renderer::findIntersectedSurface(const Ray& ray, imp_float& distance, SurfaceElement& surface_element) const
+{
+	imp_float intersection_distance;
+	imp_uint intersected_mesh_idx, intersected_face_idx;
+
+	intersection_distance = _mesh_BVH.evaluateRayIntersection(_mesh_copies, ray, intersected_mesh_idx, intersected_face_idx);
+	
+	if (intersection_distance < distance)
+	{
+		distance = intersection_distance;
+
+		surface_element.material = _models->operator[](intersected_mesh_idx)->getMaterial();
+
+		surface_element.geometric.position = ray(distance);
+		surface_element.shading.position = surface_element.geometric.position;
+
+		surface_element.model_id = intersected_mesh_idx;
+
+		_mesh_copies[intersected_mesh_idx].getGeometricAndShadingNormal(intersected_face_idx,
+																		surface_element.geometric.position,
+																		surface_element.geometric.normal,
+																		surface_element.shading.normal);
+		return true;
+	}
+
+	return false;
+}
+
 Geometry3D::Ray Renderer::getEyeRay(const Point2& pixel_center) const
 {
     Vector unit_vector_from_camera_origin_to_pixel((pixel_center.x*_inverse_image_width - 0.5f)*_image_width_at_unit_distance_from_camera,
@@ -571,80 +685,191 @@ Geometry3D::Ray Renderer::getEyeRay(const Point2& pixel_center) const
     return Ray((unit_vector_from_camera_origin_to_pixel*_near_plane_distance).toPoint(), unit_vector_from_camera_origin_to_pixel, _far_plane_distance);
 }
 
-Radiance Renderer::getScatteredRadiance(const Point&  surface_point,
-										const Vector& surface_normal,
-										const Vector& scatter_direction,
-										const Material* material) const
+Radiance Renderer::getDirectlyScatteredRadianceFromLights(const SurfaceElement& surface_element,
+														  const Vector& scatter_direction) const
+{
+    return getDirectlyScatteredRadianceFromPointLights(surface_element, scatter_direction) +
+		   getDirectlyScatteredRadianceFromDirectionalLights(surface_element, scatter_direction);
+}
+
+Radiance Renderer::getDirectlyScatteredRadianceFromPointLights(const SurfaceElement& surface_element,
+															   const Vector& scatter_direction) const
 {
     Radiance radiance = Color::black();
 
-    imp_uint n_lights = static_cast<imp_uint>(_lights->size());
-    imp_uint n_samples;
-    imp_uint s;
     Vector direction_to_source;
-    imp_float distance_to_source;
+    imp_float squared_distance_to_source;
+	imp_float cos_incoming_angle;
 
-    for (std::vector<Light*>::const_iterator iter = _lights->begin(); iter != _lights->end(); iter++)
+    for (std::vector<OmnidirectionalLight*>::const_iterator iter = _point_lights->begin(); iter != _point_lights->end(); iter++)
     {
-        const Light* light = *iter;
-        
-        n_samples = light->getNumberOfSamples();
+        const OmnidirectionalLight* light = *iter;
 
-        for (s = 0; s < n_samples; s++)
+        if (!(light->creates_shadows) || clearLineOfSightBetween(surface_element, light->getPosition()))
         {
-            const Vector4& source_point = light->getRandomPoint();
+			direction_to_source = light->getPosition() - surface_element.shading.position;
+			squared_distance_to_source = direction_to_source.getSquaredLength();
+			direction_to_source /= sqrt(squared_distance_to_source);
 
-            if (source_point.w == 0)
-            {
-                direction_to_source = source_point.toVector();
-                distance_to_source = IMP_FLOAT_INF;
-            }
-            else
-            {
-                direction_to_source = source_point.getXYZ() - surface_point;
-                distance_to_source = direction_to_source.getLength();
-                direction_to_source /= distance_to_source;
-            }
+			cos_incoming_angle = direction_to_source.dot(surface_element.shading.normal);
 
-            if (!(light->creates_shadows) || evaluateSourceVisibility(surface_point, direction_to_source, distance_to_source))
-            {
-                const Biradiance& biradiance = light->getBiradiance(source_point, surface_point, distance_to_source);
-                const Color& scattering_density = material->getScatteringDensity(surface_normal, direction_to_source, scatter_direction);
-            
-                radiance += surface_normal.dot(direction_to_source)*scattering_density*biradiance;
-            }
-        }
-
-        radiance /= static_cast<imp_float>(n_samples);
-
-		radiance += light->ambient_radiance;
+			if (cos_incoming_angle > 0)
+				radiance += surface_element.material->evaluateFiniteBSDF(surface_element.shading.normal,
+																		 direction_to_source,
+																		 scatter_direction,
+																		 cos_incoming_angle)*light->getTotalPower()*(cos_incoming_angle/(IMP_FOUR_PI*squared_distance_to_source));
+        }  
     }
 
     return radiance;
 }
 
-bool Renderer::evaluateSourceVisibility(const Point& surface_point,
-										const Vector& direction_to_source,
-										imp_float distance_to_source) const
+Radiance Renderer::getDirectlyScatteredRadianceFromDirectionalLights(const SurfaceElement& surface_element,
+																     const Vector& scatter_direction) const
+{
+    Radiance radiance = Color::black();
+
+	imp_float cos_incoming_angle;
+
+    for (std::vector<DirectionalLight*>::const_iterator iter = _directional_lights->begin(); iter != _directional_lights->end(); iter++)
+    {
+        const DirectionalLight* light = *iter;
+		const Vector& direction_to_source = -light->getDirection();
+
+        if (!(light->creates_shadows) || sourceIsVisible(surface_element.geometric.position, direction_to_source, IMP_FLOAT_INF))
+        {
+			cos_incoming_angle = direction_to_source.dot(surface_element.shading.normal);
+
+			if (cos_incoming_angle > 0)
+				radiance += surface_element.material->evaluateFiniteBSDF(surface_element.shading.normal,
+																		 direction_to_source,
+																		 scatter_direction,
+																		 cos_incoming_angle)*light->getBiradiance()*cos_incoming_angle;
+        }  
+    }
+
+    return radiance;
+}
+
+Radiance Renderer::getDirectlyScatteredRadianceFromAreaLights(const SurfaceElement& surface_element,
+															  const Vector& scatter_direction) const
+{
+    Radiance radiance = Color::black();
+
+    Vector direction_to_source;
+    imp_float squared_distance_to_source;
+	imp_float cos_incoming_angle, cos_emission_angle;
+
+    for (std::vector<AreaLight*>::const_iterator iter = _area_lights->begin(); iter != _area_lights->end(); iter++)
+    {
+        const AreaLight* light = *iter;
+        const SurfaceElement& source_surface_element = light->getRandomSurfaceElement();
+
+        if (!(light->creates_shadows) || clearLineOfSightBetween(surface_element, source_surface_element))
+        {   
+			direction_to_source = source_surface_element.geometric.position - surface_element.shading.position;
+            squared_distance_to_source = direction_to_source.getSquaredLength();
+            direction_to_source /= sqrt(squared_distance_to_source);
+
+			cos_incoming_angle = direction_to_source.dot(surface_element.shading.normal);
+
+			if (cos_incoming_angle > 0)
+			{
+				cos_emission_angle = -(direction_to_source.dot(source_surface_element.geometric.normal));
+
+				if (cos_emission_angle > 0)
+					radiance += surface_element.material->evaluateFiniteBSDF(surface_element.shading.normal,
+																			 direction_to_source,
+																			 scatter_direction,
+																			 cos_incoming_angle)*light->getTotalPower()*(cos_incoming_angle*cos_emission_angle/(IMP_PI*squared_distance_to_source));
+			}
+        }
+    }
+	
+	std::vector<Material::Impulse> impulses;
+	imp_float intersection_distance;
+	SurfaceElement intersected_surface_element;
+
+	surface_element.material->getBSDFImpulses(surface_element.shading.normal, scatter_direction, impulses);
+
+	for (std::vector<Material::Impulse>::const_iterator iter = impulses.begin(); iter != impulses.end(); iter++)
+	{
+		const Ray& impulse_ray = Ray(surface_element.geometric.position, iter->direction).nudge(_ray_origin_offset);
+
+		intersection_distance = IMP_FLOAT_INF;
+
+		if (findIntersectedSurface(impulse_ray, intersection_distance, intersected_surface_element))
+		{
+			radiance += (iter->magnitude)*intersected_surface_element.material->getEmittedRadiance();
+		}
+	}
+
+    return radiance;
+}
+
+Radiance Renderer::getScatteredRadianceFromSurface(const SurfaceElement& surface_element,
+												   Medium& ray_medium,
+												   const Vector& scatter_direction,
+												   imp_uint scattering_count) const
+{
+	Vector incoming_direction;
+	Color weight;
+
+	if (surface_element.material->scatter(surface_element, ray_medium, scatter_direction, incoming_direction, weight))
+	{
+		return weight*pathTrace(Ray(surface_element.geometric.position, incoming_direction).nudge(_ray_origin_offset*math_util::sign(incoming_direction.dot(surface_element.geometric.normal)),
+																								  surface_element.geometric.normal),
+								ray_medium,
+								++scattering_count);
+	}
+
+	return Radiance::black();
+}
+
+bool Renderer::sourceIsVisible(const Point& surface_point,
+							   const Vector& direction_to_source,
+						 	   imp_float distance_to_source) const
 {   
 	imp_uint n_models = static_cast<imp_uint>(_models->size());
 	imp_uint obj_idx;
+	imp_uint face_idx;
 
-    Ray shadow_ray(surface_point + direction_to_source*_ray_origin_offset, direction_to_source, distance_to_source);
+    Ray shadow_ray(surface_point, direction_to_source, distance_to_source);
 
-    for (obj_idx = 0; obj_idx < n_models; obj_idx++)
-    {
-		const Model* model = _models->operator[](obj_idx);
-        const TriangleMesh& mesh = _mesh_copies[obj_idx];
-
-        if (model->casts_shadows && mesh.evaluateRayIntersection(shadow_ray) < distance_to_source)
-            return false;
-    }
-
-    return true;
+	return _mesh_BVH.evaluateRayIntersection(_mesh_copies, shadow_ray.nudge(_ray_origin_offset), obj_idx, face_idx) >= distance_to_source || !(_models->operator[](obj_idx)->casts_shadows);
 }
 
-void Renderer::computeRadianceAtAllVertices(TriangleMesh& mesh, const Material* material)
+bool Renderer::clearLineOfSightBetween(const SurfaceElement& surface_element,
+									   const Point& end_point) const
+{   
+	imp_uint n_models = static_cast<imp_uint>(_models->size());
+	imp_uint obj_idx;
+	imp_uint face_idx;
+
+	const Point& start_point = surface_element.geometric.position + _ray_origin_offset*surface_element.geometric.normal;
+	const Vector& direction = end_point - start_point;
+	imp_float distance = direction.getLength();
+
+	return _mesh_BVH.evaluateRayIntersection(_mesh_copies, Ray(start_point, direction/distance, distance), obj_idx, face_idx) >= distance || !(_models->operator[](obj_idx)->casts_shadows);
+}
+
+bool Renderer::clearLineOfSightBetween(const SurfaceElement& surface_element_1,
+									   const SurfaceElement& surface_element_2) const
+{   
+	imp_uint n_models = static_cast<imp_uint>(_models->size());
+	imp_uint obj_idx;
+	imp_uint face_idx;
+
+	const Point& point_1 = surface_element_1.geometric.position + surface_element_1.geometric.normal*_ray_origin_offset;
+	const Point& point_2 = surface_element_2.geometric.position + surface_element_2.geometric.normal*_ray_origin_offset;
+
+	const Vector& direction = point_2 - point_1;
+	imp_float distance = direction.getLength();
+
+	return _mesh_BVH.evaluateRayIntersection(_mesh_copies, Ray(point_1, direction/distance, distance), obj_idx, face_idx) >= distance || !(_models->operator[](obj_idx)->casts_shadows);
+}
+
+void Renderer::computeRadianceAtAllVertices(TriangleMesh& mesh, const SurfaceElement& surface_element)
 {
     assert(mesh.isHomogenized());
     assert(mesh.hasNormals());
@@ -652,67 +877,37 @@ void Renderer::computeRadianceAtAllVertices(TriangleMesh& mesh, const Material* 
     int n_vertices = static_cast<int>(mesh.getNumberOfVertices());
     int idx;
 	imp_float vertex_camera_distance;
+	SurfaceElement surface_element_copy = surface_element;
 	
 	mesh.initializeVertexData3();
 
     #pragma omp parallel for default(shared) \
+							 firstprivate(surface_element_copy) \
                              private(idx, vertex_camera_distance) \
-                             shared(mesh, material, n_vertices) \
+                             shared(mesh, n_vertices) \
 							 schedule(static) \
                              if (use_omp)
     for (idx = 0; idx < n_vertices; idx++)
     {
-		const Point& vertex_point = mesh.getVertex(idx);
-		const Vector& normal_vector = mesh.getVertexNormal(idx);
+		surface_element_copy.geometric.position = mesh.getVertex(idx);
+		surface_element_copy.geometric.normal = mesh.getVertexNormal(idx);
+		
+		surface_element_copy.shading.position = surface_element_copy.geometric.position;
+		surface_element_copy.shading.normal = surface_element_copy.geometric.normal;
 
-        Vector& scatter_direction = _camera_cframe.origin - vertex_point;
+        Vector& scatter_direction = _camera_cframe.origin - surface_element_copy.shading.position;
 		vertex_camera_distance = scatter_direction.getLength();
 
 		if (vertex_camera_distance > 0)
 		{
 			scatter_direction /= vertex_camera_distance;
 
-			const Radiance& radiance = getScatteredRadiance(vertex_point,
-															normal_vector,
-															scatter_direction,
-															material).clamp();
+			const Radiance& radiance = getDirectlyScatteredRadianceFromLights(surface_element_copy,
+																			  scatter_direction).clamp();
 
 			mesh.setVertexData3(idx, radiance.r, radiance.g, radiance.b);
 		}
     }
-}
-
-bool Renderer::computeRadianceAtIntersectedPosition(const TriangleMesh& mesh,
-													const Material* material,
-													const Ray& ray,
-													imp_uint face_idx,
-													Radiance& pixel_radiance,
-													imp_float& closest_distance) const
-{
-    assert(mesh.hasNormals());
-
-    imp_float alpha, beta, gamma;
-    imp_float distance = mesh.evaluateRayFaceIntersection(ray, face_idx, alpha, beta, gamma);
-
-    if (distance >= closest_distance)
-        return false;
-
-    closest_distance = distance;
-
-    const Point& intersection_point = ray(distance);
-
-	Vector face_normals[3];
-	mesh.getFaceNormals(face_idx, face_normals);
-
-	Vector interpolated_normal(face_normals[0]*alpha + face_normals[1]*beta + face_normals[2]*gamma);
-    interpolated_normal.normalize();
-
-    pixel_radiance = getScatteredRadiance(intersection_point,
-										  interpolated_normal,
-										  -ray.direction,
-										  material);
-
-    return true;
 }
 
 void Renderer::drawFaces(const TriangleMesh& mesh) const
@@ -779,6 +974,28 @@ void Renderer::drawEdges(const TriangleMesh& mesh, float luminance) const
         _image->drawLine(face_vertices[2].x, face_vertices[2].y,
                         face_vertices[0].x, face_vertices[0].y, luminance);
     }
+}
+
+void Renderer::printPickInfo()
+{
+	if (!pixel_was_picked)
+		return;
+
+	assert(picked_x < _image->getWidth() && picked_y < _image->getHeight());
+
+	imp_uint intersected_mesh_idx, intersected_face_idx;
+	imp_float intersection_distance = _mesh_BVH.evaluateRayIntersection(_mesh_copies, getEyeRay(Point2(static_cast<imp_float>(picked_x) + 0.5f, static_cast<imp_float>(_image->getHeight() - picked_y - 1) + 0.5f)), intersected_mesh_idx, intersected_face_idx);
+
+	if (intersection_distance < IMP_FLOAT_INF)
+	{
+		std::cout << intersection_distance << " " << intersected_mesh_idx << " " << intersected_face_idx << std::endl;
+	}
+	else
+	{
+		std::cout << intersection_distance << std::endl;
+	}
+
+	pixel_was_picked = false;
 }
 
 void Renderer::saveImage(const std::string& filename)

@@ -176,6 +176,10 @@ void Animator::updateFrame()
 	{
 		_renderer->rasterize();
 	}
+	else if (_rendering_mode == 3)
+	{
+		_renderer->pathTrace(_n_path_tracing_samples);
+	}
 	else
 	{
 		std::cerr << "Warning: rendering disabled" << std::endl;
@@ -188,8 +192,9 @@ void Animator::updateFrame()
 
 	if (_print_time_info)
 	{
-		printf("%d%s%s%s%s%s%s%s%s%s%s | fps: %.1f | dt: %.2g s | freq: %d | time: %.2g s\n",
+		printf("%d%d%s%s%s%s%s%s%s%s%s%s | fps: %.1f | dt: %.2g s | freq: %d | time: %.2g s\n",
 			    _rendering_mode,
+				_n_path_tracing_samples,
 				(_renderer->gamma_encode)? "g" : "",
 				(_renderer->render_depth_map)? "z" : "",
 				(_renderer->draw_edges)? "l" : "",
@@ -276,7 +281,7 @@ void Animator::togglePhysics()
 
 void Animator::cycleRenderingMode()
 {
-	_rendering_mode = (_rendering_mode + 1) % 3;
+	_rendering_mode = (_rendering_mode + 1) % 4;
 }
 
 void Animator::toggleInteractiveCamera()
@@ -292,6 +297,17 @@ void Animator::toggleInteractiveCamera()
 void Animator::toggleRealtimeSimulation()
 {
 	_simulate_realtime = !_simulate_realtime;
+}
+
+void Animator::increasePathTracingSamples()
+{
+	_n_path_tracing_samples++;
+}
+
+void Animator::decreasePathTracingSamples()
+{
+	if (_n_path_tracing_samples > 1)
+		_n_path_tracing_samples--;
 }
 
 void Animator::increaseFixedSimulationTimestep()
@@ -398,6 +414,19 @@ void Animator::saveFrame()
     string_stream << "data/saved_frames/frame_" << std::setfill('0') << std::setw(4) << _saved_frames_count << ".ppm";
 	_renderer->saveImage(string_stream.str());
 	_saved_frames_count++;
+}
+
+void Animator::saveSnapshot()
+{
+	time_t t = time(0);
+    struct tm now;
+	localtime_s(&now, &t);
+
+	std::ostringstream string_stream;
+    string_stream << "data/saved_snapshots/snapshot_" << (now.tm_year + 1900) << '_' 
+													  << std::setfill('0') << std::setw(2) << (now.tm_mon + 1) << '_'
+													  << std::setfill('0') << std::setw(2) << now.tm_mday << ".ppm";
+	_renderer->saveImage(string_stream.str());
 }
 
 imp_float Animator::getElapsedSimulationTime() const

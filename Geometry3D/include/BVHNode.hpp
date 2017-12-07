@@ -30,7 +30,7 @@ protected:
     void _insertObject(const AABBContainer& object);
     const AxisAlignedBox& _computeBoundingVolumes();
 
-    std::vector<imp_uint> _getIntersectedObjectIDs(const Ray& ray) const;
+    std::vector<imp_uint> _getPotentiallyIntersectedObjectIDs(const Ray& ray) const;
 
 public:
 	//~BVHNode();

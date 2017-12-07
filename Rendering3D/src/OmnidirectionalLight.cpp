@@ -17,27 +17,9 @@ Geometry3D::CoordinateFrame OmnidirectionalLight::getCoordinateFrame() const
                            Vector::unitZ());
 }
 
-imp_float OmnidirectionalLight::getSurfaceArea() const
+Geometry3D::Point OmnidirectionalLight::getPosition() const
 {
-    return 0;
-}
-
-imp_uint OmnidirectionalLight::getNumberOfSamples() const
-{
-    return 1;
-}
-
-Geometry3D::Vector4 OmnidirectionalLight::getRandomPoint() const
-{
-    return _origin.toVector4();
-}
-
-Biradiance OmnidirectionalLight::getBiradiance(const Vector4& source_point,
-                                               const Point& surface_point,
-											   imp_float distance) const
-{
-    assert(source_point.w == 1);
-    return _power/(IMP_FOUR_PI*distance*distance);
+    return _origin;
 }
 
 Power OmnidirectionalLight::getTotalPower() const

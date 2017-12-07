@@ -22,6 +22,7 @@ BVHNode& BVHNode::operator=(const BVHNode& other)
 	_object = other._object;
 	_has_children = other._has_children;
 	_child_nodes = other._child_nodes;
+	return *this;
 }
 
 void BVHNode::_insertObject(const AABBContainer& object)
@@ -71,7 +72,7 @@ const AxisAlignedBox& BVHNode::_computeBoundingVolumes()
     return _aabb;
 }
 
-std::vector<imp_uint> BVHNode::_getIntersectedObjectIDs(const Ray& ray) const
+std::vector<imp_uint> BVHNode::_getPotentiallyIntersectedObjectIDs(const Ray& ray) const
 {
     std::vector<imp_uint> object_ids;
 
@@ -79,7 +80,7 @@ std::vector<imp_uint> BVHNode::_getIntersectedObjectIDs(const Ray& ray) const
     {
         for (std::vector<node_ptr>::const_iterator iter = _child_nodes.begin(); iter != _child_nodes.end(); ++iter)
         {
-            const std::vector<imp_uint>& child_object_ids = (*iter)->_getIntersectedObjectIDs(ray);
+            const std::vector<imp_uint>& child_object_ids = (*iter)->_getPotentiallyIntersectedObjectIDs(ray);
             object_ids.insert(object_ids.end(), child_object_ids.begin(), child_object_ids.end());
         }
     }

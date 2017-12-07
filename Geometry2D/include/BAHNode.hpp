@@ -4,6 +4,7 @@
 #include "AxisAlignedRectangle.hpp"
 #include "BoundingAreaHierarchy.hpp"
 #include <vector>
+#include <list>
 #include <memory>
 
 namespace Impact {
@@ -31,7 +32,7 @@ protected:
     void _insertObject(const AABRContainer& object);
     const AxisAlignedRectangle& _computeBoundingAreas();
 
-    std::vector<imp_uint> _getIntersectedObjectIDs(const Point& point) const;
+    void _addPotentiallyIntersectedObjectIDs(const Point& point, std::list<imp_uint>& object_ids) const;
 
 public:
 	//~BAHNode();
