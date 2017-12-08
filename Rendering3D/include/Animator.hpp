@@ -44,7 +44,7 @@ private:
 
 	const imp_float _minimum_simulation_timestep = 1e-6f;
 
-	int _rendering_mode = 0;
+	int _rendering_mode = 3;
 	bool _physics_active = false;
 	bool _camera_active = true;
 	bool _simulate_realtime = true;

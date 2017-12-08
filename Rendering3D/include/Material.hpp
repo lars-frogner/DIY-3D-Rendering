@@ -37,17 +37,26 @@ public:
 									 const Vector& outgoing_direction,
 									 imp_float cos_incoming_angle) const = 0;
 
-	virtual void getBSDFImpulses(const Vector& surface_normal,
-								 const Vector& incoming_direction,
-								 std::vector<Impulse>& impulses) const = 0;
+	virtual bool getReflectiveBSDFImpulse(const Vector& surface_normal,
+										  const Vector& outgoing_direction,
+										  Impulse& impulse) const = 0;
 
-	virtual bool scatter(const SurfaceElement& surface_element,
-						 Medium& ray_medium,
-						 const Vector& incoming_direction,
-						 Vector& outgoing_direction,
-						 Color& weight) const = 0;
+	virtual bool getRefractiveBSDFImpulse(const SurfaceElement& surface_element,
+										  Medium& ray_medium,
+										  const Vector& outgoing_direction,
+										  Impulse& impulse) const = 0;
 
-	virtual void attenuate(imp_float distance, Radiance& radiance) const = 0;
+	virtual bool scatter_back(const SurfaceElement& surface_element,
+							  Medium& ray_medium,
+							  const Vector& outgoing_direction,
+							  Vector& incoming_direction,
+							  Color& weight) const = 0;
+
+	virtual bool isTransparent() const = 0;
+
+	virtual const Color& getTransmittance() const = 0;
+	
+	virtual Color getAttenuationFactor(imp_float distance) const = 0;
 	
 	virtual const Color& getRefractiveIndex() const = 0;
 

@@ -24,7 +24,8 @@ public:
     static Vector unitX();
     static Vector unitY();
     static Vector unitZ();
-
+	
+	static Vector randomDirectionOnHemisphere(const Vector& normal);
 	static Vector randomCosineWeightedDirectionOnHemisphere(const Vector& normal);
 
 	void setToZero();

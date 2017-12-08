@@ -423,9 +423,12 @@ void Animator::saveSnapshot()
 	localtime_s(&now, &t);
 
 	std::ostringstream string_stream;
-    string_stream << "data/saved_snapshots/snapshot_" << (now.tm_year + 1900) << '_' 
-													  << std::setfill('0') << std::setw(2) << (now.tm_mon + 1) << '_'
-													  << std::setfill('0') << std::setw(2) << now.tm_mday << ".ppm";
+    string_stream << "data/saved_snapshots/snapshot_" << (now.tm_year + 1900) << "Y_"
+													  << std::setfill('0') << std::setw(2) << (now.tm_mon + 1) << "M_"
+													  << std::setfill('0') << std::setw(2) << now.tm_mday << "D_"
+													  << std::setfill('0') << std::setw(2) << now.tm_hour << "h_"
+													  << std::setfill('0') << std::setw(2) << now.tm_min << "m_"
+													  << std::setfill('0') << std::setw(2) << now.tm_sec << "s.ppm";
 	_renderer->saveImage(string_stream.str());
 }
 

@@ -419,19 +419,20 @@ void setupPathTracingTest()
 	AreaLight* light_sheet = new RectangularAreaLight(Point(0.0f, 6.0f, 0.0f), Vector(0, -1, 0), Vector(2, 0, 0), 2.0f, light_power, 1);
 	TriangleMesh* light_sheet_mesh = new TriangleMesh(light_sheet->getMesh());
 	Material* light_sheet_material = new BlinnPhongMaterial(Color(0.0f, 0.0f, 0.0f), Color(0.0f, 0.0f, 0.0f), 0.0f);
-	light_sheet_material->setEmittedRadiance(Radiance::grey(0.8f));
+	light_sheet_material->setEmittedRadiance(Radiance::grey(1.0f));
 	Model* light_sheet_model = new Model(light_sheet_mesh, light_sheet_material);
+	light_sheet_model->casts_shadows = false;
 
 	WORLD->addLight(light_sheet);
 	WORLD->addMesh(light_sheet_mesh);
 	WORLD->addMaterial(light_sheet_material);
 
 	Material* material_1 = new BlinnPhongMaterial(Color(0.1f, 0.1f, 0.2f), Color(0.1f, 0.1f, 0.1f), 40.0f);
-	Material* material_2 = new BlinnPhongMaterial(Color::grey(0.0f), Color::grey(1.2f), Color::black(), Color::black(), 500.0f);
+	Material* material_2 = new BlinnPhongMaterial(Color::grey(0.0f), Color::grey(1.1f), Color::black(), Color::grey(0.5f), Color::black(), 500.0f);
 	Material* material_3 = new BlinnPhongMaterial(Color(0.0f, 0.0f, 0.0f), Color(0.8f, 0.8f, 0.8f), IMP_FLOAT_INF);
 	Material* material_4 = new BlinnPhongMaterial(Color(0.1f, 0.4f, 0.1f), Color(0.3f, 0.3f, 0.3f), 200.0f);
 	
-	WORLD->addLight(point_light);
+	//WORLD->addLight(point_light);
 
 	WORLD->addMaterial(material_1);
 	WORLD->addMaterial(material_2);
@@ -439,7 +440,8 @@ void setupPathTracingTest()
 	WORLD->addMaterial(material_4);
 
 	WORLD->addRoom(width, height, depth, material_1);
-	WORLD->addSphere(Sphere(Point(-1.0f, 3.0f, 0.0f), 0.7f), material_2, 2);
+	WORLD->addTwoSidedSphere(Sphere(Point(-1.0f, 3.0f, 0.0f), 0.7f), material_2, 2);
+	//WORLD->addSphere(Sphere(Point(-1.0f, 3.0f, 0.0f), 0.7f), material_3, 2);
 	WORLD->addSphere(Sphere(Point(1.1f, 3.0f, 0.0f), 1.0f), material_4, 2);
 	WORLD->addModel(light_sheet_model);
 }
@@ -448,7 +450,7 @@ int main(int argc, char *argv[])
 {
 	WORLD = new World(800, 600);
 
-	WORLD->setCameraPointing(Point(0, 5, 10));
+	WORLD->setCameraPointing(Point(0, 3, 10));
 
 	//setupGravityDragTest();
 	//setupSpringTest();

@@ -59,7 +59,7 @@ imp_uint RectangularAreaLight::getNumberOfSamples() const
 
 Geometry3D::TriangleMesh RectangularAreaLight::getMesh() const
 {
-    return TriangleMesh::sheet(_origin + (_width_vector + _height_vector)/2, _direction, _width_vector, _height);
+    return TriangleMesh::twoSidedSheet(_origin + (_width_vector + _height_vector)/2, _direction, _width_vector, _height);
 }
 
 Geometry3D::Point RectangularAreaLight::getRandomPoint() const

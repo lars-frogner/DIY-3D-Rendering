@@ -35,6 +35,10 @@ public:
                              const Point& B,
                              const Point& C);
 
+    static Vector getNormalVector(const Point& A,
+								  const Point& B,
+								  const Point& C);
+
     void getBarycentricCoordinatesInside(const Point X,
                                          imp_float& alpha, imp_float& beta, imp_float& gamma) const;
 

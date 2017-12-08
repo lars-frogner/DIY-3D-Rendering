@@ -631,15 +631,33 @@ Radiance Renderer::pathTrace(const Ray& ray, Medium& ray_medium, imp_uint scatte
 
 	if (scattering_count <= _max_scattering_count && findIntersectedSurface(ray, distance, surface_element))
 	{
-		if (scattering_count == 0)
-			radiance += surface_element.material->getEmittedRadiance();
-		else if (ray_medium.material)
-			ray_medium.material->attenuate(distance, radiance);
 
+		// Include radiance emitted directly from the surface if this is the eye ray
+		if (scattering_count == 0)
+		{
+			ray_medium.material = nullptr;
+			radiance += surface_element.material->getEmittedRadiance();
+		}
+		
+		// The light travels in the opposite direction of the ray
 		const Vector& scatter_direction = -ray.direction;
 		
-		radiance += getDirectlyScatteredRadianceFromPointLights(surface_element, scatter_direction);
-		radiance += getDirectlyScatteredRadianceFromAreaLights(surface_element, scatter_direction);
+		if (ray_medium.material) // Are we inside an object?
+		{
+			// Attenuate radiance due to absorption in the medium
+			radiance *= ray_medium.material->getAttenuationFactor(distance);
+
+			// Flip the geometric normal so that it points out of the model like the shading normal
+			surface_element.geometric.normal = -surface_element.geometric.normal;
+		}
+		else
+		{
+			// Compute directly scattered radiance on the surface
+			radiance += getDirectlyScatteredRadianceFromPointLights(surface_element, scatter_direction);
+			radiance += getDirectlyScatteredRadianceFromAreaLights(surface_element, scatter_direction);
+		}
+		
+		// Include radiance scattered from other surfaces
 		radiance += getScatteredRadianceFromSurface(surface_element, ray_medium, scatter_direction, scattering_count);
 	}
 
@@ -648,26 +666,31 @@ Radiance Renderer::pathTrace(const Ray& ray, Medium& ray_medium, imp_uint scatte
 
 bool Renderer::findIntersectedSurface(const Ray& ray, imp_float& distance, SurfaceElement& surface_element) const
 {
-	imp_float intersection_distance;
-	imp_uint intersected_mesh_idx, intersected_face_idx;
+	Geometry3D::MeshIntersectionData intersection_data;
 
-	intersection_distance = _mesh_BVH.evaluateRayIntersection(_mesh_copies, ray, intersected_mesh_idx, intersected_face_idx);
+	imp_float intersection_distance = _mesh_BVH.evaluateRayIntersection(_mesh_copies, ray, intersection_data);
 	
 	if (intersection_distance < distance)
 	{
 		distance = intersection_distance;
 
-		surface_element.material = _models->operator[](intersected_mesh_idx)->getMaterial();
+		surface_element.model_id = intersection_data.mesh_id;
+
+		surface_element.material = _models->operator[](surface_element.model_id)->getMaterial();
 
 		surface_element.geometric.position = ray(distance);
 		surface_element.shading.position = surface_element.geometric.position;
+		
+		// Note: The shading normal should always point out of the model, while the geometric 
+		// normal will point into or out of the model depending on the face orientation
 
-		surface_element.model_id = intersected_mesh_idx;
+		surface_element.shading.normal = _mesh_copies[surface_element.model_id].getInterpolatedFaceNormal(intersection_data.face_id,
+																										  intersection_data.alpha,
+																										  intersection_data.beta,
+																										  intersection_data.gamma);
+		
+		surface_element.geometric.normal = _mesh_copies[surface_element.model_id].getFlatFaceNormal(intersection_data.face_id);
 
-		_mesh_copies[intersected_mesh_idx].getGeometricAndShadingNormal(intersected_face_idx,
-																		surface_element.geometric.position,
-																		surface_element.geometric.normal,
-																		surface_element.shading.normal);
 		return true;
 	}
 
@@ -701,11 +724,17 @@ Radiance Renderer::getDirectlyScatteredRadianceFromPointLights(const SurfaceElem
     imp_float squared_distance_to_source;
 	imp_float cos_incoming_angle;
 
+	Color attenuation_factor;
+
     for (std::vector<OmnidirectionalLight*>::const_iterator iter = _point_lights->begin(); iter != _point_lights->end(); iter++)
     {
         const OmnidirectionalLight* light = *iter;
+		
+		const Point& LOS_start_point = surface_element.geometric.position + _ray_origin_offset*surface_element.geometric.normal;
 
-        if (!(light->creates_shadows) || clearLineOfSightBetween(surface_element, light->getPosition()))
+		attenuation_factor = Color::white();
+
+        if (!(light->creates_shadows) || evaluateAttenuationAlongLineOfSight(LOS_start_point, light->getPosition(), attenuation_factor))
         {
 			direction_to_source = light->getPosition() - surface_element.shading.position;
 			squared_distance_to_source = direction_to_source.getSquaredLength();
@@ -717,7 +746,10 @@ Radiance Renderer::getDirectlyScatteredRadianceFromPointLights(const SurfaceElem
 				radiance += surface_element.material->evaluateFiniteBSDF(surface_element.shading.normal,
 																		 direction_to_source,
 																		 scatter_direction,
-																		 cos_incoming_angle)*light->getTotalPower()*(cos_incoming_angle/(IMP_FOUR_PI*squared_distance_to_source));
+																		 cos_incoming_angle)
+							*light->getTotalPower()
+							*(cos_incoming_angle/(IMP_FOUR_PI*squared_distance_to_source))
+							*attenuation_factor;
         }  
     }
 
@@ -759,13 +791,19 @@ Radiance Renderer::getDirectlyScatteredRadianceFromAreaLights(const SurfaceEleme
     Vector direction_to_source;
     imp_float squared_distance_to_source;
 	imp_float cos_incoming_angle, cos_emission_angle;
+	Color attenuation_factor;
 
     for (std::vector<AreaLight*>::const_iterator iter = _area_lights->begin(); iter != _area_lights->end(); iter++)
     {
         const AreaLight* light = *iter;
         const SurfaceElement& source_surface_element = light->getRandomSurfaceElement();
+		
+		const Point& LOS_start_point = surface_element.geometric.position + surface_element.geometric.normal*_ray_origin_offset;
+		const Point& LOS_end_point = source_surface_element.geometric.position + source_surface_element.geometric.normal*_ray_origin_offset;
 
-        if (!(light->creates_shadows) || clearLineOfSightBetween(surface_element, source_surface_element))
+		attenuation_factor = Color::white();
+
+        if (!(light->creates_shadows) || evaluateAttenuationAlongLineOfSight(LOS_start_point, LOS_end_point, attenuation_factor))
         {   
 			direction_to_source = source_surface_element.geometric.position - surface_element.shading.position;
             squared_distance_to_source = direction_to_source.getSquaredLength();
@@ -781,26 +819,46 @@ Radiance Renderer::getDirectlyScatteredRadianceFromAreaLights(const SurfaceEleme
 					radiance += surface_element.material->evaluateFiniteBSDF(surface_element.shading.normal,
 																			 direction_to_source,
 																			 scatter_direction,
-																			 cos_incoming_angle)*light->getTotalPower()*(cos_incoming_angle*cos_emission_angle/(IMP_PI*squared_distance_to_source));
+																			 cos_incoming_angle)
+								*light->getTotalPower()
+								*(cos_incoming_angle*cos_emission_angle/(IMP_PI*squared_distance_to_source))
+								*attenuation_factor;
 			}
         }
     }
 	
-	std::vector<Material::Impulse> impulses;
+	Material::Impulse impulse;
 	imp_float intersection_distance;
 	SurfaceElement intersected_surface_element;
+	Medium ray_medium;
 
-	surface_element.material->getBSDFImpulses(surface_element.shading.normal, scatter_direction, impulses);
-
-	for (std::vector<Material::Impulse>::const_iterator iter = impulses.begin(); iter != impulses.end(); iter++)
+	if (surface_element.material->getReflectiveBSDFImpulse(surface_element.shading.normal, scatter_direction, impulse))
 	{
-		const Ray& impulse_ray = Ray(surface_element.geometric.position, iter->direction).nudge(_ray_origin_offset);
+		const Ray& impulse_ray = Ray(surface_element.geometric.position, impulse.direction).nudge(_ray_origin_offset, surface_element.geometric.normal);
 
 		intersection_distance = IMP_FLOAT_INF;
 
 		if (findIntersectedSurface(impulse_ray, intersection_distance, intersected_surface_element))
 		{
-			radiance += (iter->magnitude)*intersected_surface_element.material->getEmittedRadiance();
+			radiance += (impulse.magnitude)*intersected_surface_element.material->getEmittedRadiance();
+		}
+	}
+
+	intersected_surface_element = surface_element;
+
+	while (intersected_surface_element.material->getRefractiveBSDFImpulse(intersected_surface_element, ray_medium, scatter_direction, impulse))
+	{
+		const Ray& impulse_ray = Ray(intersected_surface_element.geometric.position, impulse.direction).nudge(-_ray_origin_offset, intersected_surface_element.geometric.normal);
+
+		intersection_distance = IMP_FLOAT_INF;
+
+		if (findIntersectedSurface(impulse_ray, intersection_distance, intersected_surface_element))
+		{
+			radiance += (impulse.magnitude)*intersected_surface_element.material->getEmittedRadiance();
+		}
+		else
+		{
+			break;
 		}
 	}
 
@@ -815,10 +873,14 @@ Radiance Renderer::getScatteredRadianceFromSurface(const SurfaceElement& surface
 	Vector incoming_direction;
 	Color weight;
 
-	if (surface_element.material->scatter(surface_element, ray_medium, scatter_direction, incoming_direction, weight))
+	// Obtain a direction that light can be coming from and a weight for how its radiance 
+	// should be modified (also keep track of whether we are inside a medium)
+	if (surface_element.material->scatter_back(surface_element, ray_medium, scatter_direction, incoming_direction, weight))
 	{
-		return weight*pathTrace(Ray(surface_element.geometric.position, incoming_direction).nudge(_ray_origin_offset*math_util::sign(incoming_direction.dot(surface_element.geometric.normal)),
-																								  surface_element.geometric.normal),
+		imp_float nudge_amount = _ray_origin_offset*math_util::sign(incoming_direction.dot(surface_element.geometric.normal));
+
+		// Get the estimated radiance coming from that direction
+		return weight*pathTrace(Ray(surface_element.geometric.position, incoming_direction).nudge(nudge_amount, surface_element.geometric.normal),
 								ray_medium,
 								++scattering_count);
 	}
@@ -831,34 +893,32 @@ bool Renderer::sourceIsVisible(const Point& surface_point,
 						 	   imp_float distance_to_source) const
 {   
 	imp_uint n_models = static_cast<imp_uint>(_models->size());
-	imp_uint obj_idx;
-	imp_uint face_idx;
+	Geometry3D::MeshIntersectionData intersection_data;
 
     Ray shadow_ray(surface_point, direction_to_source, distance_to_source);
 
-	return _mesh_BVH.evaluateRayIntersection(_mesh_copies, shadow_ray.nudge(_ray_origin_offset), obj_idx, face_idx) >= distance_to_source || !(_models->operator[](obj_idx)->casts_shadows);
+	return _mesh_BVH.evaluateRayIntersection(_mesh_copies, shadow_ray.nudge(_ray_origin_offset), intersection_data) >= distance_to_source || !(_models->operator[](intersection_data.mesh_id)->casts_shadows);
 }
 
+/*
 bool Renderer::clearLineOfSightBetween(const SurfaceElement& surface_element,
 									   const Point& end_point) const
 {   
 	imp_uint n_models = static_cast<imp_uint>(_models->size());
-	imp_uint obj_idx;
-	imp_uint face_idx;
+	Geometry3D::MeshIntersectionData intersection_data;
 
 	const Point& start_point = surface_element.geometric.position + _ray_origin_offset*surface_element.geometric.normal;
 	const Vector& direction = end_point - start_point;
 	imp_float distance = direction.getLength();
 
-	return _mesh_BVH.evaluateRayIntersection(_mesh_copies, Ray(start_point, direction/distance, distance), obj_idx, face_idx) >= distance || !(_models->operator[](obj_idx)->casts_shadows);
+	return _mesh_BVH.evaluateRayIntersection(_mesh_copies, Ray(start_point, direction/distance, distance), intersection_data) >= distance || !(_models->operator[](intersection_data.mesh_id)->casts_shadows);
 }
 
 bool Renderer::clearLineOfSightBetween(const SurfaceElement& surface_element_1,
 									   const SurfaceElement& surface_element_2) const
 {   
 	imp_uint n_models = static_cast<imp_uint>(_models->size());
-	imp_uint obj_idx;
-	imp_uint face_idx;
+	Geometry3D::MeshIntersectionData intersection_data;
 
 	const Point& point_1 = surface_element_1.geometric.position + surface_element_1.geometric.normal*_ray_origin_offset;
 	const Point& point_2 = surface_element_2.geometric.position + surface_element_2.geometric.normal*_ray_origin_offset;
@@ -866,7 +926,74 @@ bool Renderer::clearLineOfSightBetween(const SurfaceElement& surface_element_1,
 	const Vector& direction = point_2 - point_1;
 	imp_float distance = direction.getLength();
 
-	return _mesh_BVH.evaluateRayIntersection(_mesh_copies, Ray(point_1, direction/distance, distance), obj_idx, face_idx) >= distance || !(_models->operator[](obj_idx)->casts_shadows);
+	return _mesh_BVH.evaluateRayIntersection(_mesh_copies, Ray(point_1, direction/distance, distance), intersection_data) >= distance || !(_models->operator[](intersection_data.mesh_id)->casts_shadows);
+}
+*/
+
+bool Renderer::evaluateAttenuationAlongLineOfSight(const Point& surface_point,
+												   const Point& source_point,
+												   Color& attenuation_factor) const
+{   
+	Geometry3D::MeshIntersectionData intersection_data;
+	imp_float intersection_distance;
+	const Material* current_material = nullptr;
+
+	imp_float total_intersection_distance = 0;
+
+	const Vector& direction = source_point - surface_point;
+	const imp_float max_distance = direction.getLength();
+
+	Ray LOS(surface_point, direction/max_distance, max_distance);
+
+	while (true)
+	{
+		intersection_distance = _mesh_BVH.evaluateRayIntersection(_mesh_copies, LOS, intersection_data);
+
+		if (intersection_distance == IMP_FLOAT_INF)
+			break; // Ray did not hit any obstructions
+
+		intersection_distance += 10*_ray_origin_offset;
+
+		// Update total distance travelled along ray
+		total_intersection_distance += intersection_distance;
+
+		LOS.origin = LOS(intersection_distance);
+		
+		if (total_intersection_distance >= max_distance)
+			break; // We have passed the light source
+
+		if (!(_models->operator[](intersection_data.mesh_id)->casts_shadows))
+			continue; // The obstruction does not cast shadows and should be ignored
+
+		const Material* material = _models->operator[](intersection_data.mesh_id)->getMaterial();
+
+		if (material->isTransparent())
+		{
+			if (material == current_material)
+			{
+				// We have reached the other side of the transparent model
+				current_material = nullptr;
+
+				// Update attenuation
+				attenuation_factor *= material->getAttenuationFactor(intersection_distance)*material->getTransmittance();
+			}
+			else
+			{
+				// We have entered a transparent model
+				current_material = material;
+				
+				// Update attenuation
+				attenuation_factor *= material->getTransmittance();
+			}
+		}
+		else
+		{
+			// We have reached an opaque model
+			return false;
+		}
+	}
+
+	return true;
 }
 
 void Renderer::computeRadianceAtAllVertices(TriangleMesh& mesh, const SurfaceElement& surface_element)
@@ -983,17 +1110,23 @@ void Renderer::printPickInfo()
 
 	assert(picked_x < _image->getWidth() && picked_y < _image->getHeight());
 
-	imp_uint intersected_mesh_idx, intersected_face_idx;
-	imp_float intersection_distance = _mesh_BVH.evaluateRayIntersection(_mesh_copies, getEyeRay(Point2(static_cast<imp_float>(picked_x) + 0.5f, static_cast<imp_float>(_image->getHeight() - picked_y - 1) + 0.5f)), intersected_mesh_idx, intersected_face_idx);
+	const Ray& eye_ray = getEyeRay(Point2(static_cast<imp_float>(picked_x) + 0.5f, static_cast<imp_float>(_image->getHeight() - picked_y - 1) + 0.5f));
+
+	Geometry3D::MeshIntersectionData intersection_data;
+	imp_float intersection_distance = _mesh_BVH.evaluateRayIntersection(_mesh_copies, eye_ray, intersection_data);
 
 	if (intersection_distance < IMP_FLOAT_INF)
 	{
-		std::cout << intersection_distance << " " << intersected_mesh_idx << " " << intersected_face_idx << std::endl;
+		std::cout << intersection_distance << " " << intersection_data.mesh_id << " " << intersection_data.face_id << std::endl;
 	}
 	else
 	{
 		std::cout << intersection_distance << std::endl;
 	}
+
+	/*Medium ray_medium;
+
+	pathTrace(eye_ray, ray_medium, 0);*/
 
 	pixel_was_picked = false;
 }

@@ -35,15 +35,26 @@ Vector Vector::unitZ()
     return Vector(0, 0, 1);
 }
 
+Vector Vector::randomDirectionOnHemisphere(const Vector& normal)
+{
+	imp_float y = math_util::random();
+	imp_float phi = math_util::random()*IMP_TWO_PI;
+
+	imp_float r = sqrt(1 - y*y);
+	
+	return LinearTransformation::getVectorRotatedFromYAxisToDirection(Vector(r*cos(phi), y, r*sin(phi)),
+																	  normal);
+}
+
 Vector Vector::randomCosineWeightedDirectionOnHemisphere(const Vector& normal)
 {
-	imp_float theta = math_util::random()*IMP_TWO_PI;
 	imp_float s = math_util::random();
+	imp_float phi = math_util::random()*IMP_TWO_PI;
 
 	imp_float y = sqrt(s);
 	imp_float r = sqrt(1 - s);
 	
-	return LinearTransformation::getVectorRotatedFromYAxisToDirection(Vector(r*cos(theta), y, r*sin(theta)),
+	return LinearTransformation::getVectorRotatedFromYAxisToDirection(Vector(r*cos(phi), y, r*sin(phi)),
 																	  normal);
 }
 
@@ -259,8 +270,7 @@ Vector Vector::getSnellRefracted(const Vector& surface_normal,
 	imp_float inverse_refractive_index_ratio = 1/refractive_index_ratio;
 	imp_float argument_to_sqrt = cos_incoming_angle*cos_incoming_angle + inverse_refractive_index_ratio*inverse_refractive_index_ratio - 1;
 
-	if (argument_to_sqrt < 0)
-		return zero();
+	assert(argument_to_sqrt >= 0);
 
 	return ((*this)*refractive_index_ratio + surface_normal*((cos_incoming_angle - sqrt(argument_to_sqrt))*refractive_index_ratio)).getNormalized();
 }

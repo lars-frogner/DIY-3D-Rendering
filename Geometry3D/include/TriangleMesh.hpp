@@ -130,11 +130,10 @@ public:
 
     void homogenizeVertices();
 
-    imp_float evaluateRayIntersection(const Ray& ray, imp_uint& intersected_face_idx) const;
+    imp_float evaluateRayIntersection(const Ray& ray, MeshIntersectionData& intersection_data) const;
     bool evaluateRayAABBIntersection(const Ray& ray) const;
     imp_float evaluateRayFaceIntersectionNonOptimized(const Ray& ray, imp_uint face_idx, imp_float& alpha, imp_float& beta, imp_float& gamma) const;
-    imp_float evaluateRayFaceIntersection(const Ray& ray, imp_uint face_idx, imp_float& alpha, imp_float& beta, imp_float& gamma) const;
-    imp_float evaluateRayFaceIntersectionDistanceOnly(const Ray& ray, imp_uint face_idx) const;
+    imp_float evaluateRayFaceIntersection(const Ray& ray, MeshIntersectionData& intersection_data) const;
 
     TriangleMesh& applyTransformation(const LinearTransformation& transformation);
     TriangleMesh& applyTransformation(const AffineTransformation& transformation);
@@ -150,6 +149,8 @@ public:
     Triangle getFace(imp_uint face_idx) const;
 	void getFaceVertices(imp_uint face_idx, Point vertices[3]) const;
 	void getFaceNormals(imp_uint face_idx, Vector normals[3]) const;
+	Vector getFlatFaceNormal(imp_uint face_idx) const;
+	Vector getInterpolatedFaceNormal(imp_uint face_idx, imp_float alpha, imp_float beta, imp_float gamma) const;
 	void getFaceVertexData3(imp_uint face_idx,
 							imp_float data_A[3],
 							imp_float data_B[3],
@@ -165,9 +166,6 @@ public:
 							   imp_float image_height,
 							   imp_float inverse_image_width_at_unit_distance_from_camera,
 							   imp_float inverse_image_height_at_unit_distance_from_camera) const;
-
-	void getGeometricAndShadingNormal(imp_uint face_idx, const Point& position,
-		 							  Vector& geometric_normal, Vector& shading_normal) const;
 	
     std::vector<imp_uint> getPotentiallyIntersectedFaceIndices(const Ray& ray) const;
     void addPotentiallyIntersectedFaceIndices(const Point2& pixel_center, std::list<imp_uint>& face_indices) const;
@@ -196,6 +194,13 @@ public:
 							  imp_float far_plane_distance) const;
 	
     void saveAs(const std::string& filename) const;
+};
+
+struct MeshIntersectionData
+{
+	imp_uint mesh_id;
+	imp_uint face_id;
+	imp_float alpha, beta, gamma;
 };
 
 } // Geometry3D

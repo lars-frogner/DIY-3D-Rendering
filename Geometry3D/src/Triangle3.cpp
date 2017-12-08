@@ -59,6 +59,16 @@ Vector Triangle::areaVector(const Point& A,
                   (A.x*B.y - A.y*B.x + B.x*C.y - B.y*C.x + C.x*A.y - C.y*A.x)*0.5f);
 }
 
+Vector Triangle::getNormalVector(const Point& A,
+								 const Point& B,
+								 const Point& C)
+{
+    return Vector((A.y*B.z - A.z*B.y + B.y*C.z - B.z*C.y + C.y*A.z - C.z*A.y),
+                  (A.z*B.x - A.x*B.z + B.z*C.x - B.x*C.z + C.z*A.x - C.x*A.z),
+                  (A.x*B.y - A.y*B.x + B.x*C.y - B.y*C.x + C.x*A.y - C.y*A.x)).getNormalized();
+
+}
+
 void Triangle::getBarycentricCoordinatesInside(const Point X,
                                                imp_float& alpha, imp_float& beta, imp_float& gamma) const
 {
@@ -67,7 +77,7 @@ void Triangle::getBarycentricCoordinatesInside(const Point X,
     lie inside the triangle.
     */
 
-    const imp_float eps = -1.e-3f;
+    //const imp_float eps = -1.e-3f;
 
     gamma = _AB_normal.dot(X - _B);
     //assert(gamma >= eps);

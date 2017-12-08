@@ -14,6 +14,7 @@
 #include "Point3.hpp"
 #include "Vector3.hpp"
 #include "Vector4.hpp"
+#include "Triangle3.hpp"
 #include "Camera.hpp"
 #include "Ray.hpp"
 #include "Plane.hpp"
@@ -39,6 +40,7 @@ private:
     typedef Geometry3D::Point Point;
     typedef Geometry3D::Vector Vector;
     typedef Geometry3D::Vector4 Vector4;
+    typedef Geometry3D::Triangle Triangle;
     typedef Geometry3D::Camera Camera;
     typedef Geometry3D::Ray Ray;
     typedef Geometry3D::Plane Plane;
@@ -51,9 +53,8 @@ private:
     typedef Geometry3D::ProjectiveTransformation ProjectiveTransformation;
 
 protected:
-
     const imp_float _ray_origin_offset = static_cast<imp_float>(1e-4);
-	const imp_uint _max_scattering_count = 5;
+	const imp_uint _max_scattering_count = 10;
 	
     Image* _image;
     Camera* _camera;
@@ -132,11 +133,15 @@ protected:
 						 const Vector& direction_to_source,
 					     imp_float distance_to_source) const;
 
-	bool clearLineOfSightBetween(const SurfaceElement& surface_element,
+	/*bool clearLineOfSightBetween(const SurfaceElement& surface_element,
 								 const Point& end_point) const;
 
 	bool clearLineOfSightBetween(const SurfaceElement& surface_element_1,
-							     const SurfaceElement& surface_element_2) const;
+							     const SurfaceElement& surface_element_2) const;*/
+
+	bool evaluateAttenuationAlongLineOfSight(const Point& surface_point,
+											 const Point& source_point,
+											 Color& attenuation_factor) const;
 
 	Radiance pathTrace(const Ray& ray, Medium& ray_medium, imp_uint scattering_count) const;
 

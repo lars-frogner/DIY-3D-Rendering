@@ -40,7 +40,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Animator.cpp" />
-    <ClCompile Include="src\BlinnPhongMaterical.cpp" />
+    <ClCompile Include="src\BlinnPhongMaterial.cpp" />
     <ClCompile Include="src\Color.cpp" />
     <ClCompile Include="src\DirectionalLight.cpp" />
     <ClCompile Include="src\HemisphereAreaLight.cpp" />

@@ -35,7 +35,7 @@ BoundingVolumeHierarchy::BoundingVolumeHierarchy(const AxisAlignedBox& bounding_
     _root_node->_computeBoundingVolumes();
 }
 
-imp_float BoundingVolumeHierarchy::evaluateRayIntersection(const TriangleMesh& mesh, const Ray& ray, imp_uint& intersected_face_idx) const
+imp_float BoundingVolumeHierarchy::evaluateRayIntersection(const TriangleMesh& mesh, const Ray& ray, MeshIntersectionData& intersection_data) const
 {
     assert(_root_node);
 
@@ -52,6 +52,7 @@ imp_float BoundingVolumeHierarchy::evaluateRayIntersection(const TriangleMesh& m
     std::priority_queue<BVHQueueElement> priority_queue;
     std::vector<node_ptr>::const_iterator iter;
     node_ptr current_node;
+	MeshIntersectionData temp_intersection_data;
 
     priority_queue.emplace(_root_node, distance);
 
@@ -65,13 +66,17 @@ imp_float BoundingVolumeHierarchy::evaluateRayIntersection(const TriangleMesh& m
         priority_queue.pop();
         
         // Find true intersection distance of the object belonging to the node
-        distance = mesh.evaluateRayFaceIntersectionDistanceOnly(ray, current_node->_object.id);
+		temp_intersection_data.face_id = current_node->_object.id;
+        distance = mesh.evaluateRayFaceIntersection(ray, temp_intersection_data);
 
         // If it is smaller than all the previous ones, store it as new smallest intersection distance
 		if (distance < smallest_true_intersection_distance)
 		{
 			smallest_true_intersection_distance = distance;
-			intersected_face_idx = current_node->_object.id;
+			intersection_data.face_id = temp_intersection_data.face_id;
+			intersection_data.alpha = temp_intersection_data.alpha;
+			intersection_data.beta = temp_intersection_data.beta;
+			intersection_data.gamma = temp_intersection_data.gamma;
 		}
 
         // Loop through child nodes
@@ -91,7 +96,7 @@ imp_float BoundingVolumeHierarchy::evaluateRayIntersection(const TriangleMesh& m
     return smallest_true_intersection_distance;
 }
 
-imp_float BoundingVolumeHierarchy::evaluateRayIntersection(const std::vector<TriangleMesh>& meshes, const Ray& ray, imp_uint& intersected_mesh_idx, imp_uint& intersected_face_idx) const
+imp_float BoundingVolumeHierarchy::evaluateRayIntersection(const std::vector<TriangleMesh>& meshes, const Ray& ray, MeshIntersectionData& intersection_data) const
 {
     if (!_root_node)
 		return IMP_FLOAT_INF;
@@ -109,6 +114,7 @@ imp_float BoundingVolumeHierarchy::evaluateRayIntersection(const std::vector<Tri
     std::priority_queue<BVHQueueElement> priority_queue;
     std::vector<node_ptr>::const_iterator iter;
     node_ptr current_node;
+	MeshIntersectionData temp_intersection_data;
 
     priority_queue.emplace(_root_node, distance);
 
@@ -122,13 +128,17 @@ imp_float BoundingVolumeHierarchy::evaluateRayIntersection(const std::vector<Tri
         priority_queue.pop();
         
         // Find true intersection distance of the object belonging to the node
-        distance = meshes[current_node->_object.id].evaluateRayIntersection(ray, intersected_face_idx);
+        distance = meshes[current_node->_object.id].evaluateRayIntersection(ray, temp_intersection_data);
 
         // If it is smaller than all the previous ones, store it as new smallest intersection distance
 		if (distance < smallest_true_intersection_distance)
 		{
 			smallest_true_intersection_distance = distance;
-			intersected_mesh_idx = current_node->_object.id;
+			intersection_data.mesh_id = current_node->_object.id;
+			intersection_data.face_id = temp_intersection_data.face_id;
+			intersection_data.alpha = temp_intersection_data.alpha;
+			intersection_data.beta = temp_intersection_data.beta;
+			intersection_data.gamma = temp_intersection_data.gamma;
 		}
 
         // Loop through child nodes

@@ -349,7 +349,7 @@ TriangleMesh TriangleMesh::triangle(const Triangle& triangle_obj)
                                {A.z, B.z, C.z},
                                {1, 1, 1}};
 
-    triangle_mesh._faces = {{0}, {1}, {2}};
+    triangle_mesh._faces = {0, 1, 2};
 
 	triangle_mesh.computeNormalVectors();
 
@@ -694,11 +694,19 @@ TriangleMesh TriangleMesh::twoSidedSphere(const Sphere& sphere_obj, imp_uint res
         sphere_mesh._faces(0, n) = j;
         sphere_mesh._faces(1, n) = j + 1;
         sphere_mesh._faces(2, n) = 0;
+
+        sphere_mesh._faces(1, n_faces+n) = j;
+        sphere_mesh._faces(0, n_faces+n) = j + 1;
+        sphere_mesh._faces(2, n_faces+n) = 0;
         n++;
     }
     sphere_mesh._faces(0, n) = n_lon;
     sphere_mesh._faces(1, n) = 1;
     sphere_mesh._faces(2, n) = 0;
+	
+    sphere_mesh._faces(1, n_faces+n) = n_lon;
+    sphere_mesh._faces(0, n_faces+n) = 1;
+    sphere_mesh._faces(2, n_faces+n) = 0;
     n++;
     
     for (i = 1; i < n_lat-2; i++)
@@ -716,11 +724,19 @@ TriangleMesh TriangleMesh::twoSidedSphere(const Sphere& sphere_obj, imp_uint res
             sphere_mesh._faces(0, n) = current;
             sphere_mesh._faces(1, n) = right;
             sphere_mesh._faces(2, n) = above_right;
+			
+            sphere_mesh._faces(1, n_faces+n) = current;
+            sphere_mesh._faces(0, n_faces+n) = right;
+            sphere_mesh._faces(2, n_faces+n) = above_right;
             n++;
 
             sphere_mesh._faces(0, n) = above_right;
             sphere_mesh._faces(1, n) = above;
             sphere_mesh._faces(2, n) = current;
+			
+            sphere_mesh._faces(1, n_faces+n) = above_right;
+            sphere_mesh._faces(0, n_faces+n) = above;
+            sphere_mesh._faces(2, n_faces+n) = current;
             n++;
         }
         
@@ -734,11 +750,19 @@ TriangleMesh TriangleMesh::twoSidedSphere(const Sphere& sphere_obj, imp_uint res
         sphere_mesh._faces(0, n) = current;
         sphere_mesh._faces(1, n) = right;
         sphere_mesh._faces(2, n) = above_right;
+		
+        sphere_mesh._faces(1, n_faces+n) = current;
+        sphere_mesh._faces(0, n_faces+n) = right;
+        sphere_mesh._faces(2, n_faces+n) = above_right;
         n++;
 
         sphere_mesh._faces(0, n) = above_right;
         sphere_mesh._faces(1, n) = above;
         sphere_mesh._faces(2, n) = current;
+
+        sphere_mesh._faces(1, n_faces+n) = above_right;
+        sphere_mesh._faces(0, n_faces+n) = above;
+        sphere_mesh._faces(2, n_faces+n) = current;
         n++;
     }
 
@@ -749,78 +773,19 @@ TriangleMesh TriangleMesh::twoSidedSphere(const Sphere& sphere_obj, imp_uint res
         sphere_mesh._faces(0, n) = offset + j + 1;
         sphere_mesh._faces(1, n) = offset + j;
         sphere_mesh._faces(2, n) = n_vertices - 1;
+		
+        sphere_mesh._faces(1, n_faces+n) = offset + j + 1;
+        sphere_mesh._faces(0, n_faces+n) = offset + j;
+        sphere_mesh._faces(2, n_faces+n) = n_vertices - 1;
         n++;
     }
     sphere_mesh._faces(0, n) = offset;
     sphere_mesh._faces(1, n) = offset + n_lon - 1;
     sphere_mesh._faces(2, n) = n_vertices - 1;
-    
-    // Top cone (inside)
-    for (j = 1; j < n_lon; j++)
-    {
-        sphere_mesh._faces(1, n) = j;
-        sphere_mesh._faces(0, n) = j + 1;
-        sphere_mesh._faces(2, n) = 0;
-        n++;
-    }
-    sphere_mesh._faces(1, n) = n_lon;
-    sphere_mesh._faces(0, n) = 1;
-    sphere_mesh._faces(2, n) = 0;
-    n++;
-    
-    for (i = 1; i < n_lat-2; i++)
-    {
-        offset = 1 + i*n_lon;
-        offset_prev = offset - n_lon;
-
-        for (j = 0; j < n_lon-1; j++)
-        {
-            current = offset + j;
-            right = current + 1;
-            above = offset_prev + j;
-            above_right = above + 1;
-
-            sphere_mesh._faces(1, n) = current;
-            sphere_mesh._faces(0, n) = right;
-            sphere_mesh._faces(2, n) = above_right;
-            n++;
-
-            sphere_mesh._faces(1, n) = above_right;
-            sphere_mesh._faces(0, n) = above;
-            sphere_mesh._faces(2, n) = current;
-            n++;
-        }
-        
-        j = n_lon - 1;
-
-        current =     offset + j;
-        right =       offset;
-        above =       offset_prev + j;
-        above_right = offset_prev;
-
-        sphere_mesh._faces(1, n) = current;
-        sphere_mesh._faces(0, n) = right;
-        sphere_mesh._faces(2, n) = above_right;
-        n++;
-
-        sphere_mesh._faces(1, n) = above_right;
-        sphere_mesh._faces(0, n) = above;
-        sphere_mesh._faces(2, n) = current;
-        n++;
-    }
-
-    // Bottom cone (inside)
-    offset = 1 + (n_lat - 3)*n_lon;
-    for (j = 0; j < n_lon-1; j++)
-    {
-        sphere_mesh._faces(1, n) = offset + j + 1;
-        sphere_mesh._faces(0, n) = offset + j;
-        sphere_mesh._faces(2, n) = n_vertices - 1;
-        n++;
-    }
-    sphere_mesh._faces(1, n) = offset;
-    sphere_mesh._faces(0, n) = offset + n_lon - 1;
-    sphere_mesh._faces(2, n) = n_vertices - 1;
+	
+    sphere_mesh._faces(1, n_faces+n) = offset;
+    sphere_mesh._faces(0, n_faces+n) = offset + n_lon - 1;
+    sphere_mesh._faces(2, n_faces+n) = n_vertices - 1;
 
     return sphere_mesh;
 }
@@ -1396,10 +1361,10 @@ void TriangleMesh::homogenizeVertices()
     _has_aabb = false;
 }
 
-imp_float TriangleMesh::evaluateRayIntersection(const Ray& ray, imp_uint& intersected_face_idx) const
+imp_float TriangleMesh::evaluateRayIntersection(const Ray& ray, MeshIntersectionData& intersection_data) const
 {
 	assert(_has_aabb);
-    return _bounding_volume_hierarchy.evaluateRayIntersection(*this, ray, intersected_face_idx);
+    return _bounding_volume_hierarchy.evaluateRayIntersection(*this, ray, intersection_data);
 }
 
 bool TriangleMesh::evaluateRayAABBIntersection(const Ray& ray) const
@@ -1436,11 +1401,11 @@ imp_float TriangleMesh::evaluateRayFaceIntersectionNonOptimized(const Ray& ray, 
     return distance;
 }
 
-imp_float TriangleMesh::evaluateRayFaceIntersection(const Ray& ray, imp_uint face_idx, imp_float& alpha, imp_float& beta, imp_float& gamma) const
+imp_float TriangleMesh::evaluateRayFaceIntersection(const Ray& ray, MeshIntersectionData& intersection_data) const
 {
-    // Bootleneck for ray tracing
+    // intersection_data.face_id must be set to the index of the face to test
 
-    imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+    imp_uint i = _faces(0, intersection_data.face_id), j = _faces(1, intersection_data.face_id), k = _faces(2, intersection_data.face_id);
 
     imp_float Ax = _vertices(0, i), Ay = _vertices(1, i), Az = _vertices(2, i);
     imp_float Bx = _vertices(0, j), By = _vertices(1, j), Bz = _vertices(2, j);
@@ -1462,60 +1427,15 @@ imp_float TriangleMesh::evaluateRayFaceIntersection(const Ray& ray, imp_uint fac
 
     imp_float dx = rox - Ax, dy = roy - Ay, dz = roz - Az;
 
-    beta = (dx*qx + dy*qy + dz*qz)*iipf;
+    intersection_data.beta = (dx*qx + dy*qy + dz*qz)*iipf;
 
-    if (beta < _eps_coordinates || beta > 1 - _eps_coordinates)
+    if (intersection_data.beta < _eps_coordinates || intersection_data.beta > 1 - _eps_coordinates)
         return IMP_FLOAT_INF;
 
     imp_float rx = dy*ABz - dz*ABy, ry = dz*ABx - dx*ABz, rz = dx*ABy - dy*ABx;
-    gamma = (rdx*rx + rdy*ry + rdz*rz)*iipf;
+    intersection_data.gamma = (rdx*rx + rdy*ry + rdz*rz)*iipf;
 
-    if (gamma < _eps_coordinates || (alpha = 1 - (beta + gamma)) < _eps_coordinates)
-        return IMP_FLOAT_INF;
-
-    imp_float distance = (ACx*rx + ACy*ry + ACz*rz)*iipf;
-
-    if (distance <= 0)
-        return IMP_FLOAT_INF;
-
-    return distance;
-}
-
-imp_float TriangleMesh::evaluateRayFaceIntersectionDistanceOnly(const Ray& ray, imp_uint face_idx) const
-{
-    // Bootleneck for ray tracing
-
-    imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
-
-    imp_float Ax = _vertices(0, i), Ay = _vertices(1, i), Az = _vertices(2, i);
-    imp_float Bx = _vertices(0, j), By = _vertices(1, j), Bz = _vertices(2, j);
-    imp_float Cx = _vertices(0, k), Cy = _vertices(1, k), Cz = _vertices(2, k);
-
-    imp_float rox = ray.origin.x, roy = ray.origin.y, roz = ray.origin.z;
-    imp_float rdx = ray.direction.x, rdy = ray.direction.y, rdz = ray.direction.z;
-    
-    imp_float ABx = Bx - Ax, ABy = By - Ay, ABz = Bz - Az;
-    imp_float ACx = Cx - Ax, ACy = Cy - Ay, ACz = Cz - Az;
-
-    imp_float qx = rdy*ACz - rdz*ACy, qy = rdz*ACx - rdx*ACz, qz = rdx*ACy - rdy*ACx;
-
-    imp_float ipf = ABx*qx + ABy*qy + ABz*qz;
-
-    if (ipf < _eps_impact_factor) return IMP_FLOAT_INF;
-
-    imp_float iipf = 1/ipf;
-
-    imp_float dx = rox - Ax, dy = roy - Ay, dz = roz - Az;
-
-    imp_float beta = (dx*qx + dy*qy + dz*qz)*iipf;
-
-    if (beta < _eps_coordinates || beta > (1 - _eps_coordinates))
-        return IMP_FLOAT_INF;
-
-    imp_float rx = dy*ABz - dz*ABy, ry = dz*ABx - dx*ABz, rz = dx*ABy - dy*ABx;
-    imp_float gamma = (rdx*rx + rdy*ry + rdz*rz)*iipf;
-
-    if (gamma < _eps_coordinates || beta + gamma > (1 - _eps_coordinates))
+    if (intersection_data.gamma < _eps_coordinates || (intersection_data.alpha = 1 - (intersection_data.beta + intersection_data.gamma)) < _eps_coordinates)
         return IMP_FLOAT_INF;
 
     imp_float distance = (ACx*rx + ACy*ry + ACz*rz)*iipf;
@@ -1624,6 +1544,26 @@ void TriangleMesh::getFaceNormals(imp_uint face_idx, Vector normals[3]) const
     normals[2].setComponents(_normals(0, k), _normals(1, k), _normals(2, k));
 }
 
+Vector TriangleMesh::getFlatFaceNormal(imp_uint face_idx) const
+{
+    imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+
+    return Triangle::getNormalVector(Point(_vertices(0, i), _vertices(1, i), _vertices(2, i)),
+									 Point(_vertices(0, j), _vertices(1, j), _vertices(2, j)),
+									 Point(_vertices(0, k), _vertices(1, k), _vertices(2, k)));
+}
+
+Vector TriangleMesh::getInterpolatedFaceNormal(imp_uint face_idx, imp_float alpha, imp_float beta, imp_float gamma) const
+{
+    assert(_has_normals);
+
+    imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+	
+	return Vector(alpha*_normals(0, i) + beta*_normals(0, j) + gamma*_normals(0, k),
+				  alpha*_normals(1, i) + beta*_normals(1, j) + gamma*_normals(1, k),
+				  alpha*_normals(2, i) + beta*_normals(2, j) + gamma*_normals(2, k)).getNormalized();
+}
+
 void TriangleMesh::getFaceVertexData3(imp_uint face_idx,
 									  imp_float data_A[3],
 									  imp_float data_B[3],
@@ -1694,33 +1634,6 @@ Geometry2D::Triangle TriangleMesh::getProjectedFace(imp_uint face_idx,
                     image_height*(_vertices(1, k)*normalization*inverse_image_height_at_unit_distance_from_camera + 0.5f));
 
     return Triangle2(vertex_A, vertex_B, vertex_C);
-}
-
-void TriangleMesh::getGeometricAndShadingNormal(imp_uint face_idx, const Point& position,
-		 										Vector& geometric_normal, Vector& shading_normal) const
-{
-	assert(_has_normals);
-
-	imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
-
-    Triangle face(Point(_vertices(0, i), _vertices(1, i), _vertices(2, i)),
-                  Point(_vertices(0, j), _vertices(1, j), _vertices(2, j)),
-                  Point(_vertices(0, k), _vertices(1, k), _vertices(2, k)));
-
-    face.computeNormalVectors();
-
-	assert(!face.isDegenerate());
-
-	imp_float alpha, beta, gamma;
-    face.getBarycentricCoordinatesInside(position, alpha, beta, gamma);
-
-	geometric_normal = face.getNormalVector();
-
-	shading_normal = Vector(alpha*_normals(0, i) + beta*_normals(0, j) + gamma*_normals(0, k),
-							alpha*_normals(1, i) + beta*_normals(1, j) + gamma*_normals(1, k),
-							alpha*_normals(2, i) + beta*_normals(2, j) + gamma*_normals(2, k));
-
-	shading_normal.normalize();
 }
 
 bool TriangleMesh::allZAbove(imp_float z_low) const
