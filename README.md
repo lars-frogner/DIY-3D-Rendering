@@ -16,7 +16,11 @@ Impact uses [Armadillo](http://arma.sourceforge.net/) with [LAPACK](http://www.n
 ### Screenshots
 **Various spheres rendered with path tracing**
 ![path traced spheres](/Screenshots/path_tracing_test.png?raw=true "Path traced spheres")
+
+
 **Ray traced teapot**
 ![red teapot](/Screenshots/2017_09_04_red_teapot.png?raw=true "Red teapot")
+
+
 **Snapshots from particle simulation**
 ![physics simulation](/Screenshots/balls_full.png?raw=true "Snapshots from physics simulation")
