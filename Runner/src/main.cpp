@@ -6,6 +6,7 @@
 #include "Sphere.hpp"
 #include "mesh_assets.hpp"
 #include "Color.hpp"
+#include "Texture.hpp"
 #include "Material.hpp"
 #include "BlinnPhongMaterial.hpp"
 #include "OmnidirectionalLight.hpp"
@@ -526,10 +527,38 @@ void setupCornellBox()
 	WORLD->addTwoSidedSphere(Sphere(sphere_3_position, sphere_3_radius), glossy_material, 2);
 }
 
+void setupTextureTest()
+{
+	imp_float width = 7.0f;
+	imp_float height = 5.0f;
+	imp_float depth = 7.0f;
+
+	OmnidirectionalLight* light = new OmnidirectionalLight(Point(0, 10, 0),
+														   Power::grey(400.0f));
+
+	WORLD->addLight(light);
+	
+	Material* white_material = new BlinnPhongMaterial(Color::white(), Color::black(), 0);
+	WORLD->addMaterial(white_material);
+
+	Texture* texture = new Texture("data/test.ppm");
+	WORLD->addTexture(texture);
+	
+	WORLD->addSheet(Point(0, 0, 0), Vector(0, 1, 0), Vector(width, 0, 0), depth, white_material);
+	WORLD->getModel(0)->setTexture(texture);
+
+	TriangleMesh* teapot_mesh = new TriangleMesh(TriangleMesh::file("data/teapot.obj"));
+	WORLD->addMesh(teapot_mesh);
+
+	Model* teapot_model = new Model(teapot_mesh, white_material, LinearTransformation::scaling(0.01f, 0.01f, 0.01f));
+	teapot_model->setTexture(texture);
+	WORLD->addModel(teapot_model);
+}
+
 int main(int argc, char *argv[])
 {
 	imp_float aspect = 7.0f/5.0f;
-	imp_float width = 1400;
+	imp_float width = 800;
 	WORLD = new World(width, static_cast<imp_uint>(width/aspect));
 
 	WORLD->setCameraPointing(Point(0, 3, 11), Vector(0, -0.05f, -1));
@@ -540,7 +569,8 @@ int main(int argc, char *argv[])
 	//setupParticlesContactTest();
 	//setupParticlesGravityContactTest();
 	//setupPathTracingTest();
-	setupCornellBox();
+	//setupCornellBox();
+	setupTextureTest();
 
 	startMainLoop(argc, argv);
 }

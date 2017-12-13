@@ -1,10 +1,12 @@
 #pragma once
 #include "precision.hpp"
+#include "Point2.hpp"
 #include "Point3.hpp"
 #include "Vector3.hpp"
+#include "TriangleMesh.hpp"
 #include "Material.hpp"
 #include "Color.hpp"
-#include <vector>
+#include "Model.hpp"
 
 namespace Impact {
 namespace Rendering3D {
@@ -12,24 +14,35 @@ namespace Rendering3D {
 class SurfaceElement {
 
 private:
+	typedef Geometry2D::Point Point2;
 	typedef Geometry3D::Point Point;
 	typedef Geometry3D::Vector Vector;
+	typedef Geometry3D::TriangleMesh TriangleMesh;
+	typedef Geometry3D::MeshIntersectionData MeshIntersectionData;
 
 protected:
 	
-	struct SurfaceData
+	struct Geometric
 	{
 		Point position;
 		Vector normal;
 	};
+	
+	struct Shading
+	{
+		Point position;
+		Vector normal;
+		Color color;
+		Point2 texture_coordinate;
+	};
 
 public:
-	const Material* material = nullptr;
+	const Model* model = nullptr;
 
-	SurfaceData geometric;
-	SurfaceData shading;
+	Geometric geometric;
+	Shading shading;
 
-	imp_uint model_id;
+	void modifyShadingData(const TriangleMesh& mesh);
 };
 
 } // Rendering3D

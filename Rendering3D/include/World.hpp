@@ -1,6 +1,7 @@
 #pragma once
 #include "precision.hpp"
 #include "Material.hpp"
+#include "Texture.hpp"
 #include "OmnidirectionalLight.hpp"
 #include "DirectionalLight.hpp"
 #include "AreaLight.hpp"
@@ -55,6 +56,7 @@ protected:
 	std::vector<TriangleMesh*> _meshes;
 	std::vector<Model*> _models;
 	std::vector<Material*> _materials;
+	std::vector<Texture*> _textures;
 	
 	// Physics assets
 	std::vector<Particle*> _particles;
@@ -91,6 +93,7 @@ public:
 	void addMesh(TriangleMesh* mesh);
 	void addModel(Model* model);
 	void addMaterial(Material* material);
+	void addTexture(Texture* texture);
 
 	void addParticle(Particle* particle);
 	void addParticleForceGenerator(ParticleForceGenerator* force_generator);
@@ -103,6 +106,7 @@ public:
 	void clearMeshes();
 	void clearModels();
 	void clearMaterials();
+	void clearTextures();
 
 	void clearParticles();
 	void clearParticleForces();
@@ -114,6 +118,7 @@ public:
 	TriangleMesh* getMesh(imp_uint idx);
 	Model* getModel(imp_uint idx);
 	Material* getMaterial(imp_uint idx);
+	Texture* getTexture(imp_uint idx);
 	
 	Particle* getParticle(imp_uint idx);
 

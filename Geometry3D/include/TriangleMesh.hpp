@@ -38,20 +38,25 @@ protected:
 
     arma::Mat<imp_float> _vertices;
     arma::Mat<imp_uint> _faces;
-    arma::Mat<imp_float> _normals;
+    arma::Mat<imp_float> _vertex_normals;
+    arma::Mat<imp_float> _face_normals;
+	std::vector<Point2> _texture_coordinates;
     arma::Mat<imp_float> _vertex_data_3;
 
     AxisAlignedBox _aabb;
     BoundingVolumeHierarchy _bounding_volume_hierarchy;
     BoundingAreaHierarchy _bounding_area_hierarchy;
     
-    bool _is_homogenized;
-    bool _has_normals;
-    bool _has_aabb;
-	bool _has_vertex_data_3;
+    bool _is_homogenized = true;
+    bool _has_vertex_normals = false;
+    bool _has_face_normals = false;
+    bool _has_aabb = false;
+	bool _has_vertex_data_3 = false;
+	bool _has_texture_coordinates = false;
 
     static imp_float _getCoordinateFromObjString(const std::string& s);
     static imp_uint _getFaceIndexFromObjString(const std::string& s, imp_uint n_vertices);
+	static imp_uint _getFaceTextureIndexFromObjString(const std::string& s, imp_uint n_texture_coordinates);
     static void _getObjFileData(const std::string& filename,
                                 string_vec& vertices,
                                 string_vec& texture_coords,
@@ -65,16 +70,13 @@ protected:
     void _clip(imp_uint component, imp_float limit, int sign);
 
     bool _addIntersectionVertices(imp_uint i, imp_uint j, imp_uint k,
+                                  imp_uint l, imp_uint m, imp_uint n,
                                   imp_float origin[], imp_float other_1[], imp_float other_2[],
                                   imp_uint component_1, imp_uint component_2, imp_uint component_3,
                                   imp_float limit);
 
 public:
     TriangleMesh();
-    TriangleMesh(imp_uint n_vertices, imp_float vertex_array[],
-                 imp_uint n_faces, imp_uint face_array[]);
-    TriangleMesh(const TriangleMesh& mesh_1,
-                 const TriangleMesh& mesh_2);
     
     static TriangleMesh file(const std::string& filename, string_vec& = string_vec(), string_vec& = string_vec());
     static TriangleMesh triangle(const Triangle& triangle_obj);
@@ -100,6 +102,8 @@ public:
     void addVertex(imp_float x, imp_float y, imp_float z);
     void addVertex(const Point& vertex);
     void addFace(imp_uint i, imp_uint j, imp_uint k);
+    void addFace(imp_uint i, imp_uint j, imp_uint k,
+				 imp_uint l, imp_uint m, imp_uint n);
 
     void removeVertex(imp_uint idx);
     void removeFace(imp_uint idx);
@@ -125,8 +129,8 @@ public:
 									  imp_float inverse_image_width_at_unit_distance_from_camera,
 									  imp_float inverse_image_height_at_unit_distance_from_camera);
     
-    void computeNormalVectors();
-	void normalizeNormalVectors();
+    void computeFaceNormals();
+    void computeVertexNormals();
 
     void homogenizeVertices();
 
@@ -141,26 +145,41 @@ public:
     TriangleMesh& applyWindowingTransformation(const AffineTransformation& transformation);
 
     Point getVertex(imp_uint idx) const;
+
 	Vector getVertexNormal(imp_uint idx) const;
+
+	void getVertexNormalsForFace(imp_uint face_idx, Vector vertex_normals[3]) const;
+
 	void getVertexData3(imp_uint idx,
 						imp_float& data_0,
 						imp_float& data_1,
 						imp_float& data_2) const;
+
     Triangle getFace(imp_uint face_idx) const;
+
 	void getFaceVertices(imp_uint face_idx, Point vertices[3]) const;
-	void getFaceNormals(imp_uint face_idx, Vector normals[3]) const;
-	Vector getFlatFaceNormal(imp_uint face_idx) const;
-	Vector getInterpolatedFaceNormal(imp_uint face_idx, imp_float alpha, imp_float beta, imp_float gamma) const;
-	void getFaceVertexData3(imp_uint face_idx,
-							imp_float data_A[3],
-							imp_float data_B[3],
-							imp_float data_C[3]) const;
-	void getFaceAttributes(imp_uint face_idx, Point vertices[3], Vector normals[3]) const;
+	
+	Vector getFaceNormal(imp_uint face_idx) const;
+
+	Vector getInterpolatedVertexNormal(imp_uint face_idx, imp_float alpha, imp_float beta, imp_float gamma) const;
+	Vector getInterpolatedVertexNormal(const MeshIntersectionData& intersection_data) const;
+
+	void getVertexData3ForFace(imp_uint face_idx,
+							   imp_float data_A[3],
+							   imp_float data_B[3],
+							   imp_float data_C[3]) const;
+	
+	void getTextureCoordinates(imp_uint face_idx, Point2 texture_coordinates[3]) const;
+
+	Point2 getInterpolatedTextureCoordinates(imp_uint face_idx, imp_float alpha, imp_float beta, imp_float gamma) const;
+	Point2 getInterpolatedTextureCoordinates(const MeshIntersectionData& intersection_data) const;
+
     Point2 getProjectedVertex(imp_uint idx,
 							  imp_float image_width,
 							  imp_float image_height,
 							  imp_float inverse_image_width_at_unit_distance_from_camera,
 							  imp_float inverse_image_height_at_unit_distance_from_camera) const;
+
     Triangle2 getProjectedFace(imp_uint face_idx,
 							   imp_float image_width,
 							   imp_float image_height,
@@ -175,13 +194,16 @@ public:
 
     imp_uint getNumberOfVertices() const;
     imp_uint getNumberOfFaces() const;
+    imp_uint getNumberOfTextureCoordinates() const;
 
     std::string getVerticesString() const;
     std::string get4SpaceVerticesString() const;
     std::string getFacesString() const;
 
     bool isHomogenized() const;
-    bool hasNormals() const;
+	bool hasFaceNormals() const;
+	bool hasVertexNormals() const;
+	bool hasTextureCoordinates() const;
     bool hasAABB() const;
 
 	bool allZAbove(imp_float z_low) const;

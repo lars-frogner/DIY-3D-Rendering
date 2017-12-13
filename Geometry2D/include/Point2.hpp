@@ -25,6 +25,10 @@ public:
     Point  operator- (const Vector& vector) const;
     Point& operator+=(const Vector& vector);
     Point& operator-=(const Vector& vector);
+    Point  operator* (imp_float factor)		 const;
+    Point  operator/ (imp_float divisor)	 const;
+    Point& operator*=(imp_float factor);
+    Point& operator/=(imp_float divisor);
 
     Point& moveTo(imp_float x_new, imp_float y_new);
     Point& translate(imp_float dx, imp_float dy);

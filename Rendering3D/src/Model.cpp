@@ -16,6 +16,24 @@ Model::Model(const TriangleMesh* new_mesh,
 	: _mesh(new_mesh),
 	  _material(new_material) {}
 
+void Model::setTexture(const Texture* texture)
+{
+	assert(_mesh->hasTextureCoordinates());
+	_texture = texture;
+}
+
+void Model::setBumpMap(const Texture* bump_map)
+{
+	assert(_mesh->hasTextureCoordinates());
+	_bump_map = bump_map;
+}
+
+void Model::setDisplacementMap(const Texture* displacement_map)
+{
+	assert(_mesh->hasTextureCoordinates());
+	_displacement_map = displacement_map;
+}
+
 void Model::applyTransformation(const AffineTransformation& transformation)
 {
 	_transformation = transformation(_transformation);
@@ -44,6 +62,36 @@ const Material* Model::getMaterial() const
 const Geometry3D::AffineTransformation& Model::getTransformation() const
 {
 	return _transformation;
+}
+
+bool Model::hasTexture() const
+{
+	return _texture;
+}
+
+bool Model::hasBumpMap() const
+{
+	return _bump_map;
+}
+
+bool Model::hasDisplacementMap() const
+{
+	return _displacement_map;
+}
+
+const Texture* Model::getTexture() const
+{
+	return _texture;
+}
+
+const Texture* Model::getBumpMap() const
+{
+	return _bump_map;
+}
+
+const Texture* Model::getDisplacementMap() const
+{
+	return _displacement_map;
 }
 
 /*RenderableTriangleMesh RenderableTriangleMesh::file(const std::string& filename)

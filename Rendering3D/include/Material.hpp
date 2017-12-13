@@ -32,12 +32,12 @@ public:
 
 	static Reflectance getFresnelReflectance(const Color& normal_incidence_reflection, imp_float cos_incoming_angle);
 
-    virtual Color evaluateFiniteBSDF(const Vector& surface_normal,
+    virtual Color evaluateFiniteBSDF(const SurfaceElement& surface_element,
 									 const Vector& incoming_direction,
 									 const Vector& outgoing_direction,
 									 imp_float cos_incoming_angle) const = 0;
 
-	virtual bool getReflectiveBSDFImpulse(const Vector& surface_normal,
+	virtual bool getReflectiveBSDFImpulse(const SurfaceElement& surface_element,
 										  const Vector& outgoing_direction,
 										  Impulse& impulse) const = 0;
 

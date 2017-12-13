@@ -76,12 +76,12 @@ public:
     void setAttenuation(const Color& attenuation);
     void setGlossyExponent(imp_float glossy_exponent);
 
-    Color evaluateFiniteBSDF(const Vector& surface_normal,
+    Color evaluateFiniteBSDF(const SurfaceElement& surface_element,
 					         const Vector& incoming_direction,
 							 const Vector& outgoing_direction,
 							 imp_float cos_incoming_angle) const;
 
-	bool getReflectiveBSDFImpulse(const Vector& surface_normal,
+	bool getReflectiveBSDFImpulse(const SurfaceElement& surface_element,
 								  const Vector& outgoing_direction,
 								  Impulse& impulse) const;
 

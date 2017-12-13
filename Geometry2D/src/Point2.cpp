@@ -1,5 +1,6 @@
 #include "Point2.hpp"
 #include "Vector2.hpp"
+#include <cassert>
 #include <sstream>
 
 namespace Impact {
@@ -51,6 +52,36 @@ Point& Point::operator+=(const Vector& vector)
 Point& Point::operator-=(const Vector& vector)
 {
     return *this += (-vector);
+}
+
+Point Point::operator*(imp_float factor) const
+{
+    return Point(x*factor, y*factor);
+}
+
+Point Point::operator/(imp_float divisor) const
+{
+	assert(divisor != 0);
+
+    imp_float factor = 1/divisor;
+    return Point(x*factor, y*factor);
+}
+
+Point& Point::operator*=(imp_float factor)
+{
+	x *= factor;
+	y *= factor;
+    return *this;
+}
+
+Point& Point::operator/=(imp_float divisor)
+{
+	assert(divisor != 0);
+
+    imp_float factor = 1/divisor;
+	x *= factor;
+	y *= factor;
+    return *this;
 }
 
 Point& Point::moveTo(imp_float x_new, imp_float y_new)

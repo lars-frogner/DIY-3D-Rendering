@@ -87,12 +87,18 @@ void World::addMesh(TriangleMesh* mesh)
 
 void World::addModel(Model* model)
 {
+	model->id = static_cast<imp_uint>(_models.size());
 	_models.push_back(model);
 }
 
 void World::addMaterial(Material* material)
 {
 	_materials.push_back(material);
+}
+
+void World::addTexture(Texture* texture)
+{
+	_textures.push_back(texture);
 }
 
 void World::addParticle(Particle* particle)
@@ -183,6 +189,17 @@ void World::clearMaterials()
 	_materials.clear();
 }
 
+void World::clearTextures()
+{
+	for (std::vector<Texture*>::iterator iter = _textures.begin(); iter != _textures.end(); iter++)
+	{
+		if (*iter)
+			delete *iter;
+	}
+
+	_textures.clear();
+}
+
 void World::clearParticles()
 {
 	_physics_world->clearParticles();
@@ -256,6 +273,12 @@ Material* World::getMaterial(imp_uint idx)
 {
 	assert(idx < static_cast<imp_uint>(_materials.size()));
 	return _materials[idx];
+}
+
+Texture* World::getTexture(imp_uint idx)
+{
+	assert(idx < static_cast<imp_uint>(_textures.size()));
+	return _textures[idx];
 }
 
 Physics3D::Particle* World::getParticle(imp_uint idx)

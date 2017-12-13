@@ -221,60 +221,44 @@ void BlinnPhongMaterial::setGlossyExponent(imp_float glossy_exponent)
     _initialize();
 }
 
-Color BlinnPhongMaterial::evaluateFiniteBSDF(const Vector& surface_normal,
+Color BlinnPhongMaterial::evaluateFiniteBSDF(const SurfaceElement& surface_element,
                                              const Vector& incoming_direction,
                                              const Vector& outgoing_direction,
 											 imp_float cos_incoming_angle) const
 {
-    if (cos_incoming_angle <= 0 || outgoing_direction.dot(surface_normal) <= 0)
+    if (cos_incoming_angle <= 0 || outgoing_direction.dot(surface_element.shading.normal) <= 0)
     {
         // Incoming ray hits the back of the surface or reflected ray points into the surface
         return Color::black();
     }
 
-	if (use_fresnel)
-	{
-		const Color& fresnel_reflectance = getFresnelReflectance(_glossy_reflectance, cos_incoming_angle);
+	const Color& fresnel_reflectance = getFresnelReflectance(_glossy_reflectance, cos_incoming_angle);
 		
-		// Lambertian reflectance is scaled down with the remainder of the Fresnel reflectance to conserve energy
-		const Color& lambertian_reflectance = (1 - fresnel_reflectance)*_normalized_lambertian_reflectance;
+	// Lambertian reflectance is scaled down with the remainder of the Fresnel reflectance to conserve energy
+	const Color& lambertian_reflectance = (1 - fresnel_reflectance)*surface_element.shading.color*_normalized_lambertian_reflectance;
 
-		if (_glossy_exponent < IMP_FLOAT_INF)
-		{
-			// Estimate true mirror axis with the half-vector
-			imp_float specular_alignment = (incoming_direction + outgoing_direction).normalize().dot(surface_normal);
+	if (_glossy_exponent < IMP_FLOAT_INF)
+	{
+		// Estimate true mirror axis with the half-vector
+		imp_float specular_alignment = (incoming_direction + outgoing_direction).normalize().dot(surface_element.shading.normal);
 
-			return lambertian_reflectance + fresnel_reflectance*_glossy_reflectance_normalization*pow(specular_alignment, _glossy_exponent);
-		}
-		else
-		{
-			return lambertian_reflectance;
-		}
+		return lambertian_reflectance + fresnel_reflectance*_glossy_reflectance_normalization*pow(specular_alignment, _glossy_exponent);
 	}
 	else
 	{
-		if (_glossy_exponent < IMP_FLOAT_INF)
-		{
-			imp_float specular_alignment = (incoming_direction + outgoing_direction).normalize().dot(surface_normal);
-
-			return _normalized_lambertian_reflectance + _normalized_glossy_reflectance*pow(specular_alignment, _glossy_exponent);
-		}
-		else
-		{
-			return _normalized_lambertian_reflectance;
-		}
+		return lambertian_reflectance;
 	}
 }
 
-bool BlinnPhongMaterial::getReflectiveBSDFImpulse(const Vector& surface_normal,
+bool BlinnPhongMaterial::getReflectiveBSDFImpulse(const SurfaceElement& surface_element,
 												  const Vector& outgoing_direction,
 												  Impulse& impulse) const
 {
 	if (_glossy_exponent == IMP_FLOAT_INF)
 	{
-		imp_float cos_outgoing_angle = std::max<imp_float>(0.001f, outgoing_direction.dot(surface_normal));
+		imp_float cos_outgoing_angle = std::max<imp_float>(0.001f, outgoing_direction.dot(surface_element.shading.normal));
 
-		impulse.direction = outgoing_direction.getReflectedAbout(surface_normal);
+		impulse.direction = outgoing_direction.getReflectedAbout(surface_element.shading.normal);
 		impulse.magnitude = getFresnelReflectance(_glossy_reflectance, cos_outgoing_angle);
 
 		return true;
@@ -293,7 +277,7 @@ bool BlinnPhongMaterial::getRefractiveBSDFImpulse(const SurfaceElement& surface_
 		imp_float cos_outgoing_angle;
 		imp_float cos_incoming_angle;
 
-		if (ray_medium.material && ray_medium.model_id == surface_element.model_id) // Are we tracing back the ligth ray from inside the model?
+		if (ray_medium.material && ray_medium.model_id == surface_element.model->id) // Are we tracing back the ligth ray from inside the model?
 		{
 			// The minus sign is required because the surface normal
 			// points out of the model, but we are on the inside
@@ -353,7 +337,7 @@ bool BlinnPhongMaterial::getRefractiveBSDFImpulse(const SurfaceElement& surface_
 				
 			// The incoming ray must be traced back inside the model
 			ray_medium.material = this;
-			ray_medium.model_id = surface_element.model_id;
+			ray_medium.model_id = surface_element.model->id;
 
 			return true;
 		}
@@ -382,7 +366,7 @@ bool BlinnPhongMaterial::scatter_back(const SurfaceElement& surface_element,
 
 	if (_has_transparency) // Could the light have been transmitted through the surface?
 	{
-		if (ray_medium.material && ray_medium.model_id == surface_element.model_id) // Are we tracing back the ligth ray from inside the model?
+		if (ray_medium.material && ray_medium.model_id == surface_element.model->id) // Are we tracing back the ligth ray from inside the model?
 		{
 			// The minus sign is required because the surface normal
 			// points out of the model, but we are on the inside
@@ -458,7 +442,7 @@ bool BlinnPhongMaterial::scatter_back(const SurfaceElement& surface_element,
 				
 				// The incoming ray must be traced back inside the model
 				ray_medium.material = this;
-				ray_medium.model_id = surface_element.model_id;
+				ray_medium.model_id = surface_element.model->id;
 
 				return true;
 			}
@@ -472,8 +456,10 @@ bool BlinnPhongMaterial::scatter_back(const SurfaceElement& surface_element,
 
 	if (_has_lambertian_scattering) // Could the light have been scattered in a Lambertian manner?
 	{
+		const Color& reflectance = surface_element.shading.color*_lambertian_reflectance;
+
 		// Estimate probability of Lambertian scattering
-		imp_float average_lambertian_reflectance = _lambertian_reflectance.getMean();
+		imp_float average_lambertian_reflectance = reflectance.getMean();
 
 		r -= average_lambertian_reflectance;
 
@@ -487,9 +473,9 @@ bool BlinnPhongMaterial::scatter_back(const SurfaceElement& surface_element,
 			cos_incoming_angle = std::max<imp_float>(0.001f, incoming_direction.dot(surface_element.shading.normal));
 			const Color& fresnel_reflectance = getFresnelReflectance(_glossy_reflectance, cos_incoming_angle);
 
-			weight = (1 - fresnel_reflectance)*_lambertian_reflectance/average_lambertian_reflectance;
+			weight = (1 - fresnel_reflectance)*reflectance/average_lambertian_reflectance;
 
-			//weight = _lambertian_reflectance/average_lambertian_reflectance;
+			//weight = reflectance/average_lambertian_reflectance;
 
 			return true;
 		}
@@ -499,10 +485,12 @@ bool BlinnPhongMaterial::scatter_back(const SurfaceElement& surface_element,
 	{
 		// Draw incoming direction from the distribution p(w_i, w_o) = (s+1)/(2*pi)*(w_o . w_o.reflected(n))^s
 		incoming_direction = getRandomGlossyDirection(surface_element.shading.normal, outgoing_direction);
+
+		const Color& reflectance = _glossy_reflectance;
 			
 		// Compute fresnel reflectance for the incoming light
 		cos_incoming_angle = std::max<imp_float>(0.001f, incoming_direction.dot(surface_element.shading.normal));
-		const Color& fresnel_reflectance = getFresnelReflectance(_glossy_reflectance, cos_incoming_angle);
+		const Color& fresnel_reflectance = getFresnelReflectance(reflectance, cos_incoming_angle);
 			
 		// Estimate probability of glossy scattering
 		imp_float average_fresnel_reflectance = fresnel_reflectance.getMean();

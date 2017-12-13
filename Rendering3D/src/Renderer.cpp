@@ -260,7 +260,7 @@ void Renderer::renderDirect()
 		const Model* model = _models->operator[](obj_idx);
         TriangleMesh& mesh = _mesh_copies[obj_idx];
 
-		surface_element.material = model->getMaterial();
+		surface_element.model = model;
 
         if (model->uses_direct_lighting)
             computeRadianceAtAllVertices(mesh, surface_element);
@@ -416,6 +416,7 @@ void Renderer::rasterize()
     Point2 pixel_center;
     Point vertices[3];
     Vector normals[3];
+    Point2 texture_coordinates[3];
     
     imp_float inverse_depths[3];
     imp_float interpolated_inverse_depth;
@@ -469,7 +470,7 @@ void Renderer::rasterize()
 	buildMeshBVHForShadowsOnly();
         
     #pragma omp parallel for default(shared) \
-                             private(x, y, obj_idx, face_idx, vertex_idx, n_triangles, x_min, x_max, y_min, y_max, pixel_center, alpha, beta, gamma, inverse_depths, vertices, normals, interpolated_inverse_depth, depth, surface_element) \
+                             private(x, y, obj_idx, face_idx, vertex_idx, n_triangles, x_min, x_max, y_min, y_max, pixel_center, alpha, beta, gamma, inverse_depths, vertices, normals, texture_coordinates, interpolated_inverse_depth, depth, surface_element) \
                              shared(n_models) \
 							 schedule(dynamic) \
                              if (use_omp)
@@ -483,68 +484,84 @@ void Renderer::rasterize()
 			continue;
 		}
 
-		surface_element.material = model->getMaterial();
+		surface_element.model = model;
 
         const TriangleMesh& mesh = _mesh_copies[obj_idx];
 
         n_triangles = mesh.getNumberOfFaces();
 
-        for (face_idx = 0; face_idx < n_triangles; face_idx++)
-        {
+		for (face_idx = 0; face_idx < n_triangles; face_idx++)
+		{
 			if (!mesh.faceFacesOrigin(face_idx))
 				continue;
 
-            Triangle2& projected_triangle = mesh.getProjectedFace(face_idx,
-																  _image_width,
-																  _image_height,
-																  _inverse_image_width_at_unit_distance_from_camera,
-																  _inverse_image_height_at_unit_distance_from_camera);
+			Triangle2& projected_triangle = mesh.getProjectedFace(face_idx,
+																	_image_width,
+																	_image_height,
+																	_inverse_image_width_at_unit_distance_from_camera,
+																	_inverse_image_height_at_unit_distance_from_camera);
 
-            const AxisAlignedRectangle& aabb = projected_triangle.getAABR(_image_lower_corner, _image_upper_corner);
+			const AxisAlignedRectangle& aabb = projected_triangle.getAABR(_image_lower_corner, _image_upper_corner);
 
-            x_min = static_cast<int>(aabb.lower_corner.x + 0.5f);
-            x_max = static_cast<int>(aabb.upper_corner.x + 0.5f);
-            y_min = static_cast<int>(aabb.lower_corner.y + 0.5f);
-            y_max = static_cast<int>(aabb.upper_corner.y + 0.5f);
+			x_min = static_cast<int>(aabb.lower_corner.x + 0.5f);
+			x_max = static_cast<int>(aabb.upper_corner.x + 0.5f);
+			y_min = static_cast<int>(aabb.lower_corner.y + 0.5f);
+			y_max = static_cast<int>(aabb.upper_corner.y + 0.5f);
 
-            projected_triangle.precomputeBarycentricQuantities();
+			projected_triangle.precomputeBarycentricQuantities();
 
-            mesh.getFaceAttributes(face_idx, vertices, normals);
+			mesh.getFaceVertices(face_idx, vertices);
+			mesh.getVertexNormalsForFace(face_idx, normals);
 
-            for (vertex_idx = 0; vertex_idx < 3; vertex_idx++)
-            {
-                inverse_depths[vertex_idx] = -1.0f/vertices[vertex_idx].z;
-                vertices[vertex_idx] *= inverse_depths[vertex_idx];
-                normals[vertex_idx] *= inverse_depths[vertex_idx];
-            }
+			if (mesh.hasTextureCoordinates())
+				mesh.getTextureCoordinates(face_idx, texture_coordinates);
 
-            for (y = y_min; y < y_max; y++) {
-                for (x = x_min; x < x_max; x++)
-                {
-                    pixel_center.moveTo(static_cast<imp_float>(x) + 0.5f, static_cast<imp_float>(y) + 0.5f);
+			surface_element.geometric.normal = mesh.getFaceNormal(face_idx);
 
-                    projected_triangle.getBarycentricCoordinates(pixel_center, alpha, beta, gamma);
+			for (vertex_idx = 0; vertex_idx < 3; vertex_idx++)
+			{
+				inverse_depths[vertex_idx] = -1.0f/vertices[vertex_idx].z;
+				vertices[vertex_idx] *= inverse_depths[vertex_idx];
+				normals[vertex_idx] *= inverse_depths[vertex_idx];
 
-                    if (alpha > 0 && beta > 0 && gamma > 0)
-                    {
-                        interpolated_inverse_depth = alpha*inverse_depths[0] + beta*inverse_depths[1] + gamma*inverse_depths[2];
+				if (mesh.hasTextureCoordinates())
+					texture_coordinates[vertex_idx] *= inverse_depths[vertex_idx];
+			}
+
+			for (y = y_min; y < y_max; y++) {
+				for (x = x_min; x < x_max; x++)
+				{
+					pixel_center.moveTo(static_cast<imp_float>(x) + 0.5f, static_cast<imp_float>(y) + 0.5f);
+
+					projected_triangle.getBarycentricCoordinates(pixel_center, alpha, beta, gamma);
+
+					if (alpha > 0 && beta > 0 && gamma > 0)
+					{
+						interpolated_inverse_depth = alpha*inverse_depths[0] + beta*inverse_depths[1] + gamma*inverse_depths[2];
 
 						surface_element.geometric.position = (vertices[0] + (vertices[1] - vertices[0])*beta + (vertices[2] - vertices[0])*gamma)/interpolated_inverse_depth;
-						surface_element.geometric.normal = ((normals[0]*alpha + normals[1]*beta + normals[2]*gamma)/interpolated_inverse_depth).normalize();
-
 						surface_element.shading.position = surface_element.geometric.position;
-						surface_element.shading.normal = surface_element.geometric.normal;
 
-                        const Vector& displacement_to_camera = -(surface_element.shading.position.toVector());
+						surface_element.shading.normal = ((normals[0]*alpha + normals[1]*beta + normals[2]*gamma)/interpolated_inverse_depth).normalize();
 
-                        depth = displacement_to_camera.getLength();
+						surface_element.shading.color = Color::white();
 
-                        if (depth < _image->getDepth(x, y))
-                        {
+						if (mesh.hasTextureCoordinates())
+						{
+							surface_element.shading.texture_coordinate = (texture_coordinates[0] + (texture_coordinates[1] - texture_coordinates[0])*beta + (texture_coordinates[2] - texture_coordinates[0])*gamma)/interpolated_inverse_depth;
+							surface_element.modifyShadingData(mesh);
+						}
+
+						const Vector& displacement_to_camera = -(surface_element.shading.position.toVector());
+
+						depth = displacement_to_camera.getLength();
+
+						if (depth < _image->getDepth(x, y))
+						{
 							if (model->uses_direct_lighting)
 							{
 								const Radiance& radiance = getDirectlyScatteredRadianceFromLights(surface_element,
-																								  displacement_to_camera/depth);
+																									displacement_to_camera/depth);
 
 								#pragma omp critical
 								if (depth < _image->getDepth(x, y))
@@ -561,11 +578,11 @@ void Renderer::rasterize()
 									_image->setRadiance(x, y, model->getMaterial()->getBaseColor());
 								}
 							}
-                        }
-                    }
-                }
-            }
-        }
+						}
+					}
+				}
+			}
+		}
     }
 
 	if (gamma_encode && !render_depth_map)
@@ -651,14 +668,13 @@ Radiance Renderer::pathTrace(const Ray& ray, Medium& ray_medium, imp_uint scatte
 
 	if (scattering_count <= _max_scattering_count && findIntersectedSurface(ray, distance, surface_element))
 	{
-
 		// Include radiance emitted directly from the surface if this is the eye ray
 		if (scattering_count == 0)
 		{
 			ray_medium.material = nullptr;
 
-			if (surface_element.material->isEmitter())
-				radiance += surface_element.material->getEmittedRadiance();
+			if (surface_element.model->getMaterial()->isEmitter())
+				radiance += surface_element.model->getMaterial()->getEmittedRadiance();
 		}
 		
 		// The light travels in the opposite direction of the ray
@@ -696,23 +712,25 @@ bool Renderer::findIntersectedSurface(const Ray& ray, imp_float& distance, Surfa
 	{
 		distance = intersection_distance;
 
-		surface_element.model_id = intersection_data.mesh_id;
+		surface_element.model = _models->operator[](intersection_data.mesh_id);
 
-		surface_element.material = _models->operator[](surface_element.model_id)->getMaterial();
+        const TriangleMesh& mesh = _mesh_copies[surface_element.model->id];
 
 		surface_element.geometric.position = ray(distance);
 		surface_element.shading.position = surface_element.geometric.position;
 		
-		// Note: The shading normal should always point out of the model, while the geometric 
-		// normal will point into or out of the model depending on the face orientation
+		// Note: The geometric normal will point into or out of the model depending on the face orientation
+		surface_element.geometric.normal = mesh.getFaceNormal(intersection_data.face_id);
+		surface_element.shading.normal = mesh.getInterpolatedVertexNormal(intersection_data);
 
-		surface_element.shading.normal = _mesh_copies[surface_element.model_id].getInterpolatedFaceNormal(intersection_data.face_id,
-																										  intersection_data.alpha,
-																										  intersection_data.beta,
-																										  intersection_data.gamma);
+		surface_element.shading.color = Color::white();
+
+		if (mesh.hasTextureCoordinates())
+		{
+			surface_element.shading.texture_coordinate = mesh.getInterpolatedTextureCoordinates(intersection_data);
+			surface_element.modifyShadingData(mesh);
+		}
 		
-		surface_element.geometric.normal = _mesh_copies[surface_element.model_id].getFlatFaceNormal(intersection_data.face_id);
-
 		return true;
 	}
 
@@ -765,10 +783,10 @@ Radiance Renderer::getDirectlyScatteredRadianceFromPointLights(const SurfaceElem
 			cos_incoming_angle = direction_to_source.dot(surface_element.shading.normal);
 
 			if (cos_incoming_angle > 0)
-				radiance += surface_element.material->evaluateFiniteBSDF(surface_element.shading.normal,
-																		 direction_to_source,
-																		 scatter_direction,
-																		 cos_incoming_angle)
+				radiance += surface_element.model->getMaterial()->evaluateFiniteBSDF(surface_element,
+																					 direction_to_source,
+																					 scatter_direction,
+																					 cos_incoming_angle)
 							*light->getTotalPower()
 							*(cos_incoming_angle/(IMP_FOUR_PI*squared_distance_to_source))
 							*attenuation_factor;
@@ -795,10 +813,10 @@ Radiance Renderer::getDirectlyScatteredRadianceFromDirectionalLights(const Surfa
 			cos_incoming_angle = direction_to_source.dot(surface_element.shading.normal);
 
 			if (cos_incoming_angle > 0)
-				radiance += surface_element.material->evaluateFiniteBSDF(surface_element.shading.normal,
-																		 direction_to_source,
-																		 scatter_direction,
-																		 cos_incoming_angle)*light->getBiradiance()*cos_incoming_angle;
+				radiance += surface_element.model->getMaterial()->evaluateFiniteBSDF(surface_element,
+																					 direction_to_source,
+																					 scatter_direction,
+																					 cos_incoming_angle)*light->getBiradiance()*cos_incoming_angle;
         }  
     }
 
@@ -838,10 +856,10 @@ Radiance Renderer::getDirectlyScatteredRadianceFromAreaLights(const SurfaceEleme
 				cos_emission_angle = -(direction_to_source.dot(source_surface_element.geometric.normal));
 
 				if (cos_emission_angle > 0)
-					radiance += surface_element.material->evaluateFiniteBSDF(surface_element.shading.normal,
-																			 direction_to_source,
-																			 scatter_direction,
-																			 cos_incoming_angle)
+					radiance += surface_element.model->getMaterial()->evaluateFiniteBSDF(surface_element,
+																						 direction_to_source,
+																						 scatter_direction,
+																						 cos_incoming_angle)
 								*light->getTotalPower()
 								*(cos_incoming_angle*cos_emission_angle/(IMP_PI*squared_distance_to_source))
 								*attenuation_factor;
@@ -853,7 +871,7 @@ Radiance Renderer::getDirectlyScatteredRadianceFromAreaLights(const SurfaceEleme
 	imp_float intersection_distance;
 	SurfaceElement intersected_surface_element;
 
-	if (surface_element.material->getReflectiveBSDFImpulse(surface_element.shading.normal, scatter_direction, impulse))
+	if (surface_element.model->getMaterial()->getReflectiveBSDFImpulse(surface_element, scatter_direction, impulse))
 	{
 		const Ray& impulse_ray = Ray(surface_element.geometric.position, impulse.direction).nudge(_ray_origin_offset, surface_element.geometric.normal);
 
@@ -861,7 +879,7 @@ Radiance Renderer::getDirectlyScatteredRadianceFromAreaLights(const SurfaceEleme
 
 		if (findIntersectedSurface(impulse_ray, intersection_distance, intersected_surface_element))
 		{
-			radiance += (impulse.magnitude)*intersected_surface_element.material->getEmittedRadiance();
+			radiance += (impulse.magnitude)*intersected_surface_element.model->getMaterial()->getEmittedRadiance();
 		}
 	}
 	
@@ -871,7 +889,7 @@ Radiance Renderer::getDirectlyScatteredRadianceFromAreaLights(const SurfaceEleme
 
 	intersected_surface_element = surface_element;
 
-	while (intersected_surface_element.material->getRefractiveBSDFImpulse(intersected_surface_element, ray_medium, scatter_direction, impulse))
+	while (intersected_surface_element.model->getMaterial()->getRefractiveBSDFImpulse(intersected_surface_element, ray_medium, scatter_direction, impulse))
 	{
 		const Ray& impulse_ray = Ray(intersected_surface_element.geometric.position, impulse.direction).nudge(-_ray_origin_offset, intersected_surface_element.geometric.normal);
 
@@ -882,8 +900,8 @@ Radiance Renderer::getDirectlyScatteredRadianceFromAreaLights(const SurfaceEleme
 			if (ray_medium.material)
 			 	 attenuation *= ray_medium.material->getAttenuationFactor(intersection_distance);
 
-			if (intersected_surface_element.material->isEmitter())
-				 transmitted_radiance += (impulse.magnitude)*intersected_surface_element.material->getEmittedRadiance();
+			if (intersected_surface_element.model->getMaterial()->isEmitter())
+				 transmitted_radiance += (impulse.magnitude)*intersected_surface_element.model->getMaterial()->getEmittedRadiance();
 		}
 		else
 		{
@@ -906,7 +924,7 @@ Radiance Renderer::getScatteredRadianceFromSurface(const SurfaceElement& surface
 
 	// Obtain a direction that light can be coming from and a weight for how its radiance 
 	// should be modified (also keep track of whether we are inside a medium)
-	if (surface_element.material->scatter_back(surface_element, ray_medium, scatter_direction, incoming_direction, weight))
+	if (surface_element.model->getMaterial()->scatter_back(surface_element, ray_medium, scatter_direction, incoming_direction, weight))
 	{
 		imp_float nudge_amount = _ray_origin_offset*math_util::sign(incoming_direction.dot(surface_element.geometric.normal));
 
@@ -1030,7 +1048,7 @@ bool Renderer::evaluateAttenuationAlongLineOfSight(const Point& surface_point,
 void Renderer::computeRadianceAtAllVertices(TriangleMesh& mesh, const SurfaceElement& surface_element)
 {
     assert(mesh.isHomogenized());
-    assert(mesh.hasNormals());
+    assert(mesh.hasVertexNormals());
 
     int n_vertices = static_cast<int>(mesh.getNumberOfVertices());
     int idx;
@@ -1048,10 +1066,12 @@ void Renderer::computeRadianceAtAllVertices(TriangleMesh& mesh, const SurfaceEle
     for (idx = 0; idx < n_vertices; idx++)
     {
 		surface_element_copy.geometric.position = mesh.getVertex(idx);
-		surface_element_copy.geometric.normal = mesh.getVertexNormal(idx);
-		
 		surface_element_copy.shading.position = surface_element_copy.geometric.position;
-		surface_element_copy.shading.normal = surface_element_copy.geometric.normal;
+		
+		surface_element_copy.shading.normal = mesh.getVertexNormal(idx);
+		surface_element_copy.geometric.normal = surface_element_copy.shading.normal;
+
+		surface_element_copy.shading.color = Color::white();
 
         Vector& scatter_direction = _camera_cframe.origin - surface_element_copy.shading.position;
 		vertex_camera_distance = scatter_direction.getLength();
@@ -1087,7 +1107,7 @@ void Renderer::drawFaces(const TriangleMesh& mesh) const
     for (face_idx = 0; face_idx < n_faces; face_idx++)
     {
 		mesh.getFaceVertices(face_idx, face_vertices);
-		mesh.getFaceVertexData3(face_idx, vertex_color_A, vertex_color_B, vertex_color_C);
+		mesh.getVertexData3ForFace(face_idx, vertex_color_A, vertex_color_B, vertex_color_C);
 
         _image->drawTriangle(face_vertices[0], face_vertices[1], face_vertices[2],
 		 				     Color(vertex_color_A[0], vertex_color_A[1], vertex_color_A[2]),
