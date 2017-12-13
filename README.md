@@ -14,13 +14,17 @@ A rendering and physics engine written in C++.
 Impact uses [Armadillo](http://arma.sourceforge.net/) with [LAPACK](http://www.netlib.org/lapack/) and [BLAS](http://www.netlib.org/blas/) for some of the linear algebra, in addition to [OpenGL](https://www.opengl.org/) with [GLUT](https://www.opengl.org/resources/libraries/glut/) for displaying the rendered images.
 
 ### Screenshots
-**Transparent, diffuse and mirror-reflective sphere rendered with path tracing**
+**Cornell box (path traced)**
+![path traced spheres](/Screenshots/cornell_box.png?raw=true "Cornell box")
+
+
+**Transparent, diffuse and mirror-reflective sphere (path traced)**
 ![path traced spheres](/Screenshots/path_tracing_test.png?raw=true "Path traced spheres")
 
 
-**Ray traced teapot**
+**Utah teapot (ray traced)**
 ![red teapot](/Screenshots/2017_09_04_red_teapot.png?raw=true "Red teapot")
 
 
-**Snapshots from particle simulation**
+**Snapshots from particle simulation (ray traced)**
 ![physics simulation](/Screenshots/balls_full.png?raw=true "Snapshots from physics simulation")
