@@ -31,7 +31,7 @@ protected:
 public:
     bool uses_direct_lighting = true;
 	
-	bool casts_shadows = false;
+	bool casts_shadows = true;
 	bool shadows_toggable = true;
 	
     bool render_faces = true;

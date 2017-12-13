@@ -4,6 +4,7 @@
 #include "OmnidirectionalLight.hpp"
 #include "DirectionalLight.hpp"
 #include "AreaLight.hpp"
+#include "RectangularAreaLight.hpp"
 #include "Image.hpp"
 #include "Camera.hpp"
 #include "Renderer.hpp"
@@ -135,9 +136,15 @@ public:
 
 	void addRoom(imp_float width, imp_float height, imp_float depth, const Material* material);
 	void addGround(imp_float width, imp_float depth, const Material* material);
+	void addSheet(const Point& center,	
+				  const Vector& normal,
+				  const Vector& width_vector,
+				  imp_float height,
+				  const Material* material);
 	void addBox(const Box& box, const Material* material);
 	void addSphere(const Sphere& sphere, const Material* material, imp_uint quality = 0);
 	void addTwoSidedSphere(const Sphere& sphere, const Material* material, imp_uint quality = 0);
+	void addWindow(const RectangularAreaLight& window);
 
 	void addParticle(const Point& position,
 					 const Vector& velocity,

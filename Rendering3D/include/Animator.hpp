@@ -44,11 +44,11 @@ private:
 
 	const imp_float _minimum_simulation_timestep = 1e-6f;
 
-	int _rendering_mode = 3;
+	int _rendering_mode = 0;
 	bool _physics_active = false;
-	bool _camera_active = true;
+	bool _camera_active = false;
 	bool _simulate_realtime = true;
-	bool _print_time_info = false;
+	bool _print_time_info = true;
 	bool _auto_simulation_frequency = true;
 	bool _recording_active = false;
 	bool _singlestepping_active = false;
@@ -65,7 +65,7 @@ private:
 	imp_float _camera_movement_speed = 5.0f;
 	imp_float _camera_rotation_speed = 0.001f;
 
-	imp_uint _n_path_tracing_samples = 1;
+	imp_uint _n_path_tracing_samples = 10000;
 
 	std::map<unsigned char, bool> _keys_pressed;
 	bool _camera_moved = false;

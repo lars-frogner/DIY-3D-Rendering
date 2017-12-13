@@ -62,13 +62,18 @@ void BlinnPhongMaterial::_initialize()
 {
 	assert(_refractive_index.getMin() >= 1);
 
-	const Color& coefficient_of_extinction_squared = _coefficient_of_extinction*_coefficient_of_extinction;
-	
-	const Color& refractive_index_minus_one = _refractive_index - 1;
-	const Color& refractive_index_plus_one = _refractive_index + 1;
+	_has_transparency = _transmittance.nonZero();
 
-	_glossy_reflectance = (coefficient_of_extinction_squared + refractive_index_minus_one*refractive_index_minus_one)
-						 /(coefficient_of_extinction_squared + refractive_index_plus_one*refractive_index_plus_one);
+	if (_has_transparency)
+	{
+		const Color& coefficient_of_extinction_squared = _coefficient_of_extinction*_coefficient_of_extinction;
+	
+		const Color& refractive_index_minus_one = _refractive_index - 1;
+		const Color& refractive_index_plus_one = _refractive_index + 1;
+
+		_glossy_reflectance = (coefficient_of_extinction_squared + refractive_index_minus_one*refractive_index_minus_one)
+							 /(coefficient_of_extinction_squared + refractive_index_plus_one*refractive_index_plus_one);
+	}
 
     imp_float max_total = (_lambertian_reflectance + _glossy_reflectance + _transmittance).getMax();
 	if (max_total > 1)
@@ -85,20 +90,27 @@ void BlinnPhongMaterial::_initialize()
 	
 	_has_lambertian_scattering = _lambertian_reflectance.nonZero();
 	_has_glossy_scattering = _glossy_reflectance.nonZero();
-	_has_transparency = _transmittance.nonZero();
+	_has_emittance = _emitted_radiance.nonZero();
 }
 
 void BlinnPhongMaterial::_convert_glossy_reflectance_to_refractive_index()
 {
-	imp_float sqrt_glossy_r = sqrt(_glossy_reflectance.r);
-	imp_float sqrt_glossy_g = sqrt(_glossy_reflectance.g);
-	imp_float sqrt_glossy_b = sqrt(_glossy_reflectance.b);
+	if (_transmittance.nonZero())
+	{
+		imp_float sqrt_glossy_r = sqrt(_glossy_reflectance.r);
+		imp_float sqrt_glossy_g = sqrt(_glossy_reflectance.g);
+		imp_float sqrt_glossy_b = sqrt(_glossy_reflectance.b);
 
-	assert(sqrt_glossy_r < 1 && sqrt_glossy_g < 1 && sqrt_glossy_b < 1);
+		assert(sqrt_glossy_r < 1 && sqrt_glossy_g < 1 && sqrt_glossy_b < 1);
 
-    _refractive_index.r = (1 + sqrt_glossy_r)/(1 - sqrt_glossy_r);
-    _refractive_index.g = (1 + sqrt_glossy_g)/(1 - sqrt_glossy_g);
-    _refractive_index.b = (1 + sqrt_glossy_b)/(1 - sqrt_glossy_b);
+		_refractive_index.r = (1 + sqrt_glossy_r)/(1 - sqrt_glossy_r);
+		_refractive_index.g = (1 + sqrt_glossy_g)/(1 - sqrt_glossy_g);
+		_refractive_index.b = (1 + sqrt_glossy_b)/(1 - sqrt_glossy_b);
+	}
+	else
+	{
+		_refractive_index = Color::white();
+	}
 
 	_coefficient_of_extinction = Color::black();
 }
@@ -154,6 +166,7 @@ imp_float BlinnPhongMaterial::getGlossyExponent() const
 void BlinnPhongMaterial::setEmittedRadiance(const Radiance& emitted_radiance)
 {
 	_emitted_radiance = emitted_radiance;
+    _initialize();
 }
 
 const Color& BlinnPhongMaterial::getBaseColor() const
@@ -482,51 +495,48 @@ bool BlinnPhongMaterial::scatter_back(const SurfaceElement& surface_element,
 		}
 	}
 
-	if (_has_glossy_scattering) // Could the light have been scattered in a glossy manner?
+	if (_has_glossy_scattering && _glossy_exponent < IMP_FLOAT_INF) // Could the light have been scattered in a glossy manner?
 	{
-		if (_glossy_exponent < IMP_FLOAT_INF) // Non-mirror scattering
+		// Draw incoming direction from the distribution p(w_i, w_o) = (s+1)/(2*pi)*(w_o . w_o.reflected(n))^s
+		incoming_direction = getRandomGlossyDirection(surface_element.shading.normal, outgoing_direction);
+			
+		// Compute fresnel reflectance for the incoming light
+		cos_incoming_angle = std::max<imp_float>(0.001f, incoming_direction.dot(surface_element.shading.normal));
+		const Color& fresnel_reflectance = getFresnelReflectance(_glossy_reflectance, cos_incoming_angle);
+			
+		// Estimate probability of glossy scattering
+		imp_float average_fresnel_reflectance = fresnel_reflectance.getMean();
+			
+		r -= average_fresnel_reflectance;
+			
+		// Perform glossy scattering with this probability
+		if (r < 0)
 		{
-			// Draw incoming direction from the distribution p(w_i, w_o) = (s+1)/(2*pi)*(w_o . w_o.reflected(n))^s
-			incoming_direction = getRandomGlossyDirection(surface_element.shading.normal, outgoing_direction);
-			
-			// Compute fresnel reflectance for the incoming light
-			cos_incoming_angle = std::max<imp_float>(0.001f, incoming_direction.dot(surface_element.shading.normal));
-			const Color& fresnel_reflectance = getFresnelReflectance(_glossy_reflectance, cos_incoming_angle);
-			
-			// Estimate probability of glossy scattering
-			imp_float average_fresnel_reflectance = fresnel_reflectance.getMean();
-			
-			r -= average_fresnel_reflectance;
-			
-			// Perform glossy scattering with this probability
-			if (r < 0)
-			{
-				// The remainder of the proportionality constant f_glossy(w_i, w_0)/p(w_i, w_o) should in
-				// principle be included, but it is very close to 1 when the glossy exponent is significant
-				weight = fresnel_reflectance/average_fresnel_reflectance;
-				return true;
-			}
+			// The remainder of the proportionality constant f_glossy(w_i, w_0)/p(w_i, w_o) should in
+			// principle be included, but it is very close to 1 when the glossy exponent is significant
+			weight = fresnel_reflectance*cos_incoming_angle/average_fresnel_reflectance;
+			return true;
 		}
-		else // Mirror scattering
+	}
+	else if (_glossy_exponent == IMP_FLOAT_INF) // Mirror scattering
+	{
+		// Find the direction the light would be coming from if it was mirror reflected
+		incoming_direction = outgoing_direction.getReflectedAbout(surface_element.shading.normal);
+			
+		// Compute fresnel reflectance for the incoming light
+		cos_incoming_angle = std::max<imp_float>(0.001f, incoming_direction.dot(surface_element.shading.normal));
+		const Color& fresnel_reflectance = getFresnelReflectance(_glossy_reflectance, cos_incoming_angle);
+			
+		// Estimate probability of mirror scattering
+		imp_float average_fresnel_reflectance = fresnel_reflectance.getMean();
+			
+		r -= average_fresnel_reflectance;
+			
+		// Perform mirror scattering with this probability
+		if (r < 0)
 		{
-			// Find the direction the light would be coming from if it was mirror reflected
-			incoming_direction = outgoing_direction.getReflectedAbout(surface_element.shading.normal);
-			
-			// Compute fresnel reflectance for the incoming light
-			cos_incoming_angle = std::max<imp_float>(0.001f, incoming_direction.dot(surface_element.shading.normal));
-			const Color& fresnel_reflectance = getFresnelReflectance(_glossy_reflectance, cos_incoming_angle);
-			
-			// Estimate probability of mirror scattering
-			imp_float average_fresnel_reflectance = fresnel_reflectance.getMean();
-			
-			r -= average_fresnel_reflectance;
-			
-			// Perform mirror scattering with this probability
-			if (r < 0)
-			{
-				weight = fresnel_reflectance/average_fresnel_reflectance;
-				return true;
-			}
+			weight = fresnel_reflectance/average_fresnel_reflectance;
+			return true;
 		}
 	}
 
@@ -535,12 +545,19 @@ bool BlinnPhongMaterial::scatter_back(const SurfaceElement& surface_element,
 
 Color BlinnPhongMaterial::getAttenuationFactor(imp_float distance) const
 {
-	return Color::white();
+	return Color((_attenuation.r != 0)? exp(-_attenuation.r*distance) : 1,
+				 (_attenuation.g != 0)? exp(-_attenuation.g*distance) : 1,
+				 (_attenuation.b != 0)? exp(-_attenuation.b*distance) : 1);
 }
 
 bool BlinnPhongMaterial::isTransparent() const
 {
 	return _has_transparency;
+}
+
+bool BlinnPhongMaterial::isEmitter() const
+{
+	return _has_emittance;
 }
 
 } // Rendering3D

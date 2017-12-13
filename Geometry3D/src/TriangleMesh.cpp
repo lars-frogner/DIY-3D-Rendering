@@ -1216,15 +1216,19 @@ void TriangleMesh::computeAABB()
 {
 	if (_has_aabb)
 		return;
-
-    _aabb.lower_corner = Point::max();
-    _aabb.upper_corner = Point::min();
     
     imp_uint n_faces = getNumberOfFaces();
     imp_uint i, j, k;
     imp_float x, y, z;
+	
+	assert(getNumberOfFaces() > 0);
+    i = _faces(0, 0), j = _faces(1, 0), k = _faces(2, 0);
+    x = _vertices(0, i), y = _vertices(1, i), z = _vertices(2, i);
 
-    for (imp_uint face_idx = 0; face_idx < n_faces; face_idx++)
+    _aabb.lower_corner.moveTo(x, y, z);
+    _aabb.upper_corner.moveTo(x, y, z);
+
+    for (imp_uint face_idx = 1; face_idx < n_faces; face_idx++)
     {
         i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
 

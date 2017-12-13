@@ -54,6 +54,8 @@ public:
 
 	virtual bool isTransparent() const = 0;
 
+	virtual bool isEmitter() const = 0;
+
 	virtual const Color& getTransmittance() const = 0;
 	
 	virtual Color getAttenuationFactor(imp_float distance) const = 0;

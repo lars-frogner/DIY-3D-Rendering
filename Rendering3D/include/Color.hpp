@@ -31,6 +31,9 @@ public:
     static Color pink();
     static Color purple();
     static Color gold();
+	static Color crimson();
+	static Color forestgreen();
+	static Color navy();
     
     Color  operator+ (const Color& other) const;
     Color  operator+ (imp_float value) const;

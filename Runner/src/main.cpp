@@ -349,6 +349,7 @@ void setupParticlesGravityContactTest()
 	WORLD->getPointLight(1)->creates_shadows = false;
 
 	/*WORLD->addSphere(Sphere(light_position, 0.05f), WORLD->getMaterial(0), 0);
+	WORLD->getModel(1)->casts_shadows = false;
 	WORLD->getModel(1)->shadows_toggable = false;
 	WORLD->getModel(1)->uses_direct_lighting = false;*/
 
@@ -404,60 +405,142 @@ void setupParticlesGravityContactTest()
 	WORLD->addRoomContact(width, height, depth, restitution_coef, -1);
 }
 
+
+void addRoomWithWindows(imp_float width,
+						imp_float height,
+						imp_float depth,
+						Material* room_material,
+						imp_float window_width,
+						imp_float window_height,
+						imp_float window_height_on_wall,
+						const Power& window_power)
+{
+	WORLD->addMaterial(room_material);
+	WORLD->addRoom(width, height, depth, room_material);
+
+	WORLD->addWindow(RectangularAreaLight(Point(width/2 - 0.01f, window_height_on_wall, 0.0f), Vector(-1, 0, 0), Vector(0, 0, window_width), window_height, window_power, 1));
+	WORLD->addWindow(RectangularAreaLight(Point(-width/2 + 0.01f, window_height_on_wall, 0.0f), Vector(1, 0, 0), Vector(0, 0, window_width), window_height, window_power, 1));
+	WORLD->addWindow(RectangularAreaLight(Point(0.0f, window_height_on_wall, -depth/2 + 0.01f), Vector(0, 0, 1), Vector(window_width, 0, 0), window_height, window_power, 1));
+	WORLD->addWindow(RectangularAreaLight(Point(0.0f, window_height_on_wall, depth/2 - 0.01f), Vector(0, 0, -1), Vector(window_width, 0, 0), window_height, window_power, 1));
+}
+
 void setupPathTracingTest()
 {
 	imp_float width = 12.0f;
 	imp_float height = 12.0f;
 	imp_float depth = 12.0f;
+
+	Material* room_material = new BlinnPhongMaterial(Color(0.1f, 0.1f, 0.2f), Color(0.1f, 0.1f, 0.1f), 40.0f);
+
+	addRoomWithWindows(width, height, depth,
+					   room_material,
+					   0.4f, 0.4f,
+					   8.0f,
+					   Power::grey(300.0f));
+
+	Material* transparent_material = new BlinnPhongMaterial(Color::grey(0.0f), Color::grey(1.03f), Color::black(), Color(0.6f, 1.0f, 0.6f), Color::grey(0.8f), IMP_FLOAT_INF);
+	Material* mirror_material = new BlinnPhongMaterial(Color::black(), Color(0.7f, 0.7f, 1.0f), IMP_FLOAT_INF);
+	Material* diffuse_material = new BlinnPhongMaterial(Color(0.5f, 0.1f, 0.1f), Color::grey(0.2f), 100.0f);
+
+	WORLD->addMaterial(transparent_material);
+	WORLD->addMaterial(mirror_material);
+	WORLD->addMaterial(diffuse_material);
+
+	imp_float height_1 = 2.0f;
+	imp_float separation = 1.3f;
+	imp_float height_2 = height_1 + sqrt(3.0f)*separation/2;
+
+	WORLD->addTwoSidedSphere(Sphere(Point(         0.0f, height_1,  0.0f), 1.0f), transparent_material, 2);
+	WORLD->addSphere(		 Sphere(Point( separation/2, height_2,  -2.0f), 1.0f), diffuse_material, 2);
+	WORLD->addSphere(		 Sphere(Point(-separation/2, height_2, -4.0f), 1.0f), mirror_material, 2);
+}
+
+void setupCornellBox()
+{
+	imp_float width = 7.0f;
+	imp_float height = 5.0f;
+	imp_float depth = 7.0f;
+
+	OmnidirectionalLight* light = new OmnidirectionalLight(Point(0, 5, 0),
+														   Power::grey(100.0f));
 	
-	Point light_position(2.5f, 5.0f, 2.0f);
-	Power light_power = Power::grey(100.0f);
+	//WORLD->addLight(light);
 
-	OmnidirectionalLight* point_light = new OmnidirectionalLight(light_position,
-																 light_power);
-
-	AreaLight* light_sheet = new RectangularAreaLight(Point(0.0f, 6.0f, 0.0f), Vector(0, -1, 0), Vector(2, 0, 0), 2.0f, light_power, 1);
-	TriangleMesh* light_sheet_mesh = new TriangleMesh(light_sheet->getMesh());
-	Material* light_sheet_material = new BlinnPhongMaterial(Color(0.0f, 0.0f, 0.0f), Color(0.0f, 0.0f, 0.0f), 0.0f);
-	light_sheet_material->setEmittedRadiance(Radiance::grey(1.0f));
-	Model* light_sheet_model = new Model(light_sheet_mesh, light_sheet_material);
-	light_sheet_model->casts_shadows = false;
-
-	WORLD->addLight(light_sheet);
-	WORLD->addMesh(light_sheet_mesh);
-	WORLD->addMaterial(light_sheet_material);
-
-	Material* material_1 = new BlinnPhongMaterial(Color(0.1f, 0.1f, 0.2f), Color(0.1f, 0.1f, 0.1f), 40.0f);
-	Material* material_2 = new BlinnPhongMaterial(Color::grey(0.0f), Color::grey(1.1f), Color::black(), Color::grey(0.5f), Color::black(), 500.0f);
-	Material* material_3 = new BlinnPhongMaterial(Color(0.0f, 0.0f, 0.0f), Color(0.8f, 0.8f, 0.8f), IMP_FLOAT_INF);
-	Material* material_4 = new BlinnPhongMaterial(Color(0.1f, 0.4f, 0.1f), Color(0.3f, 0.3f, 0.3f), 200.0f);
+	Material* white_material = new BlinnPhongMaterial(Color::white(), Color::black(), 0);
+	Material* red_material = new BlinnPhongMaterial(Color::crimson(), Color::black(), 0);
+	Material* green_material = new BlinnPhongMaterial(Color::forestgreen(), Color::black(), 0);
+	Material* transparent_material = new BlinnPhongMaterial(Color::black(), Color::grey(1.05f), Color::black(), Color(0.9f, 0.9f, 1.0f), Color::grey(0.8f), IMP_FLOAT_INF);
+	Material* mirror_material = new BlinnPhongMaterial(Color::black(), Color(0.9f, 0.9f, 1.0f), IMP_FLOAT_INF);
+	Material* glossy_material = new BlinnPhongMaterial(Color::navy(), Color::grey(0.7f), 600.0f);
 	
-	//WORLD->addLight(point_light);
+	WORLD->addMaterial(white_material);
+	WORLD->addMaterial(red_material);
+	WORLD->addMaterial(green_material);
+	WORLD->addMaterial(transparent_material);
+	WORLD->addMaterial(mirror_material);
+	WORLD->addMaterial(glossy_material);
+	
+	WORLD->addSheet(Point(0, 0, 0), Vector(0, 1, 0), Vector(width, 0, 0), depth, white_material);
+	WORLD->addSheet(Point(0, height, 0), Vector(0, -1, 0), Vector(width, 0, 0), depth, white_material);
+	WORLD->addSheet(Point(0, height/2, -depth/2), Vector(0, 0, 1), Vector(width, 0, 0), height, white_material);
+	WORLD->addSheet(Point(0, height/2, depth/2), Vector(0, 0, -1), Vector(width, 0, 0), height, white_material);
+	WORLD->addSheet(Point(width/2, height/2, 0), Vector(-1, 0, 0), Vector(0, 0, width), height, green_material);
+	WORLD->addSheet(Point(-width/2, height/2, 0), Vector(1, 0, 0), Vector(0, 0, width), height, red_material);
+	
+	WORLD->addWindow(RectangularAreaLight(Point(0.0f, height-1e-4f, 0), Vector(0, -1, 0), Vector(1.0f, 0, 0), 1.0f, Power::grey(40.0f), 1));
 
-	WORLD->addMaterial(material_1);
-	WORLD->addMaterial(material_2);
-	WORLD->addMaterial(material_3);
-	WORLD->addMaterial(material_4);
+	Box box(Point(-0.5f, -0.5f, -0.5f), Vector::unitX(), Vector::unitY(), Vector::unitZ());
 
-	WORLD->addRoom(width, height, depth, material_1);
-	WORLD->addTwoSidedSphere(Sphere(Point(-1.0f, 3.0f, 0.0f), 0.7f), material_2, 2);
-	//WORLD->addSphere(Sphere(Point(-1.0f, 3.0f, 0.0f), 0.7f), material_3, 2);
-	WORLD->addSphere(Sphere(Point(1.1f, 3.0f, 0.0f), 1.0f), material_4, 2);
-	WORLD->addModel(light_sheet_model);
+	imp_float box_1_height = 1.0f;
+	Point box_1_position(-2, box_1_height/2, -1);
+	WORLD->addBox(AffineTransformation::translationTo(box_1_position)(
+				  LinearTransformation::rotationFromZToX(0.7f)(
+				  LinearTransformation::scaling(1, box_1_height, 1)(box))),
+				  white_material);
+
+	imp_float box_2_height = 1.7f;
+	Point box_2_position(1.0f, box_2_height/2, -1.4f);
+	WORLD->addBox(AffineTransformation::translationTo(box_2_position)(
+				  LinearTransformation::rotationFromZToX(0.2f)(
+				  LinearTransformation::scaling(1.4f, box_2_height, 1.4f)(box))),
+				  white_material);
+
+	imp_float box_3_width = 2.75f;
+	imp_float box_3_height = 0.15f;
+	imp_float box_3_depth = 2.75f;
+	Point box_3_position(width/2 - box_3_width/2, 2.2f, box_3_depth/2 - depth/2);
+	WORLD->addBox(AffineTransformation::translationTo(box_3_position)(
+				  LinearTransformation::scaling(box_3_width, box_3_height, box_3_depth)(box)),
+				  white_material);
+	
+	imp_float sphere_1_radius = 0.8f;
+	Point sphere_1_position(0.2f, sphere_1_radius, 1.4f);
+	WORLD->addTwoSidedSphere(Sphere(sphere_1_position, sphere_1_radius), transparent_material, 2);
+	
+	imp_float sphere_2_radius = 0.7f;
+	const Point& sphere_2_position = box_1_position + Vector::unitY()*(box_1_height/2 + sphere_2_radius);
+	WORLD->addTwoSidedSphere(Sphere(sphere_2_position, sphere_2_radius), mirror_material, 2);
+	
+	imp_float sphere_3_radius = 0.6f;
+	const Point& sphere_3_position = box_3_position + Vector::unitY()*(box_3_height/2 + sphere_3_radius) + Vector(-0.4f, 0, 0.4f);
+	WORLD->addTwoSidedSphere(Sphere(sphere_3_position, sphere_3_radius), glossy_material, 2);
 }
 
 int main(int argc, char *argv[])
 {
-	WORLD = new World(800, 600);
+	imp_float aspect = 7.0f/5.0f;
+	imp_float width = 1400;
+	WORLD = new World(width, static_cast<imp_uint>(width/aspect));
 
-	WORLD->setCameraPointing(Point(0, 3, 10));
+	WORLD->setCameraPointing(Point(0, 3, 11), Vector(0, -0.05f, -1));
 
 	//setupGravityDragTest();
 	//setupSpringTest();
 	//setupPlaneContactTest();
 	//setupParticlesContactTest();
 	//setupParticlesGravityContactTest();
-	setupPathTracingTest();
+	//setupPathTracingTest();
+	setupCornellBox();
 
 	startMainLoop(argc, argv);
 }

@@ -25,6 +25,7 @@ protected:
 	bool _has_lambertian_scattering;
 	bool _has_glossy_scattering;
 	bool _has_transparency;
+	bool _has_emittance;
 	
     Reflectance _glossy_reflectance;
     Color _normalized_lambertian_reflectance;
@@ -98,6 +99,8 @@ public:
 	Color getAttenuationFactor(imp_float distance) const;
 
 	bool isTransparent() const;
+
+	bool isEmitter() const;
 };
 
 } // Rendering3D

@@ -30,9 +30,13 @@ extern const BlinnPhongMaterial IMP_SHINY_MAROON;
 extern const BlinnPhongMaterial IMP_SHINY_PINK;
 extern const BlinnPhongMaterial IMP_SHINY_PURPLE;
 extern const BlinnPhongMaterial IMP_SHINY_GOLD;
-extern const BlinnPhongMaterial IMP_SHINY_NAVY;
-extern const BlinnPhongMaterial IMP_SHINY_FORESTGREEN;
 extern const BlinnPhongMaterial IMP_SHINY_CRIMSON;
+extern const BlinnPhongMaterial IMP_SHINY_FORESTGREEN;
+extern const BlinnPhongMaterial IMP_SHINY_NAVY;
+
+extern const BlinnPhongMaterial IMP_TRANSPARENT_CRIMSON;
+extern const BlinnPhongMaterial IMP_TRANSPARENT_FORESTGREEN;
+extern const BlinnPhongMaterial IMP_TRANSPARENT_NAVY;
 
 } // Rendering3D
 } // Impact

@@ -86,6 +86,21 @@ Color Color::gold()
     return Color(1, 0.843f, 0);
 }
 
+Color Color::crimson()
+{
+    return Color(220/255.0f, 20/255.0f, 60/255.0f);
+}
+
+Color Color::forestgreen()
+{
+    return Color(34/255.0f, 139/255.0f, 34/255.0f);
+}
+
+Color Color::navy()
+{
+    return Color(0, 0, 128/255.0f);
+}
+
 Color Color::operator+(const Color& other) const
 {
     return Color(r + other.r, g + other.g, b + other.b);

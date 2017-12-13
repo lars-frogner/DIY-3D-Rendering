@@ -268,9 +268,7 @@ Vector Vector::getSnellRefracted(const Vector& surface_normal,
 {
 	imp_float refractive_index_ratio = refractive_index_incoming/refractive_index_outgoing;
 	imp_float inverse_refractive_index_ratio = 1/refractive_index_ratio;
-	imp_float argument_to_sqrt = cos_incoming_angle*cos_incoming_angle + inverse_refractive_index_ratio*inverse_refractive_index_ratio - 1;
-
-	assert(argument_to_sqrt >= 0);
+	imp_float argument_to_sqrt = std::max(0.0f, cos_incoming_angle*cos_incoming_angle + inverse_refractive_index_ratio*inverse_refractive_index_ratio - 1);
 
 	return ((*this)*refractive_index_ratio + surface_normal*((cos_incoming_angle - sqrt(argument_to_sqrt))*refractive_index_ratio)).getNormalized();
 }

@@ -154,11 +154,11 @@ void Renderer::buildMeshBVH()
     std::vector<AABBContainer> objects(n_meshes);
 	AxisAlignedBox aabb(Point::max(), Point::min());
 	
-    #pragma omp parallel for default(shared) \
+    /*#pragma omp parallel for default(shared) \
                              private(idx) \
                              shared(n_meshes, objects, aabb) \
                              schedule(dynamic) \
-                             if (use_omp)
+                             if (use_omp)*/
 	for (idx = 0; idx < n_meshes; idx++)
 	{
 		_mesh_copies[idx].computeAABB();
@@ -194,7 +194,7 @@ void Renderer::buildMeshBVHForShadowsOnly()
                              if (use_omp)
 	for (idx = 0; idx < n_meshes; idx++)
 	{
-		if (_models->operator[](idx)->casts_shadows)
+		if (_models->operator[](idx)->casts_shadows && _mesh_copies[idx].getNumberOfFaces() > 0)
 		{
 			_mesh_copies[idx].computeAABB();
 			_mesh_copies[idx].computeBoundingVolumeHierarchy();
@@ -291,6 +291,12 @@ void Renderer::renderDirect()
 
 		if (model->remove_hidden_faces)
 			mesh.removeBackwardFacingFaces();
+
+		if (mesh.getNumberOfFaces() == 0)
+		{
+			model->is_currently_visible = false;
+			continue;
+		}
 
 		if (model->perform_clipping)
 		{
@@ -576,10 +582,13 @@ void Renderer::pathTrace(imp_uint n_samples)
     int x, y;
 	int image_width = static_cast<int>(_image_width);
     int image_height = static_cast<int>(_image_height);
-	imp_uint n;
+	imp_uint i, j;
     Point2 pixel_center;
 	Radiance pixel_radiance;
 	imp_float sample_normalizatiion = 1/static_cast<imp_float>(n_samples);
+	imp_uint samplegrid_resolution = static_cast<imp_uint>(floor(sqrt(static_cast<imp_float>(n_samples))));
+	imp_float samplegrid_cell_size = 1.0f/samplegrid_resolution;
+	imp_uint remaining_samples = n_samples - samplegrid_resolution*samplegrid_resolution;
 	Medium ray_medium;
 
 	if (!_lights_in_camera_system)
@@ -597,8 +606,8 @@ void Renderer::pathTrace(imp_uint n_samples)
 	_image->setBackgroundColor(bg_color);
 
     #pragma omp parallel for default(shared) \
-							 private(x, y, n, pixel_center, pixel_radiance, ray_medium) \
-							 shared(image_height, image_width, n_samples, sample_normalizatiion) \
+							 private(x, y, i, j, pixel_center, pixel_radiance, ray_medium) \
+							 shared(image_height, image_width, n_samples, sample_normalizatiion, samplegrid_resolution, samplegrid_cell_size, remaining_samples) \
 							 schedule(dynamic) \
 							 if (use_omp)
 	for (y = 0; y < image_height; y++) {
@@ -606,9 +615,19 @@ void Renderer::pathTrace(imp_uint n_samples)
 		{
 			pixel_radiance = Radiance::black();
 			
-			for (n = 0; n < n_samples; n++)
+			for (i = 0; i < samplegrid_resolution; i++) {
+				for (j = 0; j < samplegrid_resolution; j++)
+				{
+					pixel_center.moveTo(static_cast<imp_float>(x) + (i + math_util::random())*samplegrid_cell_size,
+										static_cast<imp_float>(y) + (j + math_util::random())*samplegrid_cell_size);
+					pixel_radiance += pathTrace(getEyeRay(pixel_center), ray_medium, 0);
+				}
+			}
+			
+			for (i = 0; i < remaining_samples; i++)
 			{
-				pixel_center.moveTo(static_cast<imp_float>(x) + math_util::random(), static_cast<imp_float>(y) + math_util::random());
+				pixel_center.moveTo(static_cast<imp_float>(x) + math_util::random(),
+									static_cast<imp_float>(y) + math_util::random());
 				pixel_radiance += pathTrace(getEyeRay(pixel_center), ray_medium, 0);
 			}
 
@@ -625,6 +644,7 @@ void Renderer::pathTrace(imp_uint n_samples)
 Radiance Renderer::pathTrace(const Ray& ray, Medium& ray_medium, imp_uint scattering_count) const
 {
 	Radiance radiance = Radiance::black();
+	Color attenuation = Color::white();
 	SurfaceElement surface_element;
 
 	imp_float distance = IMP_FLOAT_INF;
@@ -636,7 +656,9 @@ Radiance Renderer::pathTrace(const Ray& ray, Medium& ray_medium, imp_uint scatte
 		if (scattering_count == 0)
 		{
 			ray_medium.material = nullptr;
-			radiance += surface_element.material->getEmittedRadiance();
+
+			if (surface_element.material->isEmitter())
+				radiance += surface_element.material->getEmittedRadiance();
 		}
 		
 		// The light travels in the opposite direction of the ray
@@ -645,7 +667,7 @@ Radiance Renderer::pathTrace(const Ray& ray, Medium& ray_medium, imp_uint scatte
 		if (ray_medium.material) // Are we inside an object?
 		{
 			// Attenuate radiance due to absorption in the medium
-			radiance *= ray_medium.material->getAttenuationFactor(distance);
+			attenuation = ray_medium.material->getAttenuationFactor(distance);
 
 			// Flip the geometric normal so that it points out of the model like the shading normal
 			surface_element.geometric.normal = -surface_element.geometric.normal;
@@ -661,7 +683,7 @@ Radiance Renderer::pathTrace(const Ray& ray, Medium& ray_medium, imp_uint scatte
 		radiance += getScatteredRadianceFromSurface(surface_element, ray_medium, scatter_direction, scattering_count);
 	}
 
-	return radiance;
+	return attenuation*radiance;
 }
 
 bool Renderer::findIntersectedSurface(const Ray& ray, imp_float& distance, SurfaceElement& surface_element) const
@@ -830,7 +852,6 @@ Radiance Renderer::getDirectlyScatteredRadianceFromAreaLights(const SurfaceEleme
 	Material::Impulse impulse;
 	imp_float intersection_distance;
 	SurfaceElement intersected_surface_element;
-	Medium ray_medium;
 
 	if (surface_element.material->getReflectiveBSDFImpulse(surface_element.shading.normal, scatter_direction, impulse))
 	{
@@ -843,6 +864,10 @@ Radiance Renderer::getDirectlyScatteredRadianceFromAreaLights(const SurfaceEleme
 			radiance += (impulse.magnitude)*intersected_surface_element.material->getEmittedRadiance();
 		}
 	}
+	
+	Medium ray_medium;
+	Radiance transmitted_radiance = Radiance::black();
+	Color attenuation = Color::white();
 
 	intersected_surface_element = surface_element;
 
@@ -854,13 +879,19 @@ Radiance Renderer::getDirectlyScatteredRadianceFromAreaLights(const SurfaceEleme
 
 		if (findIntersectedSurface(impulse_ray, intersection_distance, intersected_surface_element))
 		{
-			radiance += (impulse.magnitude)*intersected_surface_element.material->getEmittedRadiance();
+			if (ray_medium.material)
+			 	 attenuation *= ray_medium.material->getAttenuationFactor(intersection_distance);
+
+			if (intersected_surface_element.material->isEmitter())
+				 transmitted_radiance += (impulse.magnitude)*intersected_surface_element.material->getEmittedRadiance();
 		}
 		else
 		{
 			break;
 		}
 	}
+
+	radiance += transmitted_radiance*attenuation;
 
     return radiance;
 }
@@ -1112,7 +1143,7 @@ void Renderer::printPickInfo()
 
 	const Ray& eye_ray = getEyeRay(Point2(static_cast<imp_float>(picked_x) + 0.5f, static_cast<imp_float>(_image->getHeight() - picked_y - 1) + 0.5f));
 
-	Geometry3D::MeshIntersectionData intersection_data;
+	/*Geometry3D::MeshIntersectionData intersection_data;
 	imp_float intersection_distance = _mesh_BVH.evaluateRayIntersection(_mesh_copies, eye_ray, intersection_data);
 
 	if (intersection_distance < IMP_FLOAT_INF)
@@ -1122,11 +1153,11 @@ void Renderer::printPickInfo()
 	else
 	{
 		std::cout << intersection_distance << std::endl;
-	}
+	}*/
 
-	/*Medium ray_medium;
+	Medium ray_medium;
 
-	pathTrace(eye_ray, ray_medium, 0);*/
+	pathTrace(eye_ray, ray_medium, 0);
 
 	pixel_was_picked = false;
 }

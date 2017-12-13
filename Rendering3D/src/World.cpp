@@ -401,6 +401,7 @@ void World::processKeyPress(unsigned char key, int x, int y)
 		break;
 	case ' ':
 		_animator->saveSnapshot();
+		std::cout << "Saved snapshot" << std::endl;
 		break;
 	case 'f':
 		addParticle(_camera->getPosition() + _camera->getLookDirection()*3.0f,
@@ -472,6 +473,26 @@ void World::addGround(imp_float width, imp_float depth, const Material* material
 	addModel(model);
 }
 
+void World::addSheet(const Point& center,	
+					 const Vector& normal,
+					 const Vector& width_vector,
+					 imp_float height,
+					 const Material* material)
+{
+	/*std::cout << AffineTransformation::translationTo(center)(
+							 LinearTransformation::rotationFromVectorToVector(Vector::unitY(), normal)(
+							 LinearTransformation::rotationFromVectorToVector(Vector::unitX(), width_vector)(
+							 LinearTransformation::scaling(width_vector.getLength(), 1, height)))).getMatrix().toString() << std::endl;*/
+
+	Model* model = new Model(&Geometry3D::IMP_SHEET_MESH,
+							 material,
+							 AffineTransformation::translationTo(center)(
+							 LinearTransformation::rotationFromVectorToVector(Vector::unitY(), normal)(
+							 LinearTransformation::rotationFromVectorToVector(Vector::unitX(), width_vector)(
+							 LinearTransformation::scaling(width_vector.getLength(), 1, height)))));
+	addModel(model);
+}
+
 void World::addBox(const Box& box, const Material* material)
 {
 	Model* model = new Model(&Geometry3D::IMP_BOX_MESH,
@@ -506,6 +527,25 @@ void World::addTwoSidedSphere(const Sphere& sphere,
 						     AffineTransformation::translationTo(sphere.center)(
 						     LinearTransformation::scaling(sphere.radius)));
 	addModel(model);
+}
+
+void World::addWindow(const RectangularAreaLight& window)
+{
+	AreaLight* light_sheet = new RectangularAreaLight(window);
+
+	TriangleMesh* light_sheet_mesh = new TriangleMesh(light_sheet->getMesh());
+
+	Material* light_sheet_material = new BlinnPhongMaterial(Color::black(), Color::black(), 0);
+	light_sheet_material->setEmittedRadiance(Radiance::white());
+
+	Model* light_sheet_model = new Model(light_sheet_mesh, light_sheet_material);
+	light_sheet_model->casts_shadows = false;
+	light_sheet_model->shadows_toggable = false;
+	
+	addLight(light_sheet);
+	addMesh(light_sheet_mesh);
+	addMaterial(light_sheet_material);
+	addModel(light_sheet_model);
 }
 
 void World::addParticle(const Point& position,

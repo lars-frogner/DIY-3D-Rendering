@@ -54,7 +54,7 @@ private:
 
 protected:
     const imp_float _ray_origin_offset = static_cast<imp_float>(1e-4);
-	const imp_uint _max_scattering_count = 10;
+	const imp_uint _max_scattering_count = 20;
 	
     Image* _image;
     Camera* _camera;

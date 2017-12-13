@@ -66,6 +66,8 @@ void Animator::updateFrame()
 	imp_float current_realtime_frame_duration_estimate;
 	imp_float measured_previous_realtime_frame_duration;
 
+	std::chrono::time_point<std::chrono::steady_clock> start_time, end_time;
+
 	bool valid_recording_mode = _recording_active && !_simulate_realtime && !_camera_active && _physics_active;
 	bool valid_singlestepping_mode = _singlestepping_active && _physics_active && !valid_recording_mode && !_simulate_realtime && !_auto_simulation_frequency;
 	
@@ -108,7 +110,7 @@ void Animator::updateFrame()
 
 	if (_physics_active && !(valid_singlestepping_mode && !_single_step_requested))
 	{
-		auto start_time = std::chrono::high_resolution_clock::now();
+		start_time = std::chrono::high_resolution_clock::now();
 
 		for (imp_uint i = 0; i < _simulation_frequency; i++)
 		{
@@ -116,7 +118,7 @@ void Animator::updateFrame()
 			_physics_world->advance(simulation_timestep);
 		}
 
-		auto end_time = std::chrono::high_resolution_clock::now();
+		end_time = std::chrono::high_resolution_clock::now();
 
 		imp_float measured_realtime_simulation_duration = std::chrono::duration_cast< std::chrono::duration<imp_float> >(end_time - start_time).count();
 
@@ -164,6 +166,8 @@ void Animator::updateFrame()
 		}
 	}
 
+	start_time = std::chrono::high_resolution_clock::now();
+
 	if (_rendering_mode == 0)
 	{
 		_renderer->renderDirect();
@@ -185,6 +189,10 @@ void Animator::updateFrame()
 		std::cerr << "Warning: rendering disabled" << std::endl;
 	}
 
+	end_time = std::chrono::high_resolution_clock::now();
+
+	imp_float measured_rendering_duration = std::chrono::duration_cast< std::chrono::duration<imp_float> >(end_time - start_time).count();
+
 	if (valid_recording_mode)
 	{
 		saveFrame();
@@ -192,7 +200,7 @@ void Animator::updateFrame()
 
 	if (_print_time_info)
 	{
-		printf("%d%d%s%s%s%s%s%s%s%s%s%s | fps: %.1f | dt: %.2g s | freq: %d | time: %.2g s\n",
+		printf("%d%d%s%s%s%s%s%s%s%s%s%s | fps: %.1f | duration: %.2g s | dt: %.2g s | freq: %d | time: %.2g s\n",
 			    _rendering_mode,
 				_n_path_tracing_samples,
 				(_renderer->gamma_encode)? "g" : "",
@@ -206,6 +214,7 @@ void Animator::updateFrame()
 				(_recording_active)? "t" : "",
 				(_renderer->use_omp)? "y" : "",
 				1/current_realtime_frame_duration_estimate,
+			    measured_rendering_duration,
 				simulation_timestep,
 				_simulation_frequency,
 				_elapsed_simulation_time);
@@ -301,13 +310,13 @@ void Animator::toggleRealtimeSimulation()
 
 void Animator::increasePathTracingSamples()
 {
-	_n_path_tracing_samples++;
+	_n_path_tracing_samples += 10;
 }
 
 void Animator::decreasePathTracingSamples()
 {
-	if (_n_path_tracing_samples > 1)
-		_n_path_tracing_samples--;
+	if (_n_path_tracing_samples > 10)
+		_n_path_tracing_samples -= 10;
 }
 
 void Animator::increaseFixedSimulationTimestep()

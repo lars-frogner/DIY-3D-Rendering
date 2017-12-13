@@ -170,20 +170,19 @@ LinearTransformation LinearTransformation::vectorsToVectors(const Vector& from_v
 Vector LinearTransformation::getVectorRotatedFromYAxisToDirection(const Vector& vector,
 																  const Vector& direction)
 {
-	if (abs(direction.y - 1.0f) < 1e-4f)
+	if (1.0f - direction.y < 1e-4f)
     {
         return vector;
     }
-	
-	imp_float a = sqrt(1 - direction.y*direction.y);
-	imp_float b = 1 - direction.y;
-    
-	if (abs(direction.y) < 1e-4f)
+	else if (1.0f + direction.y < 1e-4f)
     {
-		return Vector((1-b)*vector.x + a*vector.y, -a*vector.x + (1-b)*vector.y, vector.z);
+		return -vector;
     }
     else
     {
+		imp_float a = sqrt(1 - direction.y*direction.y);
+		imp_float b = 1 - direction.y;
+
 		imp_float norm = 1/sqrt(direction.x*direction.x + direction.z*direction.z);
         imp_float x = direction.x*norm;
         imp_float z = direction.z*norm;
