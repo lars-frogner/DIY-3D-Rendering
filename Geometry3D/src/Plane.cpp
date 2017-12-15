@@ -131,7 +131,7 @@ Plane& Plane::rotateFromZToX(imp_float angle)
 
 bool Plane::hasOnPositiveSide(const Point& point) const
 {
-	return _normal.dot(point - origin) > 0;
+	return _normal.dot((point - origin).getNormalized()) > 1e-6;
 }
 
 } // Geometry3D

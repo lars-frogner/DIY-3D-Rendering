@@ -528,14 +528,29 @@ void World::addBox(const Box& box, const Material* material)
 
 void World::addSphere(const Sphere& sphere,
 					  const Material* material,
-					  imp_uint quality /* = 0 */)
+					  imp_uint quality /* = 0 */,
+					  const AffineTransformation& transformation /* = identity */,
+					  const Texture* texture /* = nullptr */,
+					  imp_uint texture_type /* = 0 */)
 {
 	assert(quality < IMP_N_SPHERE_MESHES);
 
 	Model* model = new Model(Geometry3D::IMP_SPHERE_MESHES + quality,
 						     material,
 						     AffineTransformation::translationTo(sphere.center)(
-						     LinearTransformation::scaling(sphere.radius)));
+						     LinearTransformation::scaling(sphere.radius)(
+							 transformation)));
+
+	if (texture)
+	{
+		if (texture_type == 0)
+			model->setColorTexture(texture);
+		else if (texture_type == 1)
+			model->setBumpMap(texture);
+		else if (texture_type == 2)
+			model->setDisplacementMap(texture);
+	}
+
 	addModel(model);
 }
 

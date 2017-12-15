@@ -9,6 +9,7 @@
 #include "BoundingVolumeHierarchy.hpp"
 #include "Camera.hpp"
 #include "Point2.hpp"
+#include "Vector2.hpp"
 #include "Triangle2.hpp"
 #include "BoundingAreaHierarchy.hpp"
 #include "LinearTransformation.hpp"
@@ -26,6 +27,7 @@ class TriangleMesh {
 
 protected:
 	typedef Geometry2D::Point Point2;
+	typedef Geometry2D::Vector Vector2;
 	typedef Geometry2D::Triangle Triangle2;
     typedef Geometry2D::AxisAlignedRectangle AxisAlignedRectangle;
     typedef Geometry2D::AABRContainer AABRContainer;
@@ -41,18 +43,20 @@ protected:
     arma::Mat<imp_float> _vertex_normals;
     arma::Mat<imp_float> _face_normals;
 	std::vector<Point2> _texture_coordinates;
+	arma::Mat<imp_float> _vertex_tangents;
     arma::Mat<imp_float> _vertex_data_3;
 
     AxisAlignedBox _aabb;
     BoundingVolumeHierarchy _bounding_volume_hierarchy;
     BoundingAreaHierarchy _bounding_area_hierarchy;
     
-    bool _is_homogenized = true;
-    bool _has_vertex_normals = false;
-    bool _has_face_normals = false;
-    bool _has_aabb = false;
-	bool _has_vertex_data_3 = false;
-	bool _has_texture_coordinates = false;
+    bool _is_homogenized;
+    bool _has_vertex_normals;
+    bool _has_face_normals;
+	bool _has_texture_coordinates;
+	bool _has_vertex_tangents;
+	bool _has_vertex_data_3;
+    bool _has_aabb;
 
     static imp_float _getCoordinateFromObjString(const std::string& s);
     static imp_uint _getFaceIndexFromObjString(const std::string& s, imp_uint n_vertices);
@@ -131,6 +135,7 @@ public:
     
     void computeFaceNormals();
     void computeVertexNormals();
+	void computeTangentVectors();
 
     void homogenizeVertices();
 
@@ -148,7 +153,11 @@ public:
 
 	Vector getVertexNormal(imp_uint idx) const;
 
+	void getVertexTangents(imp_uint idx, Vector& tangent, Vector& bitangent) const;
+
 	void getVertexNormalsForFace(imp_uint face_idx, Vector vertex_normals[3]) const;
+
+	void getVertexTangentsForFace(imp_uint face_idx, Vector tangents[3], Vector bitangents[3]) const;
 
 	void getVertexData3(imp_uint idx,
 						imp_float& data_0,
@@ -163,6 +172,12 @@ public:
 
 	Vector getInterpolatedVertexNormal(imp_uint face_idx, imp_float alpha, imp_float beta, imp_float gamma) const;
 	Vector getInterpolatedVertexNormal(const MeshIntersectionData& intersection_data) const;
+	
+	void getInterpolatedVertexTangents(imp_uint face_idx,
+									   imp_float alpha, imp_float beta, imp_float gamma,
+									   Vector& tangent, Vector& bitangent) const;
+	void getInterpolatedVertexTangents(const MeshIntersectionData& intersection_data,
+									   Vector& tangent, Vector& bitangent) const;
 
 	void getVertexData3ForFace(imp_uint face_idx,
 							   imp_float data_A[3],
@@ -204,6 +219,7 @@ public:
 	bool hasFaceNormals() const;
 	bool hasVertexNormals() const;
 	bool hasTextureCoordinates() const;
+	bool hasVertexTangents() const;
     bool hasAABB() const;
 
 	bool allZAbove(imp_float z_low) const;

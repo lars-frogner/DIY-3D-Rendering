@@ -147,7 +147,9 @@ public:
 				  imp_float height,
 				  const Material* material);
 	void addBox(const Box& box, const Material* material);
-	void addSphere(const Sphere& sphere, const Material* material, imp_uint quality = 0);
+	void addSphere(const Sphere& sphere, const Material* material, imp_uint quality = 0,
+				   const AffineTransformation& transformation = AffineTransformation::identity(),
+				   const Texture* texture = nullptr, imp_uint texture_type = 0);
 	void addTwoSidedSphere(const Sphere& sphere, const Material* material, imp_uint quality = 0);
 	void addWindow(const RectangularAreaLight& window);
 

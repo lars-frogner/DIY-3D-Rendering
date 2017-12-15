@@ -16,22 +16,25 @@ Model::Model(const TriangleMesh* new_mesh,
 	: _mesh(new_mesh),
 	  _material(new_material) {}
 
-void Model::setTexture(const Texture* texture)
+void Model::setColorTexture(const Texture* color_texture)
 {
 	assert(_mesh->hasTextureCoordinates());
-	_texture = texture;
+	_color_texture = color_texture;
+	_has_texture = true;
 }
 
 void Model::setBumpMap(const Texture* bump_map)
 {
-	assert(_mesh->hasTextureCoordinates());
+	assert(_mesh->hasVertexTangents());
 	_bump_map = bump_map;
+	_has_texture = true;
 }
 
 void Model::setDisplacementMap(const Texture* displacement_map)
 {
 	assert(_mesh->hasTextureCoordinates());
 	_displacement_map = displacement_map;
+	_has_texture = true;
 }
 
 void Model::applyTransformation(const AffineTransformation& transformation)
@@ -66,7 +69,12 @@ const Geometry3D::AffineTransformation& Model::getTransformation() const
 
 bool Model::hasTexture() const
 {
-	return _texture;
+	return _has_texture;
+}
+
+bool Model::hasColorTexture() const
+{
+	return _color_texture;
 }
 
 bool Model::hasBumpMap() const
@@ -79,9 +87,9 @@ bool Model::hasDisplacementMap() const
 	return _displacement_map;
 }
 
-const Texture* Model::getTexture() const
+const Texture* Model::getColorTexture() const
 {
-	return _texture;
+	return _color_texture;
 }
 
 const Texture* Model::getBumpMap() const

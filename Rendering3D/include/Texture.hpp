@@ -1,6 +1,7 @@
 #pragma once
 #include "precision.hpp"
 #include "Point2.hpp"
+#include "Vector2.hpp"
 #include "Color.hpp"
 #include <string>
 
@@ -11,6 +12,7 @@ class Texture {
 
 private:
 	typedef Geometry2D::Point Point2;
+	typedef Geometry2D::Vector Vector2;
 
 protected:
 
@@ -24,6 +26,7 @@ public:
 	~Texture();
 
 	Color getColor(const Point2& uv_coord) const;
+	Vector2 getBumpValues(const Point2& uv_coord) const;
 	
     imp_uint getWidth() const;
     imp_uint getHeight() const;

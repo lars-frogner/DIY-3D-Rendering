@@ -1,6 +1,7 @@
 #pragma once
 #include "precision.hpp"
 #include "Point2.hpp"
+#include "Vector2.hpp"
 #include "Point3.hpp"
 #include "Vector3.hpp"
 #include "TriangleMesh.hpp"
@@ -15,6 +16,7 @@ class SurfaceElement {
 
 private:
 	typedef Geometry2D::Point Point2;
+	typedef Geometry2D::Vector Vector2;
 	typedef Geometry3D::Point Point;
 	typedef Geometry3D::Vector Vector;
 	typedef Geometry3D::TriangleMesh TriangleMesh;
@@ -32,9 +34,13 @@ protected:
 	{
 		Point position;
 		Vector normal;
-		Color color;
+		Vector tangent;
+		Vector bitangent;
 		Point2 texture_coordinate;
+		Color color;
 	};
+
+	Vector2 _bump_values;
 
 public:
 	const Model* model = nullptr;
@@ -42,7 +48,11 @@ public:
 	Geometric geometric;
 	Shading shading;
 
-	void modifyShadingData(const TriangleMesh& mesh);
+	void computeTextureColor();
+	void computeBumpMappedNormal();
+	void computeDisplacementMappedPosition();
+
+	bool evaluateBumpMapping();
 };
 
 } // Rendering3D

@@ -462,7 +462,7 @@ void setupCornellBox()
 	imp_float height = 5.0f;
 	imp_float depth = 7.0f;
 
-	OmnidirectionalLight* light = new OmnidirectionalLight(Point(0, 5, 0),
+	OmnidirectionalLight* light = new OmnidirectionalLight(Point(0, 3, 0),
 														   Power::grey(100.0f));
 	
 	//WORLD->addLight(light);
@@ -470,9 +470,10 @@ void setupCornellBox()
 	Material* white_material = new BlinnPhongMaterial(Color::white(), Color::black(), 0);
 	Material* red_material = new BlinnPhongMaterial(Color::crimson(), Color::black(), 0);
 	Material* green_material = new BlinnPhongMaterial(Color::forestgreen(), Color::black(), 0);
-	Material* transparent_material = new BlinnPhongMaterial(Color::black(), Color::grey(1.05f), Color::black(), Color(0.9f, 0.9f, 1.0f), Color::grey(0.8f), IMP_FLOAT_INF);
+	Material* transparent_material = new BlinnPhongMaterial(Color::black(), Color::grey(1.05f), Color::black(), Color(0.95f, 0.95f, 1.0f), Color::grey(1.0f), IMP_FLOAT_INF);
 	Material* mirror_material = new BlinnPhongMaterial(Color::black(), Color(0.9f, 0.9f, 1.0f), IMP_FLOAT_INF);
 	Material* glossy_material = new BlinnPhongMaterial(Color::navy(), Color::grey(0.7f), 600.0f);
+	Material* white_glossy_material = new BlinnPhongMaterial(Color::white(), Color::grey(0.2f), 200.0f);
 	
 	WORLD->addMaterial(white_material);
 	WORLD->addMaterial(red_material);
@@ -480,6 +481,13 @@ void setupCornellBox()
 	WORLD->addMaterial(transparent_material);
 	WORLD->addMaterial(mirror_material);
 	WORLD->addMaterial(glossy_material);
+	WORLD->addMaterial(white_glossy_material);
+
+	Texture* earth_map_texture = new Texture("data/1_earth_8k.ppm");
+	Texture* bump_map_texture = new Texture("data/bump_map_test.ppm");
+	
+	WORLD->addTexture(earth_map_texture);
+	WORLD->addTexture(bump_map_texture);
 	
 	WORLD->addSheet(Point(0, 0, 0), Vector(0, 1, 0), Vector(width, 0, 0), depth, white_material);
 	WORLD->addSheet(Point(0, height, 0), Vector(0, -1, 0), Vector(width, 0, 0), depth, white_material);
@@ -520,11 +528,13 @@ void setupCornellBox()
 	
 	imp_float sphere_2_radius = 0.7f;
 	const Point& sphere_2_position = box_1_position + Vector::unitY()*(box_1_height/2 + sphere_2_radius);
-	WORLD->addTwoSidedSphere(Sphere(sphere_2_position, sphere_2_radius), mirror_material, 2);
+	WORLD->addSphere(Sphere(sphere_2_position, sphere_2_radius), mirror_material, 2);
 	
-	imp_float sphere_3_radius = 0.6f;
-	const Point& sphere_3_position = box_3_position + Vector::unitY()*(box_3_height/2 + sphere_3_radius) + Vector(-0.4f, 0, 0.4f);
-	WORLD->addTwoSidedSphere(Sphere(sphere_3_position, sphere_3_radius), glossy_material, 2);
+	imp_float sphere_3_radius = 0.8f;
+	const Point& sphere_3_position = box_3_position + Vector::unitY()*(box_3_height/2 + sphere_3_radius) + Vector(-0.4f, 0, 0.8f);
+	WORLD->addSphere(Sphere(sphere_3_position, sphere_3_radius), white_glossy_material, 2,
+					 LinearTransformation::rotationFromZToX(IMP_PI/2)(LinearTransformation::rotationFromYToZ(-IMP_PI/2)),
+					 earth_map_texture, 0);
 }
 
 void setupTextureTest()
@@ -533,32 +543,40 @@ void setupTextureTest()
 	imp_float height = 5.0f;
 	imp_float depth = 7.0f;
 
-	OmnidirectionalLight* light = new OmnidirectionalLight(Point(0, 10, 0),
+	OmnidirectionalLight* light_1 = new OmnidirectionalLight(Point(5, 5, 5),
 														   Power::grey(400.0f));
 
-	WORLD->addLight(light);
+	OmnidirectionalLight* light_2 = new OmnidirectionalLight(Point(-5, 5, 5),
+														   Power::grey(400.0f));
+
+	WORLD->addLight(light_1);
+	WORLD->addLight(light_2);
 	
 	Material* white_material = new BlinnPhongMaterial(Color::white(), Color::black(), 0);
 	WORLD->addMaterial(white_material);
 
-	Texture* texture = new Texture("data/test.ppm");
-	WORLD->addTexture(texture);
+	Texture* earth_map_texture = new Texture("data/1_earth_8k.ppm");
+	Texture* bump_map_texture = new Texture("data/bump_map_test.ppm");
+
+	WORLD->addTexture(earth_map_texture);
+	WORLD->addTexture(bump_map_texture);
 	
-	WORLD->addSheet(Point(0, 0, 0), Vector(0, 1, 0), Vector(width, 0, 0), depth, white_material);
-	WORLD->getModel(0)->setTexture(texture);
+	//WORLD->addSheet(Point(0, 0, 0), Vector(0, 1, 0), Vector(width, 0, 0), depth, white_material);
+	WORLD->addGround(width, depth, white_material);
+	//WORLD->getModel(0)->setColorTexture(earth_map_texture);
+	//WORLD->getModel(0)->setBumpMap(bump_map_texture);
 
-	TriangleMesh* teapot_mesh = new TriangleMesh(TriangleMesh::file("data/teapot.obj"));
-	WORLD->addMesh(teapot_mesh);
+	WORLD->addSphere(Sphere(Point(0, 1.0f, 0), 1.0f), white_material, 3, LinearTransformation::rotationFromYToZ(-IMP_PI/2), bump_map_texture, 1);
 
-	Model* teapot_model = new Model(teapot_mesh, white_material, LinearTransformation::scaling(0.01f, 0.01f, 0.01f));
+	/*Model* teapot_model = new Model(teapot_mesh, white_material, LinearTransformation::scaling(0.01f, 0.01f, 0.01f));
 	teapot_model->setTexture(texture);
-	WORLD->addModel(teapot_model);
+	WORLD->addModel(teapot_model);*/
 }
 
 int main(int argc, char *argv[])
 {
 	imp_float aspect = 7.0f/5.0f;
-	imp_float width = 800;
+	imp_float width = 1400;
 	WORLD = new World(width, static_cast<imp_uint>(width/aspect));
 
 	WORLD->setCameraPointing(Point(0, 3, 11), Vector(0, -0.05f, -1));
@@ -569,8 +587,8 @@ int main(int argc, char *argv[])
 	//setupParticlesContactTest();
 	//setupParticlesGravityContactTest();
 	//setupPathTracingTest();
-	//setupCornellBox();
-	setupTextureTest();
+	setupCornellBox();
+	//setupTextureTest();
 
 	startMainLoop(argc, argv);
 }

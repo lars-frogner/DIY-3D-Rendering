@@ -174,11 +174,11 @@ void Animator::updateFrame()
 	}
 	else if (_rendering_mode == 1)
 	{
-		_renderer->rayTrace();
+		_renderer->rasterize();
 	}
 	else if (_rendering_mode == 2)
 	{
-		_renderer->rasterize();
+		_renderer->rayTrace();
 	}
 	else if (_rendering_mode == 3)
 	{

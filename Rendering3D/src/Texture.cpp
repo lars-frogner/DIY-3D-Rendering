@@ -2,7 +2,7 @@
 #include "string_util.hpp"
 #include <cassert>
 #include <fstream>
-#include <iostream>
+#include <algorithm>
 
 namespace Impact {
 namespace Rendering3D {
@@ -148,11 +148,12 @@ void Texture::readPPM(const std::string& filename)
 Color Texture::getColor(const Point2& uv_coord) const
 {
 	assert(_n_components == 3);
-	assert(uv_coord.x >= 0.0f && uv_coord.x <= 1.0f);
-	assert(uv_coord.y >= 0.0f && uv_coord.y <= 1.0f);
 
-	imp_uint left_pixel = static_cast<imp_uint>((_width-1)*uv_coord.x);
-	imp_uint lower_pixel = static_cast<imp_uint>((_height-1)*uv_coord.y);
+	imp_float u = std::max(0.0f, std::min(1.0f, uv_coord.x));
+	imp_float v = std::max(0.0f, std::min(1.0f, uv_coord.y));
+
+	imp_uint left_pixel = static_cast<imp_uint>((_width-1)*u);
+	imp_uint lower_pixel = static_cast<imp_uint>((_height-1)*v);
 
 	imp_uint right_pixel = left_pixel + 1;
 	imp_uint upper_pixel = lower_pixel + 1;
@@ -173,6 +174,38 @@ Color Texture::getColor(const Point2& uv_coord) const
 	Color NE_color(_pixel_buffer[NE_idx], _pixel_buffer[NE_idx+1], _pixel_buffer[NE_idx+2]);
 
 	return (SW_color + SE_color + NW_color + NE_color)*0.25f;
+}
+
+Geometry2D::Vector Texture::getBumpValues(const Point2& uv_coord) const
+{
+	assert(_n_components == 3);
+
+	imp_float u = std::max(0.0f, std::min(1.0f, uv_coord.x));
+	imp_float v = std::max(0.0f, std::min(1.0f, uv_coord.y));
+
+	imp_uint left_pixel = static_cast<imp_uint>((_width-1)*u);
+	imp_uint lower_pixel = static_cast<imp_uint>((_height-1)*v);
+
+	imp_uint right_pixel = left_pixel + 1;
+	imp_uint upper_pixel = lower_pixel + 1;
+
+	if (right_pixel == _width)
+		right_pixel = 0;
+	if (upper_pixel == _height)
+		upper_pixel = 0;
+
+	imp_uint SW_idx = 3*(lower_pixel*_width + left_pixel);
+	imp_uint SE_idx = 3*(lower_pixel*_width + right_pixel);
+	imp_uint NW_idx = 3*(upper_pixel*_width + left_pixel);
+	imp_uint NE_idx = 3*(upper_pixel*_width + right_pixel);
+
+	Vector2 SW_weight(_pixel_buffer[SW_idx], _pixel_buffer[SW_idx+1]);
+	Vector2 SE_weight(_pixel_buffer[SE_idx], _pixel_buffer[SE_idx+1]);
+	Vector2 NW_weight(_pixel_buffer[NW_idx], _pixel_buffer[NW_idx+1]);
+	Vector2 NE_weight(_pixel_buffer[NE_idx], _pixel_buffer[NE_idx+1]);
+
+	// Average and scale range to [-1, 1]
+	return (SW_weight + SE_weight + NW_weight + NE_weight)*0.5f - Vector2(1.0f, 1.0f);
 }
 
 imp_uint Texture::getWidth() const

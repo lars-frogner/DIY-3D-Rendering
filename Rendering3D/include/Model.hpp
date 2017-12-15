@@ -26,9 +26,11 @@ protected:
     const TriangleMesh* _mesh;
     const Material* _material;
 	AffineTransformation _transformation;
-	const Texture* _texture = nullptr;
+	const Texture* _color_texture = nullptr;
 	const Texture* _bump_map = nullptr;
 	const Texture* _displacement_map = nullptr;
+
+	bool _has_texture = false;
     
     //static std::vector<BlinnPhongMaterial> SceneObject::_getMtlFileData(const std::string& filename);
 
@@ -56,7 +58,7 @@ public:
     Model(const TriangleMesh* new_mesh,
 		  const Material* new_material);
 
-	void setTexture(const Texture* texture);
+	void setColorTexture(const Texture* texture);
 	void setBumpMap(const Texture* bump_map);
 	void setDisplacementMap(const Texture* displacement_map);
 
@@ -72,10 +74,11 @@ public:
 	const AffineTransformation& getTransformation() const;
 
 	bool hasTexture() const;
+	bool hasColorTexture() const;
 	bool hasBumpMap() const;
 	bool hasDisplacementMap() const;
 	
-	const Texture* getTexture() const;
+	const Texture* getColorTexture() const;
 	const Texture* getBumpMap() const;
 	const Texture* getDisplacementMap() const;
 };

@@ -409,7 +409,7 @@ void Renderer::rasterize()
 {
 	int n_models = static_cast<int>(_models->size());
     int n_triangles;
-    int x, y, obj_idx, face_idx, vertex_idx;
+    int x, y, obj_idx, face_idx;
     int x_min, x_max, y_min, y_max;
 
     imp_float alpha, beta, gamma;
@@ -417,6 +417,7 @@ void Renderer::rasterize()
     Point vertices[3];
     Vector normals[3];
     Point2 texture_coordinates[3];
+	Vector tangents[3], bitangents[3];
     
     imp_float inverse_depths[3];
     imp_float interpolated_inverse_depth;
@@ -456,21 +457,21 @@ void Renderer::rasterize()
 
 		mesh.computeAABB();
 
-		if (mesh.isOutsideViewFrustum(_frustum_lower_plane,
-									  _frustum_upper_plane,
-								      _frustum_left_plane,
-									  _frustum_right_plane,
-									  _far_plane_distance))
-		{
-			model->is_currently_visible = false;
-			continue;
-		}
+		//if (mesh.isOutsideViewFrustum(_frustum_lower_plane,
+		//							  _frustum_upper_plane,
+		//						      _frustum_left_plane,
+		//							  _frustum_right_plane,
+		//							  _far_plane_distance))
+		//{
+		//	model->is_currently_visible = false;
+		//	continue;
+		//}
     }
 
 	buildMeshBVHForShadowsOnly();
         
     #pragma omp parallel for default(shared) \
-                             private(x, y, obj_idx, face_idx, vertex_idx, n_triangles, x_min, x_max, y_min, y_max, pixel_center, alpha, beta, gamma, inverse_depths, vertices, normals, texture_coordinates, interpolated_inverse_depth, depth, surface_element) \
+                             private(x, y, obj_idx, face_idx, n_triangles, x_min, x_max, y_min, y_max, pixel_center, alpha, beta, gamma, inverse_depths, vertices, normals, texture_coordinates, tangents, bitangents, interpolated_inverse_depth, depth, surface_element) \
                              shared(n_models) \
 							 schedule(dynamic) \
                              if (use_omp)
@@ -513,19 +514,46 @@ void Renderer::rasterize()
 			mesh.getFaceVertices(face_idx, vertices);
 			mesh.getVertexNormalsForFace(face_idx, normals);
 
-			if (mesh.hasTextureCoordinates())
+			if (model->hasTexture())
+			{
 				mesh.getTextureCoordinates(face_idx, texture_coordinates);
+
+				if (model->hasBumpMap())
+				{
+					mesh.getVertexTangentsForFace(face_idx, tangents, bitangents);
+				}
+			}
 
 			surface_element.geometric.normal = mesh.getFaceNormal(face_idx);
 
-			for (vertex_idx = 0; vertex_idx < 3; vertex_idx++)
-			{
-				inverse_depths[vertex_idx] = -1.0f/vertices[vertex_idx].z;
-				vertices[vertex_idx] *= inverse_depths[vertex_idx];
-				normals[vertex_idx] *= inverse_depths[vertex_idx];
+			inverse_depths[0] = -1.0f/vertices[0].z;
+			inverse_depths[1] = -1.0f/vertices[1].z;
+			inverse_depths[2] = -1.0f/vertices[2].z;
 
-				if (mesh.hasTextureCoordinates())
-					texture_coordinates[vertex_idx] *= inverse_depths[vertex_idx];
+			vertices[0] *= inverse_depths[0];
+			vertices[1] *= inverse_depths[1];
+			vertices[2] *= inverse_depths[2];
+
+			normals[0] *= inverse_depths[0];
+			normals[1] *= inverse_depths[1];
+			normals[2] *= inverse_depths[2];
+			
+			if (model->hasTexture())
+			{
+				texture_coordinates[0] *= inverse_depths[0];
+				texture_coordinates[1] *= inverse_depths[1];
+				texture_coordinates[2] *= inverse_depths[2];
+				
+				if (model->hasBumpMap())
+				{
+					tangents[0] *= inverse_depths[0];
+					tangents[1] *= inverse_depths[1];
+					tangents[2] *= inverse_depths[2];
+					
+					bitangents[0] *= inverse_depths[0];
+					bitangents[1] *= inverse_depths[1];
+					bitangents[2] *= inverse_depths[2];
+				}
 			}
 
 			for (y = y_min; y < y_max; y++) {
@@ -542,14 +570,26 @@ void Renderer::rasterize()
 						surface_element.geometric.position = (vertices[0] + (vertices[1] - vertices[0])*beta + (vertices[2] - vertices[0])*gamma)/interpolated_inverse_depth;
 						surface_element.shading.position = surface_element.geometric.position;
 
-						surface_element.shading.normal = ((normals[0]*alpha + normals[1]*beta + normals[2]*gamma)/interpolated_inverse_depth).normalize();
+						surface_element.shading.normal = ((normals[0]*alpha + normals[1]*beta + normals[2]*gamma)/interpolated_inverse_depth).getNormalized();
 
 						surface_element.shading.color = Color::white();
 
-						if (mesh.hasTextureCoordinates())
+						if (model->hasTexture())
 						{
 							surface_element.shading.texture_coordinate = (texture_coordinates[0] + (texture_coordinates[1] - texture_coordinates[0])*beta + (texture_coordinates[2] - texture_coordinates[0])*gamma)/interpolated_inverse_depth;
-							surface_element.modifyShadingData(mesh);
+							
+							if (model->hasColorTexture())
+							{
+								surface_element.computeTextureColor();
+							}
+
+							if (surface_element.evaluateBumpMapping())
+							{
+								surface_element.shading.tangent = ((tangents[0]*alpha + tangents[1]*beta + tangents[2]*gamma)/interpolated_inverse_depth).getNormalized();
+								surface_element.shading.bitangent = ((bitangents[0]*alpha + bitangents[1]*beta + bitangents[2]*gamma)/interpolated_inverse_depth).getNormalized();
+
+								surface_element.computeBumpMappedNormal();
+							}
 						}
 
 						const Vector& displacement_to_camera = -(surface_element.shading.position.toVector());
@@ -711,10 +751,11 @@ bool Renderer::findIntersectedSurface(const Ray& ray, imp_float& distance, Surfa
 	if (intersection_distance < distance)
 	{
 		distance = intersection_distance;
+		
+		const Model* model = _models->operator[](intersection_data.mesh_id);
+        const TriangleMesh& mesh = _mesh_copies[intersection_data.mesh_id];
 
-		surface_element.model = _models->operator[](intersection_data.mesh_id);
-
-        const TriangleMesh& mesh = _mesh_copies[surface_element.model->id];
+		surface_element.model = model;
 
 		surface_element.geometric.position = ray(distance);
 		surface_element.shading.position = surface_element.geometric.position;
@@ -725,10 +766,21 @@ bool Renderer::findIntersectedSurface(const Ray& ray, imp_float& distance, Surfa
 
 		surface_element.shading.color = Color::white();
 
-		if (mesh.hasTextureCoordinates())
+		if (model->hasTexture())
 		{
 			surface_element.shading.texture_coordinate = mesh.getInterpolatedTextureCoordinates(intersection_data);
-			surface_element.modifyShadingData(mesh);
+
+			if (model->hasColorTexture())
+			{
+				surface_element.computeTextureColor();
+			}
+
+			if (surface_element.evaluateBumpMapping())
+			{
+				mesh.getInterpolatedVertexTangents(intersection_data, surface_element.shading.tangent, surface_element.shading.bitangent);
+
+				surface_element.computeBumpMappedNormal();
+			}
 		}
 		
 		return true;
@@ -1176,7 +1228,7 @@ void Renderer::printPickInfo()
 	}*/
 
 	Medium ray_medium;
-
+	
 	pathTrace(eye_ray, ray_medium, 0);
 
 	pixel_was_picked = false;

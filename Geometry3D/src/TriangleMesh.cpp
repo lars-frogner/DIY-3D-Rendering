@@ -12,7 +12,14 @@
 namespace Impact {
 namespace Geometry3D {
 
-TriangleMesh::TriangleMesh() {}
+TriangleMesh::TriangleMesh()
+	: _is_homogenized(true),
+      _has_vertex_normals(false),
+      _has_face_normals(false),
+	  _has_texture_coordinates(false),
+	  _has_vertex_tangents(false),
+	  _has_vertex_data_3(false),
+      _has_aabb(false) {}
 
 TriangleMesh TriangleMesh::file(const std::string& filename, string_vec& material_files, string_vec& material_names)
 {
@@ -232,6 +239,8 @@ TriangleMesh TriangleMesh::file(const std::string& filename, string_vec& materia
 
 	if (!mesh._has_vertex_normals)
 		mesh.computeVertexNormals();
+
+	mesh.computeTangentVectors();
 
     return mesh;
 }
@@ -527,6 +536,8 @@ TriangleMesh TriangleMesh::sheet(const Point& center, const Vector& normal, cons
 
 	sheet_mesh._has_texture_coordinates = true;
 
+	sheet_mesh.computeTangentVectors();
+
     return sheet_mesh;
 }
 
@@ -582,7 +593,7 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
 
     imp_uint n_vertices = 2 + (n_lat - 2)*n_lon;
     imp_uint n_faces = 2*(n_lat - 2)*n_lon;
-    imp_uint i, j, n;
+    imp_uint i, j, n, m;
 
     imp_float dtheta = IMP_PI/(static_cast<imp_float>(n_lat) - 1);
     imp_float dphi = 2*IMP_PI/static_cast<imp_float>(n_lon);
@@ -593,6 +604,7 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
     imp_uint current, right, above, above_right;
     
     sphere_mesh._vertex_normals = arma::Mat<imp_float>(3, n_vertices);
+
     sphere_mesh._vertices = arma::Mat<imp_float>(4, n_vertices);
     sphere_mesh._vertices.row(3).ones();
 
@@ -603,9 +615,10 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
     sphere_mesh._vertices(0, 0) = x0;
     sphere_mesh._vertices(1, 0) = y0;
     sphere_mesh._vertices(2, 0) = z0 + r;
+	sphere_mesh._texture_coordinates.emplace_back(0.0f, 1.0f);
 
     n = 1;
-    for (i = 1; i < n_lat - 1; i++) {
+    for (i = 1; i < n_lat-1; i++) {
         for (j = 0; j < n_lon; j++)
         {
             theta = i*dtheta;
@@ -620,6 +633,8 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
             sphere_mesh._vertices(1, n) = y0 + r*sphere_mesh._vertex_normals(1, n);
             sphere_mesh._vertices(2, n) = z0 + r*sphere_mesh._vertex_normals(2, n);
 
+			sphere_mesh._texture_coordinates.emplace_back(phi/IMP_TWO_PI, sphere_mesh._vertex_normals(2, n)*0.5f + 0.5f);
+
             n++;
         }
     }
@@ -631,8 +646,19 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
     sphere_mesh._vertices(0, n) = x0;
     sphere_mesh._vertices(1, n) = y0;
     sphere_mesh._vertices(2, n) = z0 - r;
+	sphere_mesh._texture_coordinates.emplace_back(0.0f, 0.0f);
 
-    sphere_mesh._faces = arma::Mat<imp_uint>(3, n_faces);
+	// Add additional texture coordinates for u = 1 to ensure correct interpolation from u <~ 1 to u = 0
+    sphere_mesh._texture_coordinates.emplace_back(1.0f, 1.0f);
+
+    for (i = 1; i < n_lat-1; i++)
+        sphere_mesh._texture_coordinates.emplace_back(1.0f, sphere_mesh._vertex_normals(2, 1 + (i-1)*n_lon)*0.5f + 0.5f);
+
+    sphere_mesh._texture_coordinates.emplace_back(1.0f, 0.0f);
+
+    sphere_mesh._faces = arma::Mat<imp_uint>(6, n_faces);
+
+	m = n+1;
     
     // Top cone
     n = 0;
@@ -641,12 +667,23 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
         sphere_mesh._faces(0, n) = j;
         sphere_mesh._faces(1, n) = j + 1;
         sphere_mesh._faces(2, n) = 0;
+		
+        sphere_mesh._faces(3, n) = j;
+        sphere_mesh._faces(4, n) = j + 1;
+        sphere_mesh._faces(5, n) = 0;
+
         n++;
     }
     sphere_mesh._faces(0, n) = n_lon;
     sphere_mesh._faces(1, n) = 1;
     sphere_mesh._faces(2, n) = 0;
+		
+    sphere_mesh._faces(3, n) = n_lon;
+    sphere_mesh._faces(4, n) = m + 1;
+    sphere_mesh._faces(5, n) = m;
+
     n++;
+	m++;
     
     for (i = 1; i < n_lat-2; i++)
     {
@@ -663,11 +700,21 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
             sphere_mesh._faces(0, n) = current;
             sphere_mesh._faces(1, n) = right;
             sphere_mesh._faces(2, n) = above_right;
+
+            sphere_mesh._faces(3, n) = current;
+            sphere_mesh._faces(4, n) = right;
+            sphere_mesh._faces(5, n) = above_right;
+
             n++;
 
             sphere_mesh._faces(0, n) = above_right;
             sphere_mesh._faces(1, n) = above;
             sphere_mesh._faces(2, n) = current;
+
+            sphere_mesh._faces(3, n) = above_right;
+            sphere_mesh._faces(4, n) = above;
+            sphere_mesh._faces(5, n) = current;
+
             n++;
         }
         
@@ -681,12 +728,23 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
         sphere_mesh._faces(0, n) = current;
         sphere_mesh._faces(1, n) = right;
         sphere_mesh._faces(2, n) = above_right;
+
+        sphere_mesh._faces(3, n) = current;
+        sphere_mesh._faces(4, n) = m + 1;
+        sphere_mesh._faces(5, n) = m;
+
         n++;
 
         sphere_mesh._faces(0, n) = above_right;
         sphere_mesh._faces(1, n) = above;
         sphere_mesh._faces(2, n) = current;
+
+        sphere_mesh._faces(3, n) = m;
+        sphere_mesh._faces(4, n) = above;
+        sphere_mesh._faces(5, n) = current;
+
         n++;
+		m++;
     }
 
     // Bottom cone
@@ -696,15 +754,27 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
         sphere_mesh._faces(0, n) = offset + j + 1;
         sphere_mesh._faces(1, n) = offset + j;
         sphere_mesh._faces(2, n) = n_vertices - 1;
+
+        sphere_mesh._faces(3, n) = offset + j + 1;
+        sphere_mesh._faces(4, n) = offset + j;
+        sphere_mesh._faces(5, n) = n_vertices - 1;
+
         n++;
     }
     sphere_mesh._faces(0, n) = offset;
     sphere_mesh._faces(1, n) = offset + n_lon - 1;
     sphere_mesh._faces(2, n) = n_vertices - 1;
 
+    sphere_mesh._faces(3, n) = offset;
+    sphere_mesh._faces(4, n) = m;
+    sphere_mesh._faces(5, n) = m + 1;
+
 	sphere_mesh._has_vertex_normals = true;
+	sphere_mesh._has_texture_coordinates = true;
 
 	sphere_mesh.computeFaceNormals();
+
+	sphere_mesh.computeTangentVectors();
 
     return sphere_mesh;
 }
@@ -910,6 +980,7 @@ void TriangleMesh::addVertex(imp_float x, imp_float y, imp_float z)
     _vertices.insert_cols(_vertices.n_cols, arma::Col<imp_float>({x, y, z, 1}));
 
     _has_vertex_normals = false;
+    _has_vertex_tangents = false;
     _has_aabb = false;
 	_has_vertex_data_3 = false;
 }
@@ -958,6 +1029,9 @@ void TriangleMesh::removeVertex(imp_uint idx)
 
 	if (_has_vertex_normals)
 		_vertex_normals.shed_col(idx);
+
+	if (_has_vertex_tangents)
+		_vertex_tangents.shed_col(idx);
 
 	if (_has_vertex_data_3)
 		_vertex_data_3.shed_col(idx);
@@ -1128,7 +1202,9 @@ void TriangleMesh::_clip(imp_uint component, imp_float limit, int sign)
         i = _faces(0, idx); j = _faces(1, idx); k = _faces(2, idx);
 
 		if (_has_texture_coordinates)
+		{
 			l = _faces(3, idx); m = _faces(4, idx); n = _faces(5, idx);
+		}
         
         A[0] = _vertices(0, i); A[1] = _vertices(1, i); A[2] = _vertices(2, i); A[3] = _vertices(3, i);
         B[0] = _vertices(0, j); B[1] = _vertices(1, j); B[2] = _vertices(2, j); B[3] = _vertices(3, j);
@@ -1319,7 +1395,7 @@ bool TriangleMesh::_addIntersectionVertices(imp_uint i, imp_uint j, imp_uint k,
     imp_float alpha2, beta2, gamma2;
 
     // Find barycentric coordinates of new vertices in old triangle
-    if (_has_vertex_normals || _has_texture_coordinates || _has_vertex_data_3)
+    if (_has_vertex_normals || _has_texture_coordinates || _has_vertex_tangents || _has_vertex_data_3)
     {
         Triangle face(Point(_vertices(0, i), _vertices(1, i), _vertices(2, i)),
                       Point(_vertices(0, j), _vertices(1, j), _vertices(2, j)),
@@ -1342,6 +1418,14 @@ bool TriangleMesh::_addIntersectionVertices(imp_uint i, imp_uint j, imp_uint k,
 	{
         _vertex_normals.insert_cols(_vertex_normals.n_cols, arma::normalise(alpha1*_vertex_normals.col(i) + beta1*_vertex_normals.col(j) + gamma1*_vertex_normals.col(k)));
         _vertex_normals.insert_cols(_vertex_normals.n_cols, arma::normalise(alpha2*_vertex_normals.col(i) + beta2*_vertex_normals.col(j) + gamma2*_vertex_normals.col(k)));
+    }
+	
+	// Add vertex tangents
+	if (_has_vertex_normals)
+	{
+		// Note: handedness is also interpolated here. Could be a problem if it not the same for all the vertices. Also, precision errors could make it different from +-1.
+        _vertex_tangents.insert_cols(_vertex_tangents.n_cols, arma::normalise(alpha1*_vertex_tangents.col(i) + beta1*_vertex_tangents.col(j) + gamma1*_vertex_tangents.col(k)));
+        _vertex_tangents.insert_cols(_vertex_tangents.n_cols, arma::normalise(alpha2*_vertex_tangents.col(i) + beta2*_vertex_tangents.col(j) + gamma2*_vertex_tangents.col(k)));
     }
 	
 	// Add texture coordinates
@@ -1538,6 +1622,82 @@ void TriangleMesh::computeVertexNormals()
     _has_vertex_normals = true;
 }
 
+void TriangleMesh::computeTangentVectors()
+{
+    if (_has_vertex_tangents)
+		return;
+
+	assert(_has_vertex_normals);
+	assert(_has_texture_coordinates);
+    
+    imp_uint n_vertices = getNumberOfVertices();
+    imp_uint n_faces = getNumberOfFaces();
+    imp_uint i, j, k, l, m, n;
+	imp_uint idx;
+	Vector face_edge_1, face_edge_2, vertex_normal;
+	imp_float tangent_vector_scale;
+	imp_float handedness;
+
+    _vertex_tangents = arma::Mat<imp_float>(4, n_vertices);
+
+	std::vector<Vector> tangents(n_vertices), bitangents(n_vertices);
+
+    for (idx = 0; idx < n_faces; idx++)
+    {
+        i = _faces(0, idx); j = _faces(1, idx); k = _faces(2, idx);
+        l = _faces(3, idx); m = _faces(4, idx); n = _faces(5, idx);
+
+		face_edge_1.setComponents(_vertices(0, j) - _vertices(0, i),
+								  _vertices(1, j) - _vertices(1, i),
+								  _vertices(2, j) - _vertices(2, i));
+
+		face_edge_2.setComponents(_vertices(0, k) - _vertices(0, i),
+								  _vertices(1, k) - _vertices(1, i),
+								  _vertices(2, k) - _vertices(2, i));
+
+		const Vector2& uv_edge_1 = _texture_coordinates[m] - _texture_coordinates[l];
+		const Vector2& uv_edge_2 = _texture_coordinates[n] - _texture_coordinates[l];
+
+		tangent_vector_scale = 1.0f/(uv_edge_1.x*uv_edge_2.y - uv_edge_2.x*uv_edge_1.y);
+
+		// Compute tangent vectors for current face
+		const Vector& tangent = (face_edge_1*uv_edge_2.y - face_edge_2*uv_edge_1.y)*tangent_vector_scale;
+		const Vector& bitangent = -(face_edge_1*uv_edge_2.x - face_edge_2*uv_edge_1.x)*tangent_vector_scale;
+
+		// Average adjacent face tangent vectors to obtain vertex tangent vectors
+
+		tangents[i] += tangent;
+		tangents[j] += tangent;
+		tangents[k] += tangent;
+
+		bitangents[i] += bitangent;
+		bitangents[j] += bitangent;
+		bitangents[k] += bitangent;
+    }
+
+	for (idx = 0; idx < n_vertices; idx++)
+	{
+		vertex_normal.setComponents(_vertex_normals(0, idx), _vertex_normals(1, idx), _vertex_normals(2, idx));
+
+		const Vector& tangent = tangents[idx];
+		const Vector& bitangent = bitangents[idx];
+
+		const Vector& orthogonalized_tangent = (tangent - vertex_normal*(vertex_normal.dot(tangent))).getNormalized();
+
+		handedness = (bitangent.dot(vertex_normal.cross(tangent)) < 0.0f)? -1.0f : 1.0f;
+
+		_vertex_tangents(0, idx) = orthogonalized_tangent.x;
+		_vertex_tangents(1, idx) = orthogonalized_tangent.y;
+		_vertex_tangents(2, idx) = orthogonalized_tangent.z;
+		_vertex_tangents(3, idx) = handedness;
+	}
+
+	tangents.clear();
+	bitangents.clear();
+    
+    _has_vertex_tangents = true;
+}
+
 void TriangleMesh::homogenizeVertices()
 {
     const arma::Row<imp_float>& norm_vals = 1/_vertices.row(3);
@@ -1546,6 +1706,7 @@ void TriangleMesh::homogenizeVertices()
 
     _is_homogenized = true;
     _has_vertex_normals = false;
+    _has_vertex_tangents = false;
     _has_face_normals = false;
     _has_aabb = false;
 }
@@ -1649,6 +1810,11 @@ TriangleMesh& TriangleMesh::applyTransformation(const LinearTransformation& tran
         _vertex_normals = arma::normalise(transformation.getNormalTransformMatrix().toArma3x3Matrix()*_vertex_normals);
 	}
 
+    if (_has_vertex_tangents)
+	{
+        _vertex_tangents.rows(0, 2) = arma::normalise(transformation.getMatrix().toArma3x3Matrix()*_vertex_tangents.rows(0, 2));
+	}
+
     _has_aabb = false;
 
 	return *this;
@@ -1667,6 +1833,11 @@ TriangleMesh& TriangleMesh::applyTransformation(const AffineTransformation& tran
 	{
         _vertex_normals = arma::normalise(transformation.getNormalTransformMatrix().toArma3x3Matrix()*_vertex_normals);
 	}
+
+    if (_has_vertex_tangents)
+	{
+        _vertex_tangents.rows(0, 2) = arma::normalise(transformation.getMatrix().getLinearPart().toArma3x3Matrix()*_vertex_tangents.rows(0, 2));
+	}
 	
     _has_aabb = false;
 
@@ -1680,6 +1851,7 @@ TriangleMesh& TriangleMesh::applyWindowingTransformation(const AffineTransformat
     _vertices.rows(0, 1) = transformation.getMatrix().toArma4x4Matrix().submat(0, 0, 1, 3)*_vertices;
 	
     _has_vertex_normals = false;
+    _has_vertex_tangents = false;
     _has_face_normals = false;
     _has_aabb = false;
 
@@ -1695,6 +1867,7 @@ TriangleMesh& TriangleMesh::applyTransformation(const ProjectiveTransformation& 
 
     _is_homogenized = false;
     _has_vertex_normals = false;
+    _has_vertex_tangents = false;
     _has_face_normals = false;
     _has_aabb = false;
 
@@ -1712,6 +1885,14 @@ Vector TriangleMesh::getVertexNormal(imp_uint idx) const
     return Vector(_vertex_normals(0, idx), _vertex_normals(1, idx), _vertex_normals(2, idx));
 }
 
+void TriangleMesh::getVertexTangents(imp_uint idx, Vector& tangent, Vector& bitangent) const
+{
+	assert(_has_vertex_tangents);
+
+    tangent.setComponents(_vertex_tangents(0, idx), _vertex_tangents(1, idx), _vertex_tangents(2, idx));
+	bitangent = (getVertexNormal(idx).cross(tangent))*_vertex_tangents(3, idx);
+}
+
 void TriangleMesh::getVertexNormalsForFace(imp_uint face_idx, Vector vertex_normals[3]) const
 {
 	assert(_has_vertex_normals);
@@ -1721,6 +1902,17 @@ void TriangleMesh::getVertexNormalsForFace(imp_uint face_idx, Vector vertex_norm
     vertex_normals[0].setComponents(_vertex_normals(0, i), _vertex_normals(1, i), _vertex_normals(2, i));
     vertex_normals[1].setComponents(_vertex_normals(0, j), _vertex_normals(1, j), _vertex_normals(2, j));
     vertex_normals[2].setComponents(_vertex_normals(0, k), _vertex_normals(1, k), _vertex_normals(2, k));
+}
+
+void TriangleMesh::getVertexTangentsForFace(imp_uint face_idx, Vector tangents[3], Vector bitangents[3]) const
+{
+	assert(_has_vertex_tangents);
+
+    imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+
+	getVertexTangents(i, tangents[0], bitangents[0]);
+	getVertexTangents(j, tangents[1], bitangents[1]);
+	getVertexTangents(k, tangents[2], bitangents[2]);
 }
 
 void TriangleMesh::getVertexData3(imp_uint idx,
@@ -1775,6 +1967,33 @@ Vector TriangleMesh::getInterpolatedVertexNormal(const MeshIntersectionData& int
 	return Vector(intersection_data.alpha*_vertex_normals(0, i) + intersection_data.beta*_vertex_normals(0, j) + intersection_data.gamma*_vertex_normals(0, k),
 				  intersection_data.alpha*_vertex_normals(1, i) + intersection_data.beta*_vertex_normals(1, j) + intersection_data.gamma*_vertex_normals(1, k),
 				  intersection_data.alpha*_vertex_normals(2, i) + intersection_data.beta*_vertex_normals(2, j) + intersection_data.gamma*_vertex_normals(2, k)).getNormalized();
+}
+
+void TriangleMesh::getInterpolatedVertexTangents(imp_uint face_idx,
+												 imp_float alpha, imp_float beta, imp_float gamma,
+												 Vector& tangent, Vector& bitangent) const
+{
+    assert(_has_vertex_tangents);
+
+	Vector tangents[3], bitangents[3];
+
+	getVertexTangentsForFace(face_idx, tangents, bitangents);
+
+	tangent = (alpha*tangents[0] + beta*tangents[1] + gamma*tangents[2]).getNormalized();
+	bitangent = (alpha*bitangents[0] + beta*bitangents[1] + gamma*bitangents[2]).getNormalized();
+}
+
+void TriangleMesh::getInterpolatedVertexTangents(const MeshIntersectionData& intersection_data,
+												 Vector& tangent, Vector& bitangent) const
+{
+    assert(_has_vertex_tangents);
+
+	Vector tangents[3], bitangents[3];
+
+	getVertexTangentsForFace(intersection_data.face_id, tangents, bitangents);
+
+	tangent = (intersection_data.alpha*tangents[0] + intersection_data.beta*tangents[1] + intersection_data.gamma*tangents[2]).getNormalized();
+	bitangent = (intersection_data.alpha*bitangents[0] + intersection_data.beta*bitangents[1] + intersection_data.gamma*bitangents[2]).getNormalized();
 }
 
 void TriangleMesh::getVertexData3ForFace(imp_uint face_idx,
@@ -1992,6 +2211,11 @@ bool TriangleMesh::hasVertexNormals() const
 bool TriangleMesh::hasTextureCoordinates() const
 {
     return _has_texture_coordinates;
+}
+
+bool TriangleMesh::hasVertexTangents() const
+{
+    return _has_vertex_tangents;
 }
 
 bool TriangleMesh::hasAABB() const
