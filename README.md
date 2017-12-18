@@ -16,7 +16,7 @@ Impact uses [Armadillo](http://arma.sourceforge.net/) with [LAPACK](http://www.n
 
 ### Screenshots
 **Cornell box (path traced)**
-![path traced spheres](/Screenshots/cornell_box_with_texture.png?raw=true "Cornell box")
+![path traced spheres](/Screenshots/cornell_box_with_normal_map.png?raw=true "Cornell box")
 
 
 **Transparent, diffuse and mirror-reflective sphere (path traced)**
