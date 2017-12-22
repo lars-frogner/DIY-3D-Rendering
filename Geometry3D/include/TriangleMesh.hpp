@@ -6,6 +6,7 @@
 #include "Sphere.hpp"
 #include "AxisAlignedBox.hpp"
 #include "Triangle3.hpp"
+#include "MeshTopology.hpp"
 #include "BoundingVolumeHierarchy.hpp"
 #include "Camera.hpp"
 #include "Point2.hpp"
@@ -16,7 +17,9 @@
 #include "AffineTransformation.hpp"
 #include "ProjectiveTransformation.hpp"
 #include <armadillo>
+#include <utility>
 #include <vector>
+#include <map>
 #include <list>
 #include <string>
 
@@ -25,7 +28,7 @@ namespace Geometry3D {
 
 class TriangleMesh {
 
-protected:
+private:
 	typedef Geometry2D::Point Point2;
 	typedef Geometry2D::Vector Vector2;
 	typedef Geometry2D::Triangle Triangle2;
@@ -35,16 +38,19 @@ protected:
     typedef std::vector<std::string> string_vec;
     typedef std::vector<imp_int> int_vec;
 
+protected:
+
     const imp_float _eps_impact_factor = 1e-7f;
     const imp_float _eps_coordinates = -1e-10f;
 
     arma::Mat<imp_float> _vertices;
-    arma::Mat<imp_uint> _faces;
     arma::Mat<imp_float> _vertex_normals;
     arma::Mat<imp_float> _face_normals;
 	std::vector<Point2> _texture_coordinates;
 	arma::Mat<imp_float> _vertex_tangents;
     arma::Mat<imp_float> _vertex_data_3;
+
+	MeshTopology _topology;
 
     AxisAlignedBox _aabb;
     BoundingVolumeHierarchy _bounding_volume_hierarchy;
@@ -71,7 +77,7 @@ protected:
                                 string_vec& material_names,
                                 int_vec& face_material_indices);
 
-    void _clip(imp_uint component, imp_float limit, int sign);
+    void _clip(imp_uint component, imp_float limit, imp_int sign);
 
     bool _addIntersectionVertices(imp_uint i, imp_uint j, imp_uint k,
                                   imp_uint l, imp_uint m, imp_uint n,
@@ -85,6 +91,7 @@ public:
     static TriangleMesh file(const std::string& filename, string_vec& = string_vec(), string_vec& = string_vec());
     static TriangleMesh triangle(const Triangle& triangle_obj);
     static TriangleMesh box(const Box& box_obj);
+    static TriangleMesh manifoldBox(const Box& box_obj);
     static TriangleMesh room(const Box& box_obj);
     static TriangleMesh sheet(const Point& center,
 							  const Vector& normal,
@@ -94,7 +101,7 @@ public:
 									  const Vector& normal,
 									  const Vector& width_vector,
 									  imp_float height);
-    static TriangleMesh sphere(const Sphere& sphere_obj, imp_uint resolution);
+    static TriangleMesh sphere(const Sphere& sphere_obj, imp_uint resolution, imp_uint texture_mapping_mode = 0);
     static TriangleMesh twoSidedSphere(const Sphere& sphere_obj, imp_uint resolution);
 
 	void initializeVertexData3();
@@ -111,6 +118,8 @@ public:
 
     void removeVertex(imp_uint idx);
     void removeFace(imp_uint idx);
+
+	void performLoopSubdivisions(imp_uint n_subdivisions);
 
     void splitFaces(imp_uint n_times);
 

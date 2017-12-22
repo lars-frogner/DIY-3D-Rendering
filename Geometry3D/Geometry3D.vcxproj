@@ -30,6 +30,7 @@
     <ClInclude Include="include\LinearTransformation.hpp" />
     <ClInclude Include="include\Matrix3.hpp" />
     <ClInclude Include="include\Matrix4.hpp" />
+    <ClInclude Include="include\MeshTopology.hpp" />
     <ClInclude Include="include\mesh_assets.hpp" />
     <ClInclude Include="include\Plane.hpp" />
     <ClInclude Include="include\Point3.hpp" />
@@ -54,6 +55,7 @@
     <ClCompile Include="src\LinearTransformation.cpp" />
     <ClCompile Include="src\Matrix3.cpp" />
     <ClCompile Include="src\Matrix4.cpp" />
+    <ClCompile Include="src\MeshTopology.cpp" />
     <ClCompile Include="src\mesh_assets.cpp" />
     <ClCompile Include="src\Plane.cpp" />
     <ClCompile Include="src\Point3.cpp" />
@@ -153,6 +155,7 @@
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\;$(SolutionDir)External\Armadillo\include</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>GEOMETRY3D_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(SolutionDir)$(Configuration)\$(Platform);$(VS_DEPENDENCIES)\Armadillo\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -192,6 +195,7 @@
       <AdditionalIncludeDirectories>$(SolutionDir)Geometry3D\include\;$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\;$(SolutionDir)External\Armadillo\include</AdditionalIncludeDirectories>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <PreprocessorDefinitions>GEOMETRY3D_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>

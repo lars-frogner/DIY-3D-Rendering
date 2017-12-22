@@ -10,17 +10,28 @@ extern const TriangleMesh IMP_BOX_MESH = TriangleMesh::box(Box(Point(-0.5f, -0.5
 extern const TriangleMesh IMP_SHEET_MESH = TriangleMesh::sheet(Point::origin(), Vector::unitY(), Vector::unitX(), 1.0f);
 extern const TriangleMesh IMP_TWOSIDED_SHEET_MESH = TriangleMesh::twoSidedSheet(Point::origin(), Vector::unitY(), Vector::unitX(), 1.0f);
 
-extern const TriangleMesh IMP_SPHERE_MESHES[IMP_N_SPHERE_MESHES] = {TriangleMesh::sphere(Sphere(Point::origin(), 1), 8),
-																    TriangleMesh::sphere(Sphere(Point::origin(), 1), 16),
-																    TriangleMesh::sphere(Sphere(Point::origin(), 1), 32),
-																    TriangleMesh::sphere(Sphere(Point::origin(), 1), 64),
-																    TriangleMesh::sphere(Sphere(Point::origin(), 1), 128)};
+extern const TriangleMesh IMP_SPHERE_MESHES[IMP_N_SPHERE_TEXTURE_MODES][IMP_N_SPHERE_RESOLUTIONS] = 
+	{{TriangleMesh::sphere(Sphere(Point::origin(), 1),   8, 0),
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  16, 0),
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  32, 0),
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  64, 0),
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1), 128, 0)},
+	 {TriangleMesh::sphere(Sphere(Point::origin(), 1),   8, 1),
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  16, 1),
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  32, 1),
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  64, 1),
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1), 128, 1)},
+	 {TriangleMesh::sphere(Sphere(Point::origin(), 1),   8, 2),
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  16, 2),
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  32, 2),
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  64, 2),
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1), 128, 2)}};
 
-extern const TriangleMesh IMP_TWOSIDED_SPHERE_MESHES[IMP_N_SPHERE_MESHES] = {TriangleMesh::twoSidedSphere(Sphere(Point::origin(), 1), 8),
-																			 TriangleMesh::twoSidedSphere(Sphere(Point::origin(), 1), 16),
-																			 TriangleMesh::twoSidedSphere(Sphere(Point::origin(), 1), 32),
-																			 TriangleMesh::twoSidedSphere(Sphere(Point::origin(), 1), 64),
-																			 TriangleMesh::twoSidedSphere(Sphere(Point::origin(), 1), 128)};
+extern const TriangleMesh IMP_TWOSIDED_SPHERE_MESHES[IMP_N_SPHERE_RESOLUTIONS] = {TriangleMesh::twoSidedSphere(Sphere(Point::origin(), 1), 8),
+																				  TriangleMesh::twoSidedSphere(Sphere(Point::origin(), 1), 16),
+																				  TriangleMesh::twoSidedSphere(Sphere(Point::origin(), 1), 32),
+																				  TriangleMesh::twoSidedSphere(Sphere(Point::origin(), 1), 64),
+																				  TriangleMesh::twoSidedSphere(Sphere(Point::origin(), 1), 128)};
 
 //extern const TriangleMesh IMP_TEAPOT_MESH = TriangleMesh::file("data/teapot.obj");
 

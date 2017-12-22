@@ -81,6 +81,9 @@
     <ClInclude Include="include\ProjectiveTransformation.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\MeshTopology.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\affine_combinations.cpp">
@@ -147,6 +150,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\ProjectiveTransformation.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MeshTopology.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -108,6 +108,7 @@
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>GEOMETRY2D_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(SolutionDir)$(Configuration)\$(Platform);$(VS_DEPENDENCIES)\Armadillo\x64;$(VS_DEPENDENCIES)\GLEW\x64;$(VS_DEPENDENCIES)\freeglut\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -159,6 +160,7 @@
       <AdditionalIncludeDirectories>$(SolutionDir)Geometry2D\include\;$(SolutionDir)Core\include\</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>GEOMETRY2D_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>

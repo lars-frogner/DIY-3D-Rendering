@@ -3,8 +3,6 @@
 #include "BAHNode.hpp"
 #include <cstdlib>
 #include <cmath>
-#include <map>
-#include <utility>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -144,12 +142,10 @@ TriangleMesh TriangleMesh::file(const std::string& filename, string_vec& materia
 
     // Faces
 
-    imp_uint face_list_idx = 0;
+	mesh._topology.initializeFaces(n_faces, mesh._has_texture_coordinates);
 
 	if (mesh._has_texture_coordinates)
 	{
-		mesh._faces = arma::Mat<imp_uint>(6, n_faces);
-
 		for (idx = 0; idx < n_faces; idx++)
 		{
 			splitted = string_util::split(faces[idx]);
@@ -157,37 +153,33 @@ TriangleMesh TriangleMesh::file(const std::string& filename, string_vec& materia
 
 			if (n_values == 3)
 			{
-				mesh._faces(0, face_list_idx) = _getFaceIndexFromObjString(splitted[0], n_vertices);
-				mesh._faces(1, face_list_idx) = _getFaceIndexFromObjString(splitted[1], n_vertices);
-				mesh._faces(2, face_list_idx) = _getFaceIndexFromObjString(splitted[2], n_vertices);
-
-				mesh._faces(3, face_list_idx) = _getFaceTextureIndexFromObjString(splitted[0], n_texture_coords);
-				mesh._faces(4, face_list_idx) = _getFaceTextureIndexFromObjString(splitted[1], n_texture_coords);
-				mesh._faces(5, face_list_idx) = _getFaceTextureIndexFromObjString(splitted[2], n_texture_coords);
-
-				face_list_idx++;
+				mesh._topology.setNextFace(_getFaceIndexFromObjString(splitted[0], n_vertices),
+										   _getFaceIndexFromObjString(splitted[1], n_vertices),
+										   _getFaceIndexFromObjString(splitted[2], n_vertices),
+										   _getFaceTextureIndexFromObjString(splitted[0], n_texture_coords),
+										   _getFaceTextureIndexFromObjString(splitted[1], n_texture_coords),
+										   _getFaceTextureIndexFromObjString(splitted[2], n_texture_coords));
 			}
 			else if (n_values == 4)
 			{
-				mesh._faces(0, face_list_idx) = _getFaceIndexFromObjString(splitted[0], n_vertices);
-				mesh._faces(1, face_list_idx) = _getFaceIndexFromObjString(splitted[1], n_vertices);
-				mesh._faces(2, face_list_idx) = _getFaceIndexFromObjString(splitted[2], n_vertices);
+				const imp_uint& i = _getFaceIndexFromObjString(splitted[0], n_vertices);
+				const imp_uint& k = _getFaceIndexFromObjString(splitted[2], n_vertices);
+				const imp_uint& l = _getFaceTextureIndexFromObjString(splitted[0], n_texture_coords);
+				const imp_uint& n = _getFaceTextureIndexFromObjString(splitted[2], n_texture_coords);
 
-				mesh._faces(3, face_list_idx) = _getFaceTextureIndexFromObjString(splitted[0], n_texture_coords);
-				mesh._faces(4, face_list_idx) = _getFaceTextureIndexFromObjString(splitted[1], n_texture_coords);
-				mesh._faces(5, face_list_idx) = _getFaceTextureIndexFromObjString(splitted[2], n_texture_coords);
+				mesh._topology.setNextFace(i,
+										   _getFaceIndexFromObjString(splitted[1], n_vertices),
+										   k,
+										   l,
+										   _getFaceTextureIndexFromObjString(splitted[1], n_texture_coords),
+										   n);
 
-				extra_face(0) = mesh._faces(2, face_list_idx);
-				extra_face(1) = _getFaceIndexFromObjString(splitted[3], n_vertices);
-				extra_face(2) = mesh._faces(0, face_list_idx);
-
-				extra_face(3) = mesh._faces(5, face_list_idx);
-				extra_face(4) = _getFaceTextureIndexFromObjString(splitted[3], n_texture_coords);
-				extra_face(5) = mesh._faces(3, face_list_idx);
-
-				mesh._faces.insert_cols(++face_list_idx, extra_face);
-
-				face_list_idx++;
+				mesh._topology.setNextFace(k,
+										   _getFaceIndexFromObjString(splitted[3], n_vertices),
+										   i,
+										   n,
+										   _getFaceTextureIndexFromObjString(splitted[3], n_texture_coords),
+										   l);
 			}
 			else
 			{
@@ -198,8 +190,6 @@ TriangleMesh TriangleMesh::file(const std::string& filename, string_vec& materia
 	}
 	else
 	{
-		mesh._faces = arma::Mat<imp_uint>(3, n_faces);
-
 		for (idx = 0; idx < n_faces; idx++)
 		{
 			splitted = string_util::split(faces[idx]);
@@ -207,25 +197,22 @@ TriangleMesh TriangleMesh::file(const std::string& filename, string_vec& materia
 
 			if (n_values == 3)
 			{
-				mesh._faces(0, face_list_idx) = _getFaceIndexFromObjString(splitted[0], n_vertices);
-				mesh._faces(1, face_list_idx) = _getFaceIndexFromObjString(splitted[1], n_vertices);
-				mesh._faces(2, face_list_idx) = _getFaceIndexFromObjString(splitted[2], n_vertices);
-
-				face_list_idx++;
+				mesh._topology.setNextFace(_getFaceIndexFromObjString(splitted[0], n_vertices),
+										   _getFaceIndexFromObjString(splitted[1], n_vertices),
+										   _getFaceIndexFromObjString(splitted[2], n_vertices));
 			}
 			else if (n_values == 4)
 			{
-				mesh._faces(0, face_list_idx) = _getFaceIndexFromObjString(splitted[0], n_vertices);
-				mesh._faces(1, face_list_idx) = _getFaceIndexFromObjString(splitted[1], n_vertices);
-				mesh._faces(2, face_list_idx) = _getFaceIndexFromObjString(splitted[2], n_vertices);
+				const imp_uint& i = _getFaceIndexFromObjString(splitted[0], n_vertices);
+				const imp_uint& k = _getFaceIndexFromObjString(splitted[2], n_vertices);
 
-				extra_face(0) = mesh._faces(2, face_list_idx);
-				extra_face(1) = _getFaceIndexFromObjString(splitted[3], n_vertices);
-				extra_face(2) = mesh._faces(0, face_list_idx);
+				mesh._topology.setNextFace(i,
+										   _getFaceIndexFromObjString(splitted[1], n_vertices),
+									       k);
 
-				mesh._faces.insert_cols(++face_list_idx, extra_face.subvec(0, 2));
-
-				face_list_idx++;
+				mesh._topology.setNextFace(k,
+										   _getFaceIndexFromObjString(splitted[3], n_vertices),
+										   i);
 			}
 			else
 			{
@@ -429,7 +416,7 @@ TriangleMesh TriangleMesh::triangle(const Triangle& triangle_obj)
                                {A.z, B.z, C.z},
                                {1, 1, 1}};
 
-    triangle_mesh._faces = {0, 1, 2};
+    triangle_mesh._topology.addFace(0, 1, 2);
 
 	triangle_mesh.computeFaceNormals();
 	triangle_mesh.computeVertexNormals();
@@ -457,9 +444,88 @@ TriangleMesh TriangleMesh::box(const Box& box_obj)
                           {z0, z0, z0, z1, z1, z1, z2, z2, z2, z3, z3, z3, z4, z4, z4, z5, z5, z5, z6, z6, z6, z7, z7, z7},
                           { 1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1}};
 
-    box_mesh._faces = {{0, 3, 12, 21,  1, 13, 19, 22,  2, 11,  5, 17},
-                       {9, 9, 15, 15,  4,  4,  7,  7, 14, 14,  8,  8},
-                       {3, 6, 21, 18, 13, 16, 22, 10, 11, 23, 17, 20}};
+	box_mesh._topology.addFace( 0,  9,  3);
+	box_mesh._topology.addFace( 3,  9,  6);
+	box_mesh._topology.addFace(12, 15, 21);
+	box_mesh._topology.addFace(21, 15, 18);
+	box_mesh._topology.addFace( 1,  4, 13);
+	box_mesh._topology.addFace(13,  4, 16);
+	box_mesh._topology.addFace(19,  7, 22);
+	box_mesh._topology.addFace(22,  7, 10);
+	box_mesh._topology.addFace( 2, 14, 11);
+	box_mesh._topology.addFace(11, 14, 23);
+	box_mesh._topology.addFace( 5,  8, 17);
+	box_mesh._topology.addFace(17,  8, 20);
+	
+	box_mesh.computeFaceNormals();
+	box_mesh.computeVertexNormals();
+
+    return box_mesh;
+}
+
+TriangleMesh TriangleMesh::manifoldBox(const Box& box_obj)
+{
+    TriangleMesh box_mesh;
+
+    const std::vector<Point>& corners = box_obj.getCorners();
+
+    imp_float x0 = corners[0].x, y0 = corners[0].y, z0 = corners[0].z;
+    imp_float x1 = corners[1].x, y1 = corners[1].y, z1 = corners[1].z;
+    imp_float x2 = corners[2].x, y2 = corners[2].y, z2 = corners[2].z;
+    imp_float x3 = corners[3].x, y3 = corners[3].y, z3 = corners[3].z;
+    imp_float x4 = corners[4].x, y4 = corners[4].y, z4 = corners[4].z;
+    imp_float x5 = corners[5].x, y5 = corners[5].y, z5 = corners[5].z;
+    imp_float x6 = corners[6].x, y6 = corners[6].y, z6 = corners[6].z;
+    imp_float x7 = corners[7].x, y7 = corners[7].y, z7 = corners[7].z;
+
+	const Point& center_1 = corners[0] + (corners[2] - corners[0])*0.5f;
+	const Point& center_2 = corners[4] + (corners[6] - corners[4])*0.5f;
+	const Point& center_3 = corners[4] + (corners[3] - corners[4])*0.5f;
+	const Point& center_4 = corners[1] + (corners[6] - corners[1])*0.5f;
+	const Point& center_5 = corners[0] + (corners[5] - corners[0])*0.5f;
+	const Point& center_6 = corners[3] + (corners[6] - corners[3])*0.5f;
+
+    imp_float x8 = center_1.x, y8 = center_1.y, z8 = center_1.z;
+    imp_float x9 = center_2.x, y9 = center_2.y, z9 = center_2.z;
+    imp_float x10 = center_3.x, y10 = center_3.y, z10 = center_3.z;
+    imp_float x11 = center_4.x, y11 = center_4.y, z11 = center_4.z;
+    imp_float x12 = center_5.x, y12 = center_5.y, z12 = center_5.z;
+    imp_float x13 = center_6.x, y13 = center_6.y, z13 = center_6.z;
+
+    box_mesh._vertices = {{x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10, x11, x12, x13},
+                          {y0, y1, y2, y3, y4, y5, y6, y7, y8, y9, y10, y11, y12, y13},
+                          {z0, z1, z2, z3, z4, z5, z6, z7, z8, z9, z10, z11, z12, z13},
+                          { 1,  1,  1,  1,  1,  1,  1,  1,  1,  1,   1,   1,   1,   1}};
+
+	box_mesh._topology.addFace(8, 1, 0);
+	box_mesh._topology.addFace(8, 2, 1);
+	box_mesh._topology.addFace(8, 3, 2);
+	box_mesh._topology.addFace(8, 0, 3);
+
+	box_mesh._topology.addFace(9, 5, 6);
+	box_mesh._topology.addFace(9, 6, 7);
+	box_mesh._topology.addFace(9, 7, 4);
+	box_mesh._topology.addFace(9, 4, 5);
+
+	box_mesh._topology.addFace(10, 0, 4);
+	box_mesh._topology.addFace(10, 3, 0);
+	box_mesh._topology.addFace(10, 7, 3);
+	box_mesh._topology.addFace(10, 4, 7);
+
+	box_mesh._topology.addFace(11, 1, 2);
+	box_mesh._topology.addFace(11, 2, 6);
+	box_mesh._topology.addFace(11, 6, 5);
+	box_mesh._topology.addFace(11, 5, 1);
+
+	box_mesh._topology.addFace(12, 5, 4);
+	box_mesh._topology.addFace(12, 1, 5);
+	box_mesh._topology.addFace(12, 0, 1);
+	box_mesh._topology.addFace(12, 4, 0);
+
+	box_mesh._topology.addFace(13, 6, 2);
+	box_mesh._topology.addFace(13, 2, 3);
+	box_mesh._topology.addFace(13, 3, 7);
+	box_mesh._topology.addFace(13, 7, 6);
 	
 	box_mesh.computeFaceNormals();
 	box_mesh.computeVertexNormals();
@@ -487,9 +553,18 @@ TriangleMesh TriangleMesh::room(const Box& box_obj)
                            {z0, z0, z0, z1, z1, z1, z2, z2, z2, z3, z3, z3, z4, z4, z4, z5, z5, z5, z6, z6, z6, z7, z7, z7},
                            { 1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1}};
 
-    room_mesh._faces = {{0, 3, 12, 21,  1, 13, 19, 22,  2, 11,  5, 17},
-                        {3, 6, 21, 18, 13, 16, 22, 10, 11, 23, 17, 20},
-                        {9, 9, 15, 15,  4,  4,  7,  7, 14, 14,  8,  8}};
+	room_mesh._topology.addFace( 9,  3,  9);
+	room_mesh._topology.addFace( 3,  6,  9);
+	room_mesh._topology.addFace(12, 21, 15);
+	room_mesh._topology.addFace(21, 18, 15);
+	room_mesh._topology.addFace( 1, 13,  4);
+	room_mesh._topology.addFace(13, 16,  4);
+	room_mesh._topology.addFace(19, 22,  7);
+	room_mesh._topology.addFace(22, 10,  7);
+	room_mesh._topology.addFace( 2, 11, 14);
+	room_mesh._topology.addFace(11, 23, 14);
+	room_mesh._topology.addFace( 5, 17,  8);
+	room_mesh._topology.addFace(17, 20,  8);
 	
 	room_mesh.computeFaceNormals();
 	room_mesh.computeVertexNormals();
@@ -514,10 +589,9 @@ TriangleMesh TriangleMesh::sheet(const Point& center, const Vector& normal, cons
                             {corner_1.y, corner_2.y, corner_3.y, corner_4.y},
                             {corner_1.z, corner_2.z, corner_3.z, corner_4.z},
                             {         1,          1,          1,          1}};
-
-    sheet_mesh._faces = {{1, 0},
-                         {2, 2},
-                         {0, 3}};
+	
+	sheet_mesh._topology.addFace(1, 2, 0);
+	sheet_mesh._topology.addFace(0, 2, 3);
 
 	sheet_mesh._face_normals = {{nnormal.x, nnormal.x},
 								{nnormal.y, nnormal.y},
@@ -532,8 +606,7 @@ TriangleMesh TriangleMesh::sheet(const Point& center, const Vector& normal, cons
 
 	sheet_mesh._texture_coordinates = {Point2(0, 0), Point2(1, 0), Point2(1, 1), Point2(0, 1)};
 
-    sheet_mesh._faces = arma::join_cols(sheet_mesh._faces, sheet_mesh._faces);
-
+    sheet_mesh._topology.duplicateFaceIndicesForTextureCoordinates();
 	sheet_mesh._has_texture_coordinates = true;
 
 	sheet_mesh.computeTangentVectors();
@@ -558,10 +631,11 @@ TriangleMesh TriangleMesh::twoSidedSheet(const Point& center, const Vector& norm
                             {corner_1.y, corner_2.y, corner_3.y, corner_4.y},
                             {corner_1.z, corner_2.z, corner_3.z, corner_4.z},
                             {         1,          1,          1,          1}};
-
-    sheet_mesh._faces = {{1, 0, 1, 2},
-                         {2, 2, 0, 0},
-                         {0, 3, 2, 3}};
+	
+	sheet_mesh._topology.addFace(1, 2, 0);
+	sheet_mesh._topology.addFace(0, 2, 3);
+	sheet_mesh._topology.addFace(1, 0, 2);
+	sheet_mesh._topology.addFace(2, 0, 3);
 
 	sheet_mesh._face_normals = {{nnormal.x, nnormal.x, nnormal.x, nnormal.x},
 								{nnormal.y, nnormal.y, nnormal.y, nnormal.y},
@@ -577,7 +651,7 @@ TriangleMesh TriangleMesh::twoSidedSheet(const Point& center, const Vector& norm
     return sheet_mesh;
 }
 
-TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
+TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution, imp_uint texture_mapping_mode /* = 0 */)
 {
     assert(resolution >= 1);
 
@@ -610,12 +684,11 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
 
     // Top vertex
     sphere_mesh._vertex_normals(0, 0) = 0;
-    sphere_mesh._vertex_normals(1, 0) = 0;
-    sphere_mesh._vertex_normals(2, 0) = 1;
+    sphere_mesh._vertex_normals(1, 0) = 1;
+    sphere_mesh._vertex_normals(2, 0) = 0;
     sphere_mesh._vertices(0, 0) = x0;
-    sphere_mesh._vertices(1, 0) = y0;
-    sphere_mesh._vertices(2, 0) = z0 + r;
-	sphere_mesh._texture_coordinates.emplace_back(0.0f, 1.0f);
+    sphere_mesh._vertices(1, 0) = y0 + r;
+    sphere_mesh._vertices(2, 0) = z0;
 
     n = 1;
     for (i = 1; i < n_lat-1; i++) {
@@ -624,16 +697,14 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
             theta = i*dtheta;
             phi = j*dphi;
             sin_theta = sin(theta);
-
-            sphere_mesh._vertex_normals(0, n) = sin_theta*cos(phi);
-            sphere_mesh._vertex_normals(1, n) = sin_theta*sin(phi);
-            sphere_mesh._vertex_normals(2, n) = cos(theta);
-
+			
+            sphere_mesh._vertex_normals(0, n) = sin_theta*sin(phi);
+            sphere_mesh._vertex_normals(1, n) = cos(theta);
+            sphere_mesh._vertex_normals(2, n) = sin_theta*cos(phi);
+			
             sphere_mesh._vertices(0, n) = x0 + r*sphere_mesh._vertex_normals(0, n);
             sphere_mesh._vertices(1, n) = y0 + r*sphere_mesh._vertex_normals(1, n);
             sphere_mesh._vertices(2, n) = z0 + r*sphere_mesh._vertex_normals(2, n);
-
-			sphere_mesh._texture_coordinates.emplace_back(phi/IMP_TWO_PI, sphere_mesh._vertex_normals(2, n)*0.5f + 0.5f);
 
             n++;
         }
@@ -641,48 +712,91 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
     
     // Bottom vertex
     sphere_mesh._vertex_normals(0, n) = 0;
-    sphere_mesh._vertex_normals(1, n) = 0;
-    sphere_mesh._vertex_normals(2, n) = -1;
+    sphere_mesh._vertex_normals(1, n) = -1;
+    sphere_mesh._vertex_normals(2, n) = 0;
     sphere_mesh._vertices(0, n) = x0;
-    sphere_mesh._vertices(1, n) = y0;
-    sphere_mesh._vertices(2, n) = z0 - r;
-	sphere_mesh._texture_coordinates.emplace_back(0.0f, 0.0f);
+    sphere_mesh._vertices(1, n) = y0 - r;
+    sphere_mesh._vertices(2, n) = z0;
 
-	// Add additional texture coordinates for u = 1 to ensure correct interpolation from u <~ 1 to u = 0
-    sphere_mesh._texture_coordinates.emplace_back(1.0f, 1.0f);
+	sphere_mesh._has_vertex_normals = true;
 
-    for (i = 1; i < n_lat-1; i++)
-        sphere_mesh._texture_coordinates.emplace_back(1.0f, sphere_mesh._vertex_normals(2, 1 + (i-1)*n_lon)*0.5f + 0.5f);
+	// Texture coordinates
 
-    sphere_mesh._texture_coordinates.emplace_back(1.0f, 0.0f);
+	assert(texture_mapping_mode == 0 || texture_mapping_mode == 1 || texture_mapping_mode == 2);
 
-    sphere_mesh._faces = arma::Mat<imp_uint>(6, n_faces);
+	if (texture_mapping_mode == 1) // Cylindrical mapping
+	{
+		sphere_mesh._texture_coordinates.emplace_back(0.0f, 1.0f);
+
+		for (i = 1; i < n_lat-1; i++) {
+			for (j = 0; j < n_lon; j++)
+			{
+				theta = i*dtheta;
+				phi = j*dphi;
+
+				sphere_mesh._texture_coordinates.emplace_back(phi/IMP_TWO_PI, (1.0f + cos(theta))*0.5f);
+			}
+		}
+
+		sphere_mesh._texture_coordinates.emplace_back(0.0f, 0.0f);
+
+		// Add additional texture coordinates for u = 1 to ensure correct interpolation from u <~ 1 to u = 0
+		sphere_mesh._texture_coordinates.emplace_back(1.0f, 1.0f);
+
+		for (i = 1; i < n_lat-1; i++)
+		{
+			theta = i*dtheta;
+			sphere_mesh._texture_coordinates.emplace_back(1.0f, (1.0f + cos(theta))*0.5f);
+		}
+
+		sphere_mesh._texture_coordinates.emplace_back(1.0f, 0.0f);
+
+		sphere_mesh._has_texture_coordinates = true;
+	}
+	else if (texture_mapping_mode == 2) // Equirectangular mapping
+	{
+		sphere_mesh._texture_coordinates.emplace_back(0.0f, 1.0f);
+
+		for (i = 1; i < n_lat-1; i++) {
+			for (j = 0; j < n_lon; j++)
+			{
+				theta = i*dtheta;
+				phi = j*dphi;
+				
+				sphere_mesh._texture_coordinates.emplace_back(phi/IMP_TWO_PI, 1.0f - theta/IMP_PI);
+			}
+		}
+
+		sphere_mesh._texture_coordinates.emplace_back(0.0f, 0.0f);
+
+		// Add additional texture coordinates for u = 1 to ensure correct interpolation from u <~ 1 to u = 0
+		sphere_mesh._texture_coordinates.emplace_back(1.0f, 1.0f);
+
+		for (i = 1; i < n_lat-1; i++)
+		{
+			theta = i*dtheta;
+			sphere_mesh._texture_coordinates.emplace_back(1.0f, 1.0f - theta/IMP_PI);
+		}
+
+		sphere_mesh._texture_coordinates.emplace_back(1.0f, 0.0f);
+
+		sphere_mesh._has_texture_coordinates = true;
+	}
+
+	// Faces
+
+	sphere_mesh._topology.initializeFaces(n_faces, true);
 
 	m = n+1;
     
     // Top cone
-    n = 0;
     for (j = 1; j < n_lon; j++)
     {
-        sphere_mesh._faces(0, n) = j;
-        sphere_mesh._faces(1, n) = j + 1;
-        sphere_mesh._faces(2, n) = 0;
-		
-        sphere_mesh._faces(3, n) = j;
-        sphere_mesh._faces(4, n) = j + 1;
-        sphere_mesh._faces(5, n) = 0;
-
-        n++;
+        sphere_mesh._topology.setNextFace(j, j + 1, 0,
+										  j, j + 1, 0);
     }
-    sphere_mesh._faces(0, n) = n_lon;
-    sphere_mesh._faces(1, n) = 1;
-    sphere_mesh._faces(2, n) = 0;
-		
-    sphere_mesh._faces(3, n) = n_lon;
-    sphere_mesh._faces(4, n) = m + 1;
-    sphere_mesh._faces(5, n) = m;
-
-    n++;
+    sphere_mesh._topology.setNextFace(n_lon, 1,  0,
+									  n_lon, m + 1,  m);
 	m++;
     
     for (i = 1; i < n_lat-2; i++)
@@ -697,25 +811,11 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
             above = offset_prev + j;
             above_right = above + 1;
 
-            sphere_mesh._faces(0, n) = current;
-            sphere_mesh._faces(1, n) = right;
-            sphere_mesh._faces(2, n) = above_right;
+            sphere_mesh._topology.setNextFace(current, right, above_right,
+											  current, right, above_right);
 
-            sphere_mesh._faces(3, n) = current;
-            sphere_mesh._faces(4, n) = right;
-            sphere_mesh._faces(5, n) = above_right;
-
-            n++;
-
-            sphere_mesh._faces(0, n) = above_right;
-            sphere_mesh._faces(1, n) = above;
-            sphere_mesh._faces(2, n) = current;
-
-            sphere_mesh._faces(3, n) = above_right;
-            sphere_mesh._faces(4, n) = above;
-            sphere_mesh._faces(5, n) = current;
-
-            n++;
+            sphere_mesh._topology.setNextFace(above_right, above, current,
+											  above_right, above, current);
         }
         
         j = n_lon - 1;
@@ -725,25 +825,11 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
         above =       offset_prev + j;
         above_right = offset_prev;
 
-        sphere_mesh._faces(0, n) = current;
-        sphere_mesh._faces(1, n) = right;
-        sphere_mesh._faces(2, n) = above_right;
+        sphere_mesh._topology.setNextFace(current, right, above_right,
+										  current, m + 1, m);
 
-        sphere_mesh._faces(3, n) = current;
-        sphere_mesh._faces(4, n) = m + 1;
-        sphere_mesh._faces(5, n) = m;
-
-        n++;
-
-        sphere_mesh._faces(0, n) = above_right;
-        sphere_mesh._faces(1, n) = above;
-        sphere_mesh._faces(2, n) = current;
-
-        sphere_mesh._faces(3, n) = m;
-        sphere_mesh._faces(4, n) = above;
-        sphere_mesh._faces(5, n) = current;
-
-        n++;
+        sphere_mesh._topology.setNextFace(above_right, above, current,
+										  m, above, current);
 		m++;
     }
 
@@ -751,30 +837,19 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution)
     offset = 1 + (n_lat - 3)*n_lon;
     for (j = 0; j < n_lon-1; j++)
     {
-        sphere_mesh._faces(0, n) = offset + j + 1;
-        sphere_mesh._faces(1, n) = offset + j;
-        sphere_mesh._faces(2, n) = n_vertices - 1;
-
-        sphere_mesh._faces(3, n) = offset + j + 1;
-        sphere_mesh._faces(4, n) = offset + j;
-        sphere_mesh._faces(5, n) = n_vertices - 1;
-
-        n++;
+        sphere_mesh._topology.setNextFace(offset + j + 1, offset + j, n_vertices - 1,
+										  offset + j + 1, offset + j, n_vertices - 1);
     }
-    sphere_mesh._faces(0, n) = offset;
-    sphere_mesh._faces(1, n) = offset + n_lon - 1;
-    sphere_mesh._faces(2, n) = n_vertices - 1;
+    sphere_mesh._topology.setNextFace(offset, offset + n_lon - 1, n_vertices - 1,
+									  offset, m, m + 1);
 
-    sphere_mesh._faces(3, n) = offset;
-    sphere_mesh._faces(4, n) = m;
-    sphere_mesh._faces(5, n) = m + 1;
-
-	sphere_mesh._has_vertex_normals = true;
-	sphere_mesh._has_texture_coordinates = true;
+	if (!sphere_mesh._has_texture_coordinates)
+		sphere_mesh._topology.removeTextureCoordinateIndices();
 
 	sphere_mesh.computeFaceNormals();
 
-	sphere_mesh.computeTangentVectors();
+	if (sphere_mesh._has_texture_coordinates)
+		sphere_mesh.computeTangentVectors();
 
     return sphere_mesh;
 }
@@ -845,31 +920,17 @@ TriangleMesh TriangleMesh::twoSidedSphere(const Sphere& sphere_obj, imp_uint res
     sphere_mesh._vertices(1, n) = y0;
     sphere_mesh._vertices(2, n) = z0 - r;
 
-    sphere_mesh._faces = arma::Mat<imp_uint>(3, 2*n_faces);
-
 	sphere_mesh._has_vertex_normals = true;
+
+	sphere_mesh._topology.initializeFaces(n_faces, false);
     
     // Top cone
     n = 0;
     for (j = 1; j < n_lon; j++)
     {
-        sphere_mesh._faces(0, n) = j;
-        sphere_mesh._faces(1, n) = j + 1;
-        sphere_mesh._faces(2, n) = 0;
-
-        sphere_mesh._faces(1, n_faces+n) = j;
-        sphere_mesh._faces(0, n_faces+n) = j + 1;
-        sphere_mesh._faces(2, n_faces+n) = 0;
-        n++;
+        sphere_mesh._topology.setNextFace(j, j + 1, 0);
     }
-    sphere_mesh._faces(0, n) = n_lon;
-    sphere_mesh._faces(1, n) = 1;
-    sphere_mesh._faces(2, n) = 0;
-	
-    sphere_mesh._faces(1, n_faces+n) = n_lon;
-    sphere_mesh._faces(0, n_faces+n) = 1;
-    sphere_mesh._faces(2, n_faces+n) = 0;
-    n++;
+    sphere_mesh._topology.setNextFace(n_lon, 1,  0);
     
     for (i = 1; i < n_lat-2; i++)
     {
@@ -883,23 +944,9 @@ TriangleMesh TriangleMesh::twoSidedSphere(const Sphere& sphere_obj, imp_uint res
             above = offset_prev + j;
             above_right = above + 1;
 
-            sphere_mesh._faces(0, n) = current;
-            sphere_mesh._faces(1, n) = right;
-            sphere_mesh._faces(2, n) = above_right;
-			
-            sphere_mesh._faces(1, n_faces+n) = current;
-            sphere_mesh._faces(0, n_faces+n) = right;
-            sphere_mesh._faces(2, n_faces+n) = above_right;
-            n++;
+            sphere_mesh._topology.setNextFace(current, right, above_right);
 
-            sphere_mesh._faces(0, n) = above_right;
-            sphere_mesh._faces(1, n) = above;
-            sphere_mesh._faces(2, n) = current;
-			
-            sphere_mesh._faces(1, n_faces+n) = above_right;
-            sphere_mesh._faces(0, n_faces+n) = above;
-            sphere_mesh._faces(2, n_faces+n) = current;
-            n++;
+            sphere_mesh._topology.setNextFace(above_right, above, current);
         }
         
         j = n_lon - 1;
@@ -909,45 +956,20 @@ TriangleMesh TriangleMesh::twoSidedSphere(const Sphere& sphere_obj, imp_uint res
         above =       offset_prev + j;
         above_right = offset_prev;
 
-        sphere_mesh._faces(0, n) = current;
-        sphere_mesh._faces(1, n) = right;
-        sphere_mesh._faces(2, n) = above_right;
-		
-        sphere_mesh._faces(1, n_faces+n) = current;
-        sphere_mesh._faces(0, n_faces+n) = right;
-        sphere_mesh._faces(2, n_faces+n) = above_right;
-        n++;
+        sphere_mesh._topology.setNextFace(current, right, above_right);
 
-        sphere_mesh._faces(0, n) = above_right;
-        sphere_mesh._faces(1, n) = above;
-        sphere_mesh._faces(2, n) = current;
-
-        sphere_mesh._faces(1, n_faces+n) = above_right;
-        sphere_mesh._faces(0, n_faces+n) = above;
-        sphere_mesh._faces(2, n_faces+n) = current;
-        n++;
+        sphere_mesh._topology.setNextFace(above_right, above, current);
     }
 
     // Bottom cone
     offset = 1 + (n_lat - 3)*n_lon;
     for (j = 0; j < n_lon-1; j++)
     {
-        sphere_mesh._faces(0, n) = offset + j + 1;
-        sphere_mesh._faces(1, n) = offset + j;
-        sphere_mesh._faces(2, n) = n_vertices - 1;
-		
-        sphere_mesh._faces(1, n_faces+n) = offset + j + 1;
-        sphere_mesh._faces(0, n_faces+n) = offset + j;
-        sphere_mesh._faces(2, n_faces+n) = n_vertices - 1;
-        n++;
+        sphere_mesh._topology.setNextFace(offset + j + 1, offset + j, n_vertices - 1);
     }
-    sphere_mesh._faces(0, n) = offset;
-    sphere_mesh._faces(1, n) = offset + n_lon - 1;
-    sphere_mesh._faces(2, n) = n_vertices - 1;
-	
-    sphere_mesh._faces(1, n_faces+n) = offset;
-    sphere_mesh._faces(0, n_faces+n) = offset + n_lon - 1;
-    sphere_mesh._faces(2, n_faces+n) = n_vertices - 1;
+    sphere_mesh._topology.setNextFace(offset, offset + n_lon - 1, n_vertices - 1);
+
+	sphere_mesh._topology.generateOppositeFaces();
 
 	sphere_mesh.computeFaceNormals();
 
@@ -983,6 +1005,7 @@ void TriangleMesh::addVertex(imp_float x, imp_float y, imp_float z)
     _has_vertex_tangents = false;
     _has_aabb = false;
 	_has_vertex_data_3 = false;
+	_topology.invalidateAdjacencyData();
 }
 
 void TriangleMesh::addVertex(const Point& vertex)
@@ -994,36 +1017,29 @@ void TriangleMesh::addFace(imp_uint i, imp_uint j, imp_uint k)
 {
 	assert(!_has_texture_coordinates);
 
-    _faces.insert_cols(_faces.n_cols, arma::Col<imp_uint>({i, j, k}));
+    _topology.addFace(i, j, k);
 	
     _has_face_normals = false;
-    _has_aabb = false;
+	_topology.invalidateAdjacencyData();
 }
 
 void TriangleMesh::addFace(imp_uint i, imp_uint j, imp_uint k,
 						   imp_uint l, imp_uint m, imp_uint n)
 {
 	assert(_has_texture_coordinates);
-
-    _faces.insert_cols(_faces.n_cols, arma::Col<imp_uint>({i, j, k, l, m, n}));
 	
+    _topology.addFace(i, j, k, l, m, n);
+
     _has_face_normals = false;
-    _has_aabb = false;
+	_topology.invalidateAdjacencyData();
 }
 
 void TriangleMesh::removeVertex(imp_uint idx)
 {
-    arma::uvec occurences = arma::unique(arma::find(_faces == idx)/((_has_texture_coordinates)? 6 : 3));
-    arma::uvec::const_iterator iter = occurences.end();
-    while (iter != occurences.begin())
-    {
-        --iter;
-
-        _faces.shed_col(*iter);
-
-		if (_has_face_normals)
-			_face_normals.shed_col(*iter);
-    }
+	if (_has_face_normals)
+		_topology.removeFacesContainingVertex(idx, _face_normals);
+	else
+		_topology.removeFacesContainingVertex(idx);
 
     _vertices.shed_col(idx);
 
@@ -1035,24 +1051,303 @@ void TriangleMesh::removeVertex(imp_uint idx)
 
 	if (_has_vertex_data_3)
 		_vertex_data_3.shed_col(idx);
-
-    occurences = arma::find(_faces > idx);
-    for (iter = occurences.begin(); iter != occurences.end(); ++iter)
-    {
-        _faces(*iter) += 1;
-    }
 	
     _has_aabb = false;
+	_topology.invalidateAdjacencyData();
 }
 
 void TriangleMesh::removeFace(imp_uint idx)
 {
-    _faces.shed_col(idx);
+    _topology.removeFace(idx);
 	
 	if (_has_face_normals)
 		_face_normals.shed_col(idx);
+	
+	_topology.invalidateAdjacencyData();
+}
 
-    _has_aabb = false;
+void TriangleMesh::performLoopSubdivisions(imp_uint n_subdivisions)
+{
+	assert(_is_homogenized);
+	assert(!_has_vertex_data_3);
+	assert(!_has_texture_coordinates);
+
+	imp_uint n_vertices;
+	imp_uint vertex_idx;
+	
+	arma::Mat<imp_float> new_vertices;
+	imp_uint approx_n_new_vertices;
+	imp_uint added_vertex_idx;
+	imp_uint edge_vertex_1, edge_vertex_2, edge_vertex_3;
+	std::map<std::pair<imp_uint, imp_uint>, imp_uint> _added_edge_vertices;
+
+	std::vector<imp_uint> neighbour_vertices;
+	std::vector<imp_uint>::const_iterator neighbour_vertex;
+	imp_uint n_neighbour_vertices;
+	imp_float neighbour_weight, self_weight;
+	
+	imp_uint n_faces;
+	imp_uint face_idx;
+	imp_uint opposite_faces[3];
+	imp_uint opposite_vertices[3];
+	imp_uint i, j, k;
+
+	for (imp_uint subdivision_i = 0; subdivision_i < n_subdivisions; subdivision_i++)
+	{
+		n_vertices = getNumberOfVertices();
+		n_faces = getNumberOfFaces();
+
+		// Number of new vertices that will be created (assuming closed mesh with no free vertices)
+		// (Armadillo may complain about out of bounds indexing if this assumption fails)
+		approx_n_new_vertices = 3*n_faces/2;
+
+		// Temporary storage of modified and new vertices
+		new_vertices.set_size(4, n_vertices + approx_n_new_vertices);
+
+		// Counter for keeping track of next available vertex index
+		added_vertex_idx = n_vertices;
+
+		// Make sure the mesh has adjacency data
+		_topology.generateAdjacencyData(n_vertices);
+
+		// Create modified versions of existing vertices
+		for (vertex_idx = 0; vertex_idx < n_vertices; vertex_idx++)
+		{
+			// Get a list of vertices that are connected to the current vertex by a single edge
+			_topology.getNeighbourVertices(vertex_idx, neighbour_vertices);
+
+			n_neighbour_vertices = static_cast<imp_uint>(neighbour_vertices.size());
+	
+			// Compute new vertex coordinates from a weighted sum of neighbour coordinates
+			if (n_neighbour_vertices > 3)
+			{
+				neighbour_weight = 0.375f/n_neighbour_vertices; // 3/(8*n_neighbour_vertices)
+				self_weight = 0.625f; // Equivalent to (1 - n_neighbour_vertices*neighbour_weight)
+
+				new_vertices(0, vertex_idx) = self_weight*_vertices(0, vertex_idx);
+				new_vertices(1, vertex_idx) = self_weight*_vertices(1, vertex_idx);
+				new_vertices(2, vertex_idx) = self_weight*_vertices(2, vertex_idx);
+
+				for (neighbour_vertex = neighbour_vertices.begin(); neighbour_vertex != neighbour_vertices.end(); neighbour_vertex++)
+				{
+					new_vertices(0, vertex_idx) += neighbour_weight*_vertices(0, *neighbour_vertex);
+					new_vertices(1, vertex_idx) += neighbour_weight*_vertices(1, *neighbour_vertex);
+					new_vertices(2, vertex_idx) += neighbour_weight*_vertices(2, *neighbour_vertex);
+				}
+			}
+			else if (n_neighbour_vertices == 3)
+			{
+				neighbour_weight = 0.1875f; // 3/16
+				self_weight = 0.4375f; // Equivalent to (1 - n_neighbour_vertices*neighbour_weight)
+
+				new_vertices(0, vertex_idx) = self_weight*_vertices(0, vertex_idx) + neighbour_weight*(_vertices(0, neighbour_vertices[0]) + _vertices(0, neighbour_vertices[1]) + _vertices(0, neighbour_vertices[2]));
+				new_vertices(1, vertex_idx) = self_weight*_vertices(1, vertex_idx) + neighbour_weight*(_vertices(1, neighbour_vertices[0]) + _vertices(1, neighbour_vertices[1]) + _vertices(1, neighbour_vertices[2]));
+				new_vertices(2, vertex_idx) = self_weight*_vertices(2, vertex_idx) + neighbour_weight*(_vertices(2, neighbour_vertices[0]) + _vertices(2, neighbour_vertices[1]) + _vertices(2, neighbour_vertices[2]));
+			}
+			else if (n_neighbour_vertices == 2) // Boundary vertex
+			{
+				neighbour_weight = 0.125f; // 1/8
+				self_weight = 0.75f; // 3/4
+	
+				new_vertices(0, vertex_idx) = self_weight*_vertices(0, vertex_idx) + neighbour_weight*(_vertices(0, neighbour_vertices[0]) + _vertices(0, neighbour_vertices[1]));
+				new_vertices(1, vertex_idx) = self_weight*_vertices(1, vertex_idx) + neighbour_weight*(_vertices(1, neighbour_vertices[0]) + _vertices(1, neighbour_vertices[1]));
+				new_vertices(2, vertex_idx) = self_weight*_vertices(2, vertex_idx) + neighbour_weight*(_vertices(2, neighbour_vertices[0]) + _vertices(2, neighbour_vertices[1]));
+			}
+			// Otherwise improperly connected vertex, which is ignored
+		
+			// Empty list of neighbour vertices
+			neighbour_vertices.clear();
+		}
+
+		// Make room for the required number of new faces
+		_topology.reserveAdditionalFaces(3*n_faces);
+
+		// Loop through all faces
+		for (face_idx = 0; face_idx < n_faces; face_idx++)
+		{
+			// Get indices of face vertices
+			_topology.getFace(face_idx, i, j, k);
+
+			// Find faces adjacent to the current face, along with their
+			// vertex that is not common with the vertices for the current face
+			_topology.getOppositeFacesAndVertices(face_idx, opposite_faces, opposite_vertices);
+
+			// For each of the three face edges, add a new vertex if it
+			// hasn't already been created in an earlier loop iteration
+
+			// Edge i <-> j
+			if (opposite_faces[0] > face_idx)
+			{
+				// New vertex has not been created for this edge
+			
+				edge_vertex_1 = added_vertex_idx;
+
+				self_weight = 0.375f; // 3/8
+				neighbour_weight = 0.125f; // 1/8
+
+				new_vertices(0, edge_vertex_1) = self_weight*(_vertices(0, i) + _vertices(0, j)) + neighbour_weight*(_vertices(0, k) + _vertices(0, opposite_vertices[0]));
+				new_vertices(1, edge_vertex_1) = self_weight*(_vertices(1, i) + _vertices(1, j)) + neighbour_weight*(_vertices(1, k) + _vertices(1, opposite_vertices[0]));
+				new_vertices(2, edge_vertex_1) = self_weight*(_vertices(2, i) + _vertices(2, j)) + neighbour_weight*(_vertices(2, k) + _vertices(2, opposite_vertices[0]));
+		
+				 // Store index of the new vertex
+				_added_edge_vertices[std::make_pair(i, j)] = edge_vertex_1;
+
+				added_vertex_idx++;
+			}
+			else if (opposite_faces[0] < face_idx)
+			{
+				// New vertex has already been created for this edge
+
+				// Get index of the new edge vertex
+				edge_vertex_1 = _added_edge_vertices.find(std::make_pair(j, i))->second;
+			}
+			else
+			{
+				// Boundary edge
+			
+				edge_vertex_1 = added_vertex_idx;
+
+				self_weight = 0.5f;
+
+				new_vertices(0, edge_vertex_1) = self_weight*(_vertices(0, i) + _vertices(0, j));
+				new_vertices(1, edge_vertex_1) = self_weight*(_vertices(1, i) + _vertices(1, j));
+				new_vertices(2, edge_vertex_1) = self_weight*(_vertices(2, i) + _vertices(2, j));
+			
+				 // Store index of the new vertex
+				_added_edge_vertices[std::make_pair(i, j)] = edge_vertex_1;
+
+				added_vertex_idx++;
+			}
+
+			// Edge j <-> k
+			if (opposite_faces[1] > face_idx)
+			{
+				// New vertex has not been created for this edge
+			
+				edge_vertex_2 = added_vertex_idx;
+
+				self_weight = 0.375f; // 3/8
+				neighbour_weight = 0.125f; // 1/8
+
+				new_vertices(0, edge_vertex_2) = self_weight*(_vertices(0, j) + _vertices(0, k)) + neighbour_weight*(_vertices(0, i) + _vertices(0, opposite_vertices[1]));
+				new_vertices(1, edge_vertex_2) = self_weight*(_vertices(1, j) + _vertices(1, k)) + neighbour_weight*(_vertices(1, i) + _vertices(1, opposite_vertices[1]));
+				new_vertices(2, edge_vertex_2) = self_weight*(_vertices(2, j) + _vertices(2, k)) + neighbour_weight*(_vertices(2, i) + _vertices(2, opposite_vertices[1]));
+		
+				 // Store index of the new vertex
+				_added_edge_vertices[std::make_pair(j, k)] = edge_vertex_2;
+
+				added_vertex_idx++;
+			}
+			else if (opposite_faces[1] < face_idx)
+			{
+				// New vertex has already been created for this edge
+				
+				// Get index of the new edge vertex
+				edge_vertex_2 = _added_edge_vertices.find(std::make_pair(k, j))->second;
+			}
+			else
+			{
+				// Boundary edge
+			
+				edge_vertex_2 = added_vertex_idx;
+
+				self_weight = 0.5f;
+
+				new_vertices(0, edge_vertex_2) = self_weight*(_vertices(0, j) + _vertices(0, k));
+				new_vertices(1, edge_vertex_2) = self_weight*(_vertices(1, j) + _vertices(1, k));
+				new_vertices(2, edge_vertex_2) = self_weight*(_vertices(2, j) + _vertices(2, k));
+			
+				 // Store index of the new vertex
+				_added_edge_vertices[std::make_pair(j, k)] = edge_vertex_2;
+
+				added_vertex_idx++;
+			}
+
+			// Edge k <-> i
+			if (opposite_faces[2] > face_idx)
+			{
+				// New vertex has not been created for this edge
+			
+				edge_vertex_3 = added_vertex_idx;
+
+				self_weight = 0.375f; // 3/8
+				neighbour_weight = 0.125f; // 1/8
+
+				new_vertices(0, edge_vertex_3) = self_weight*(_vertices(0, k) + _vertices(0, i)) + neighbour_weight*(_vertices(0, j) + _vertices(0, opposite_vertices[2]));
+				new_vertices(1, edge_vertex_3) = self_weight*(_vertices(1, k) + _vertices(1, i)) + neighbour_weight*(_vertices(1, j) + _vertices(1, opposite_vertices[2]));
+				new_vertices(2, edge_vertex_3) = self_weight*(_vertices(2, k) + _vertices(2, i)) + neighbour_weight*(_vertices(2, j) + _vertices(2, opposite_vertices[2]));
+		
+				 // Store index of the new vertex
+				_added_edge_vertices[std::make_pair(k, i)] = edge_vertex_3;
+
+				added_vertex_idx++;
+			}
+			else if (opposite_faces[2] < face_idx)
+			{
+				// New vertex has already been created for this edge
+				
+				// Get index of the new edge vertex
+				edge_vertex_3 = _added_edge_vertices.find(std::make_pair(i, k))->second;
+			}
+			else
+			{
+				// Boundary edge
+			
+				edge_vertex_3 = added_vertex_idx;
+
+				self_weight = 0.5f;
+
+				new_vertices(0, edge_vertex_3) = self_weight*(_vertices(0, k) + _vertices(0, i));
+				new_vertices(1, edge_vertex_3) = self_weight*(_vertices(1, k) + _vertices(1, i));
+				new_vertices(2, edge_vertex_3) = self_weight*(_vertices(2, k) + _vertices(2, i));
+			
+				 // Store index of the new vertex
+				_added_edge_vertices[std::make_pair(k, i)] = edge_vertex_3;
+
+				added_vertex_idx++;
+			}
+
+			// Construct sub-faces (modifies the current face, but it will not be needed anymore anyway)
+			_topology.setFace(face_idx, i, edge_vertex_1, edge_vertex_3);
+			_topology.setNextFace(edge_vertex_1, j, edge_vertex_2);
+			_topology.setNextFace(edge_vertex_1, edge_vertex_2, edge_vertex_3);
+			_topology.setNextFace(edge_vertex_3, edge_vertex_2, k);
+		}
+
+		_added_edge_vertices.clear();
+
+		// Set homogeneous coordinates
+		new_vertices.row(3).ones();
+
+		// Replace old vertices with the new ones
+		_vertices.swap(new_vertices);
+		new_vertices.clear();
+
+		// The adjacency data is now invalid
+		_topology.invalidateAdjacencyData();
+	}
+
+	// Recompute mesh attributes
+
+	if (_has_face_normals)
+	{
+		_has_face_normals = false;
+		computeFaceNormals();
+	}
+
+	if (_has_vertex_normals)
+	{
+		_has_vertex_normals = false;
+		computeVertexNormals();
+	}
+	
+	if (_has_vertex_tangents && _has_texture_coordinates)
+	{
+		_has_vertex_tangents = false;
+		computeTangentVectors();
+	}
+
+	_has_aabb = false;
 }
 
 void TriangleMesh::splitFaces(imp_uint n_times)
@@ -1070,7 +1365,8 @@ void TriangleMesh::splitFaces(imp_uint n_times)
 
         for (idx = 0; idx < n_faces; idx++)
         {
-            i = _faces(0, idx); j = _faces(1, idx); k = _faces(2, idx);
+			_topology.getFace(idx, i, j, k);
+
             A.x = _vertices(0, i); A.y = _vertices(1, i); A.z = _vertices(2, i);
             B.x = _vertices(0, j); B.y = _vertices(1, j); B.z = _vertices(2, j);
             C.x = _vertices(0, k); C.y = _vertices(1, k); C.z = _vertices(2, k);
@@ -1091,21 +1387,21 @@ void TriangleMesh::splitFaces(imp_uint n_times)
             {
                 addVertex(A + AB*0.5);
                 last_vertex_idx++;
-                _faces(1, idx) = last_vertex_idx;
+				_topology.setFaceComponent(1, idx, last_vertex_idx);
                 addFace(last_vertex_idx, j, k);
             }
             else if (AC_exceeds_BC)
             {
                 addVertex(A + AC*0.5);
                 last_vertex_idx++;
-                _faces(2, idx) = last_vertex_idx;
+				_topology.setFaceComponent(2, idx, last_vertex_idx);
                 addFace(last_vertex_idx, j, k);
             }
             else
             {
                 addVertex(B + BC*0.5);
                 last_vertex_idx++;
-                _faces(2, idx) = last_vertex_idx;
+				_topology.setFaceComponent(2, idx, last_vertex_idx);
                 addFace(last_vertex_idx, k, i);
             }
         }
@@ -1167,7 +1463,7 @@ void TriangleMesh::clipNonNearPlanes()
     if (lower_corner.z < -1) clipFarPlane();
 }
 
-void TriangleMesh::_clip(imp_uint component, imp_float limit, int sign)
+void TriangleMesh::_clip(imp_uint component, imp_float limit, imp_int sign)
 {
     assert(component < 3);
     assert(sign == 1 || sign == -1);
@@ -1199,12 +1495,10 @@ void TriangleMesh::_clip(imp_uint component, imp_float limit, int sign)
 
     for (imp_uint idx = 0; idx < n_faces; idx++)
     {
-        i = _faces(0, idx); j = _faces(1, idx); k = _faces(2, idx);
-
 		if (_has_texture_coordinates)
-		{
-			l = _faces(3, idx); m = _faces(4, idx); n = _faces(5, idx);
-		}
+			_topology.getFace(idx, i, j, k, l, m, n);
+		else
+			_topology.getFace(idx, i, j, k);
         
         A[0] = _vertices(0, i); A[1] = _vertices(1, i); A[2] = _vertices(2, i); A[3] = _vertices(3, i);
         B[0] = _vertices(0, j); B[1] = _vertices(1, j); B[2] = _vertices(2, j); B[3] = _vertices(3, j);
@@ -1265,23 +1559,23 @@ void TriangleMesh::_clip(imp_uint component, imp_float limit, int sign)
 
 				if (was_added)
 				{
-					_faces(0, idx) = inside_idx_1;
-					_faces(1, idx) = inside_idx_2;
-					_faces(2, idx) = last_vertex + 1;
-
 					if (_has_texture_coordinates)
 					{
-						_faces(3, idx) = texture_inside_idx_1;
-						_faces(4, idx) = texture_inside_idx_2;
-						_faces(5, idx) = last_texture_coord + 1;
+						_topology.setFace(idx,
+										  inside_idx_1, inside_idx_2, last_vertex + 1,
+										  texture_inside_idx_1, texture_inside_idx_2, last_texture_coord + 1);
 
-						_faces.insert_cols(_faces.n_cols, arma::Col<imp_uint>({last_vertex + 1, inside_idx_2, last_vertex + 2, last_texture_coord + 1, texture_inside_idx_2, last_texture_coord + 2}));
+						_topology.addFace(last_vertex + 1, inside_idx_2, last_vertex + 2,
+										  last_texture_coord + 1, texture_inside_idx_2, last_texture_coord + 2);
 						
 						last_texture_coord += 2;
 					}
 					else
 					{
-						_faces.insert_cols(_faces.n_cols, arma::Col<imp_uint>({last_vertex + 1, inside_idx_2, last_vertex + 2}));
+						_topology.setFace(idx,
+										  inside_idx_1, inside_idx_2, last_vertex + 1);
+
+						_topology.addFace(last_vertex + 1, inside_idx_2, last_vertex + 2);
 					}
 
 					last_vertex += 2;
@@ -1330,17 +1624,18 @@ void TriangleMesh::_clip(imp_uint component, imp_float limit, int sign)
             
 				if (was_added)
 				{
-					_faces(0, idx) = inside_idx_1;
-					_faces(1, idx) = last_vertex + 1;
-					_faces(2, idx) = last_vertex + 2;
-
 					if (_has_texture_coordinates)
 					{
-						_faces(3, idx) = texture_inside_idx_1;
-						_faces(4, idx) = last_texture_coord + 1;
-						_faces(5, idx) = last_texture_coord + 2;
-                
+						_topology.setFace(idx,
+										  inside_idx_1, last_vertex + 1, last_vertex + 2,
+										  texture_inside_idx_1, last_texture_coord + 1, last_texture_coord + 2);
+
 						last_texture_coord += 2;
+					}
+					else
+					{
+						_topology.setFace(idx,
+										  inside_idx_1, last_vertex + 1, last_vertex + 2);
 					}
                 
 					last_vertex += 2;
@@ -1421,7 +1716,7 @@ bool TriangleMesh::_addIntersectionVertices(imp_uint i, imp_uint j, imp_uint k,
     }
 	
 	// Add vertex tangents
-	if (_has_vertex_normals)
+	if (_has_vertex_tangents)
 	{
 		// Note: handedness is also interpolated here. Could be a problem if it not the same for all the vertices. Also, precision errors could make it different from +-1.
         _vertex_tangents.insert_cols(_vertex_tangents.n_cols, arma::normalise(alpha1*_vertex_tangents.col(i) + beta1*_vertex_tangents.col(j) + gamma1*_vertex_tangents.col(k)));
@@ -1456,7 +1751,7 @@ void TriangleMesh::removeBackwardFacingFaces()
 
     for (int idx = static_cast<int>(n_faces) - 1; idx >= 0; idx--)
     {
-        i = _faces(0, idx); j = _faces(1, idx); k = _faces(2, idx);
+		_topology.getFace(idx, i, j, k);
 
         AB_x = _vertices(0, j) - _vertices(0, i);
         AB_y = _vertices(1, j) - _vertices(1, i);
@@ -1480,7 +1775,7 @@ void TriangleMesh::computeAABB()
     imp_float x, y, z;
 	
 	assert(getNumberOfFaces() > 0);
-    i = _faces(0, 0), j = _faces(1, 0), k = _faces(2, 0);
+	_topology.getFace(0, i, j, k);
     x = _vertices(0, i), y = _vertices(1, i), z = _vertices(2, i);
 
     _aabb.lower_corner.moveTo(x, y, z);
@@ -1488,7 +1783,7 @@ void TriangleMesh::computeAABB()
 
     for (imp_uint face_idx = 1; face_idx < n_faces; face_idx++)
     {
-        i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+		_topology.getFace(face_idx, i, j, k);
 
         x = _vertices(0, i), y = _vertices(1, i), z = _vertices(2, i);
         if      (x < _aabb.lower_corner.x) _aabb.lower_corner.x = x;
@@ -1582,7 +1877,7 @@ void TriangleMesh::computeFaceNormals()
 
     for (imp_uint idx = 0; idx < n_faces; idx++)
     {
-        i = _faces(0, idx); j = _faces(1, idx); k = _faces(2, idx);
+		_topology.getFace(idx, i, j, k);
 
         const Vector& normal = Triangle::areaVector(Point(_vertices(0, i), _vertices(1, i), _vertices(2, i)),
                                                     Point(_vertices(0, j), _vertices(1, j), _vertices(2, j)),
@@ -1610,7 +1905,7 @@ void TriangleMesh::computeVertexNormals()
 
     for (imp_uint idx = 0; idx < n_faces; idx++)
     {
-        i = _faces(0, idx); j = _faces(1, idx); k = _faces(2, idx);
+		_topology.getFace(idx, i, j, k);
 
 		_vertex_normals.col(i) += _face_normals.col(idx);
 		_vertex_normals.col(j) += _face_normals.col(idx);
@@ -1644,8 +1939,7 @@ void TriangleMesh::computeTangentVectors()
 
     for (idx = 0; idx < n_faces; idx++)
     {
-        i = _faces(0, idx); j = _faces(1, idx); k = _faces(2, idx);
-        l = _faces(3, idx); m = _faces(4, idx); n = _faces(5, idx);
+		_topology.getFace(idx, i, j, k, l, m, n);
 
 		face_edge_1.setComponents(_vertices(0, j) - _vertices(0, i),
 								  _vertices(1, j) - _vertices(1, i),
@@ -1725,7 +2019,10 @@ bool TriangleMesh::evaluateRayAABBIntersection(const Ray& ray) const
 
 imp_float TriangleMesh::evaluateRayFaceIntersectionNonOptimized(const Ray& ray, imp_uint face_idx, imp_float& alpha, imp_float& beta, imp_float& gamma) const
 {
-    imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+	imp_uint i, j, k;
+	
+	_topology.getFace(face_idx, i, j, k);
+
     Vector AB(_vertices(0, j) - _vertices(0, i), _vertices(1, j) - _vertices(1, i), _vertices(2, j) - _vertices(2, i));
     Vector AC(_vertices(0, k) - _vertices(0, i), _vertices(1, k) - _vertices(1, i), _vertices(2, k) - _vertices(2, i));
 
@@ -1754,8 +2051,10 @@ imp_float TriangleMesh::evaluateRayFaceIntersectionNonOptimized(const Ray& ray, 
 imp_float TriangleMesh::evaluateRayFaceIntersection(const Ray& ray, MeshIntersectionData& intersection_data) const
 {
     // intersection_data.face_id must be set to the index of the face to test
+	
+	imp_uint i, j, k;
 
-    imp_uint i = _faces(0, intersection_data.face_id), j = _faces(1, intersection_data.face_id), k = _faces(2, intersection_data.face_id);
+	_topology.getFace(intersection_data.face_id, i, j, k);
 
     imp_float Ax = _vertices(0, i), Ay = _vertices(1, i), Az = _vertices(2, i);
     imp_float Bx = _vertices(0, j), By = _vertices(1, j), Bz = _vertices(2, j);
@@ -1896,8 +2195,10 @@ void TriangleMesh::getVertexTangents(imp_uint idx, Vector& tangent, Vector& bita
 void TriangleMesh::getVertexNormalsForFace(imp_uint face_idx, Vector vertex_normals[3]) const
 {
 	assert(_has_vertex_normals);
+	
+	imp_uint i, j, k;
 
-    imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+	_topology.getFace(face_idx, i, j, k);
 
     vertex_normals[0].setComponents(_vertex_normals(0, i), _vertex_normals(1, i), _vertex_normals(2, i));
     vertex_normals[1].setComponents(_vertex_normals(0, j), _vertex_normals(1, j), _vertex_normals(2, j));
@@ -1907,8 +2208,10 @@ void TriangleMesh::getVertexNormalsForFace(imp_uint face_idx, Vector vertex_norm
 void TriangleMesh::getVertexTangentsForFace(imp_uint face_idx, Vector tangents[3], Vector bitangents[3]) const
 {
 	assert(_has_vertex_tangents);
+	
+	imp_uint i, j, k;
 
-    imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+	_topology.getFace(face_idx, i, j, k);
 
 	getVertexTangents(i, tangents[0], bitangents[0]);
 	getVertexTangents(j, tangents[1], bitangents[1]);
@@ -1929,12 +2232,18 @@ void TriangleMesh::getVertexData3(imp_uint idx,
 
 Triangle TriangleMesh::getFace(imp_uint face_idx) const
 {
-    return Triangle(getVertex(_faces(0, face_idx)), getVertex(_faces(1, face_idx)), getVertex(_faces(2, face_idx)));
+	imp_uint i, j, k;
+
+	_topology.getFace(face_idx, i, j, k);
+
+    return Triangle(getVertex(i), getVertex(j), getVertex(k));
 }
 
 void TriangleMesh::getFaceVertices(imp_uint face_idx, Point vertices[3]) const
 {
-    imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+	imp_uint i, j, k;
+
+	_topology.getFace(face_idx, i, j, k);
 
     vertices[0].moveTo(_vertices(0, i), _vertices(1, i), _vertices(2, i));
     vertices[1].moveTo(_vertices(0, j), _vertices(1, j), _vertices(2, j));
@@ -1950,9 +2259,11 @@ Vector TriangleMesh::getFaceNormal(imp_uint face_idx) const
 Vector TriangleMesh::getInterpolatedVertexNormal(imp_uint face_idx, imp_float alpha, imp_float beta, imp_float gamma) const
 {
     assert(_has_vertex_normals);
-
-    imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
 	
+	imp_uint i, j, k;
+	
+	_topology.getFace(face_idx, i, j, k);
+
 	return Vector(alpha*_vertex_normals(0, i) + beta*_vertex_normals(0, j) + gamma*_vertex_normals(0, k),
 				  alpha*_vertex_normals(1, i) + beta*_vertex_normals(1, j) + gamma*_vertex_normals(1, k),
 				  alpha*_vertex_normals(2, i) + beta*_vertex_normals(2, j) + gamma*_vertex_normals(2, k)).getNormalized();
@@ -1962,7 +2273,9 @@ Vector TriangleMesh::getInterpolatedVertexNormal(const MeshIntersectionData& int
 {
     assert(_has_vertex_normals);
 
-    imp_uint i = _faces(0, intersection_data.face_id), j = _faces(1, intersection_data.face_id), k = _faces(2, intersection_data.face_id);
+	imp_uint i, j, k;
+
+	_topology.getFace(intersection_data.face_id, i, j, k);
 	
 	return Vector(intersection_data.alpha*_vertex_normals(0, i) + intersection_data.beta*_vertex_normals(0, j) + intersection_data.gamma*_vertex_normals(0, k),
 				  intersection_data.alpha*_vertex_normals(1, i) + intersection_data.beta*_vertex_normals(1, j) + intersection_data.gamma*_vertex_normals(1, k),
@@ -2002,8 +2315,10 @@ void TriangleMesh::getVertexData3ForFace(imp_uint face_idx,
 										 imp_float data_C[3]) const
 {
 	assert(_has_vertex_data_3);
+	
+	imp_uint i, j, k;
 
-    imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+	_topology.getFace(face_idx, i, j, k);
 
     data_A[0] = _vertex_data_3(0, i);
     data_A[1] = _vertex_data_3(1, i);
@@ -2022,7 +2337,9 @@ void TriangleMesh::getTextureCoordinates(imp_uint face_idx, Point2 texture_coord
 {
     assert(_has_texture_coordinates);
 
-    imp_uint l = _faces(3, face_idx), m = _faces(4, face_idx), n = _faces(5, face_idx);
+	imp_uint l, m, n;
+
+	_topology.getTextureCoordinateIndices(face_idx, l, m, n);
 
 	texture_coordinates[0] = _texture_coordinates[l];
 	texture_coordinates[1] = _texture_coordinates[m];
@@ -2032,18 +2349,22 @@ void TriangleMesh::getTextureCoordinates(imp_uint face_idx, Point2 texture_coord
 Geometry2D::Point TriangleMesh::getInterpolatedTextureCoordinates(imp_uint face_idx, imp_float alpha, imp_float beta, imp_float gamma) const
 {
     assert(_has_texture_coordinates);
-
-    imp_uint l = _faces(3, face_idx), m = _faces(4, face_idx), n = _faces(5, face_idx);
 	
+	imp_uint l, m, n;
+
+	_topology.getTextureCoordinateIndices(face_idx, l, m, n);
+
 	return Point2(_texture_coordinates[l] + (_texture_coordinates[m] - _texture_coordinates[l])*beta + (_texture_coordinates[n] - _texture_coordinates[l])*gamma);
 }
 
 Geometry2D::Point TriangleMesh::getInterpolatedTextureCoordinates(const MeshIntersectionData& intersection_data) const
 {
     assert(_has_texture_coordinates);
-	
-    imp_uint l = _faces(3, intersection_data.face_id), m = _faces(4, intersection_data.face_id), n = _faces(5, intersection_data.face_id);
-	
+
+	imp_uint l, m, n;
+
+	_topology.getTextureCoordinateIndices(intersection_data.face_id, l, m, n);
+		
 	return Point2(_texture_coordinates[l] + (_texture_coordinates[m] - _texture_coordinates[l])*intersection_data.beta + (_texture_coordinates[n] - _texture_coordinates[l])*intersection_data.gamma);
 }
 
@@ -2065,7 +2386,9 @@ Geometry2D::Triangle TriangleMesh::getProjectedFace(imp_uint face_idx,
 													imp_float inverse_image_width_at_unit_distance_from_camera,
 													imp_float inverse_image_height_at_unit_distance_from_camera) const
 {
-	imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+	imp_uint i, j, k;
+
+	_topology.getFace(face_idx, i, j, k);
 
     imp_float normalization = -1/_vertices(2, i);
     Point2 vertex_A(image_width*(_vertices(0, i)*normalization*inverse_image_width_at_unit_distance_from_camera + 0.5f),
@@ -2098,7 +2421,9 @@ bool TriangleMesh::faceFacesOrigin(imp_uint face_idx) const
 {
 	assert(_has_face_normals);
 
-	imp_uint i = _faces(0, face_idx), j = _faces(1, face_idx), k = _faces(2, face_idx);
+	imp_uint i, j, k;
+
+	_topology.getFace(face_idx, i, j, k);
 
 	return (_vertices(0, i)*_face_normals(0, face_idx) +
 		    _vertices(1, i)*_face_normals(1, face_idx) +
@@ -2164,7 +2489,7 @@ imp_uint TriangleMesh::getNumberOfVertices() const
 
 imp_uint TriangleMesh::getNumberOfFaces() const
 {
-    return static_cast<imp_uint>(_faces.n_cols);
+    return _topology.getNumberOfFaces();
 }
 
 imp_uint TriangleMesh::getNumberOfTextureCoordinates() const
@@ -2188,9 +2513,7 @@ std::string TriangleMesh::get4SpaceVerticesString() const
 
 std::string TriangleMesh::getFacesString() const
 {
-    std::ostringstream string_stream;
-    string_stream << _faces;
-    return string_stream.str();
+    return _topology.getFacesString();
 }
 
 bool TriangleMesh::isHomogenized() const
@@ -2237,6 +2560,7 @@ void TriangleMesh::saveAs(const std::string& filename) const
     imp_uint n_vertices = getNumberOfVertices();
     imp_uint n_faces = getNumberOfFaces();
     imp_uint idx;
+    imp_uint i, j, k;
 
     for (idx = 0; idx < n_vertices; idx++)
     {
@@ -2263,9 +2587,11 @@ void TriangleMesh::saveAs(const std::string& filename) const
 
         for (idx = 0; idx < n_faces; idx++)
         {
-            outfile << "f " << _faces(0, idx)+1 << "//" << _faces(0, idx)+1 << " " <<
-                               _faces(1, idx)+1 << "//" << _faces(1, idx)+1 << " " <<
-                               _faces(2, idx)+1 << "//" << _faces(2, idx)+1 << std::endl;
+			_topology.getFace(idx, i, j, k);
+
+            outfile << "f " << i+1 << "//" << i+1 << " " <<
+                               j+1 << "//" << j+1 << " " <<
+                               k+1 << "//" << k+1 << std::endl;
         }
     }
     else
@@ -2273,9 +2599,11 @@ void TriangleMesh::saveAs(const std::string& filename) const
 
         for (idx = 0; idx < n_faces; idx++)
         {
-            outfile << "f " << _faces(0, idx)+1 << " " << 
-                               _faces(1, idx)+1 << " " <<
-                               _faces(2, idx)+1 << std::endl;
+			_topology.getFace(idx, i, j, k);
+
+            outfile << "f " << i+1 << " " << 
+                               j+1 << " " <<
+                               k+1 << std::endl;
         }
     }
 
