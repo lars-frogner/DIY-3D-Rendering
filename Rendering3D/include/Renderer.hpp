@@ -53,6 +53,31 @@ private:
     typedef Geometry3D::ProjectiveTransformation ProjectiveTransformation;
 
 protected:
+
+	class ImageRectangle {
+
+	public:
+		imp_int start[2];
+		imp_int end[2];
+		imp_int extent[2];
+		bool has_smallest_extent[2];
+		imp_uint n_samples_accumulated;
+
+		ImageRectangle(imp_int new_x_start, imp_int new_x_end,
+					   imp_int new_y_start, imp_int new_y_end);
+
+		ImageRectangle(const ImageRectangle& other);
+
+		ImageRectangle(const ImageRectangle& other,
+					   imp_uint new_start_dimension, imp_int new_start);
+
+		ImageRectangle& ImageRectangle::operator=(const ImageRectangle& other);
+		
+		void setDimensionOfLargestExtent(imp_uint& dimension, imp_uint& other_dimension) const;
+
+		void setEnd(imp_uint dimension, imp_int new_end);
+	};
+
     const imp_float _ray_origin_offset = static_cast<imp_float>(1e-4);
 	const imp_uint _max_scattering_count = 20;
 	
@@ -165,7 +190,7 @@ public:
 	bool draw_edges = false;
 
 	Color bg_color = Color::black();
-    float edge_brightness = 0;
+    imp_float edge_brightness = 0.6f;
 
 	imp_uint picked_x;
 	imp_uint picked_y;
@@ -189,6 +214,7 @@ public:
     void rayTrace();
     void rasterize();
     void pathTrace(imp_uint n_samples);
+	void pathTraceAdaptive(imp_float tolerance);
 
 	void saveImage(const std::string& filename);
 

@@ -184,6 +184,10 @@ void Animator::updateFrame()
 	{
 		_renderer->pathTrace(_n_path_tracing_samples);
 	}
+	else if (_rendering_mode == 4)
+	{
+		_renderer->pathTraceAdaptive(0.02f);
+	}
 	else
 	{
 		std::cerr << "Warning: rendering disabled" << std::endl;

@@ -10,9 +10,9 @@
 namespace Impact {
 namespace Rendering3D {
 
-Image::Image(imp_uint n_cols, imp_uint n_rows)
-    : _n_cols(n_cols), _n_rows(n_rows), _n_elements(n_rows*n_cols), _size(3*n_rows*n_cols),
-      _pixel_buffer(new imp_float[3*n_rows*n_cols]),
+Image::Image(imp_uint width, imp_uint height)
+    : _width(width), _height(height), _n_elements(width*height), _size(3*width*height),
+      _pixel_buffer(new imp_float[3*width*height]),
 	  _depth_buffer(nullptr),
 	  _output_buffer(nullptr) {}
 
@@ -75,7 +75,7 @@ void Image::drawLine(imp_float x0, imp_float y0, imp_float x1, imp_float y1, imp
 
     for (imp_int i = 0; i <= longest; i++)
     {
-        idx = y*_n_cols + x;
+        idx = y*_width + x;
 
 		if (idx >= _n_elements)
 			return;
@@ -121,11 +121,11 @@ void Image::drawTriangle(const Point& p0,
     imp_int y_min = std::min(y0_i, std::min(y1_i, y2_i));
     imp_int y_max = std::max(y0_i, std::max(y1_i, y2_i));
 
-	if (x_min < 0 || x_max >= static_cast<imp_int>(_n_cols) || y_min < 0 || y_max >= static_cast<imp_int>(_n_rows))
+	if (x_min < 0 || x_max >= static_cast<imp_int>(_width) || y_min < 0 || y_max >= static_cast<imp_int>(_height))
 		return;
 
-    //assert(x_min >= 0 && x_max < _n_cols);
-    //assert(y_min >= 0 && y_max < _n_rows);
+    //assert(x_min >= 0 && x_max < _width);
+    //assert(y_min >= 0 && y_max < _height);
 
     imp_int dx1 = x1_i - x0_i, dy1 = y1_i - y0_i;
     imp_int dx2 = x2_i - x0_i, dy2 = y2_i - y0_i;
@@ -151,7 +151,7 @@ void Image::drawTriangle(const Point& p0,
 
             if (alpha > _eps_barycentric && beta > _eps_barycentric && gamma > _eps_barycentric)
             {
-                idx = y*_n_cols + x;
+                idx = y*_width + x;
                 z = alpha*p0.z + beta*p1.z + gamma*p2.z;
 
                 if (z > _depth_buffer[idx])
@@ -170,35 +170,53 @@ void Image::drawTriangle(const Point& p0,
 
 Radiance Image::getRadiance(imp_uint x, imp_uint y) const
 {
-    imp_uint idx = 3*(y*_n_cols + x);
+    imp_uint idx = 3*(y*_width + x);
     return Radiance(_pixel_buffer[idx], _pixel_buffer[idx + 1], _pixel_buffer[idx + 2]);
 }
 
 void Image::setRadiance(imp_uint x, imp_uint y, const Radiance& radiance)
 {
-    imp_uint idx = 3*(y*_n_cols + x);
+    imp_uint idx = 3*(y*_width + x);
 
     _pixel_buffer[idx]     = radiance.r;
     _pixel_buffer[idx + 1] = radiance.g;
     _pixel_buffer[idx + 2] = radiance.b;
 }
 
+void Image::accumulateRadiance(imp_uint x, imp_uint y, const Radiance& radiance)
+{
+    imp_uint idx = 3*(y*_width + x);
+
+    _pixel_buffer[idx]     += radiance.r;
+    _pixel_buffer[idx + 1] += radiance.g;
+    _pixel_buffer[idx + 2] += radiance.b;
+}
+
+void Image::normalizeAccumulatedRadiance(imp_uint x, imp_uint y, imp_float normalization)
+{
+    imp_uint idx = 3*(y*_width + x);
+	
+    _pixel_buffer[idx]     *= normalization;
+    _pixel_buffer[idx + 1] *= normalization;
+    _pixel_buffer[idx + 2] *= normalization;
+}
+
 imp_float Image::getDepth(imp_uint x, imp_uint y) const
 {
 	assert(_depth_buffer);
-    return _depth_buffer[y*_n_cols + x];
+    return _depth_buffer[y*_width + x];
 }
 
 void Image::setDepth(imp_uint x, imp_uint y, imp_float depth)
 {
 	assert(_depth_buffer);
-    _depth_buffer[y*_n_cols + x] = depth;
+    _depth_buffer[y*_width + x] = depth;
 }
 
 void Image::initializeDepthBuffer(imp_float initial_value)
 {
 	if (!_depth_buffer)
-		_depth_buffer = new imp_float[_n_cols*_n_rows];
+		_depth_buffer = new imp_float[_width*_height];
 
 	int idx;
 
@@ -261,6 +279,15 @@ void Image::gammaEncodeApprox(imp_float normalization)
     }
 }
 
+Color Image::getApproxGammaEncodedColor(imp_uint x, imp_uint y, imp_float normalization) const
+{
+    imp_uint idx = 3*(y*_width + x);
+
+	return Color(sqrt(std::min(1.0f, std::max(0.0f, _pixel_buffer[idx    ]*normalization))),
+				 sqrt(std::min(1.0f, std::max(0.0f, _pixel_buffer[idx + 1]*normalization))),
+				 sqrt(std::min(1.0f, std::max(0.0f, _pixel_buffer[idx + 2]*normalization))));
+}
+
 void Image::stretch()
 {
     auto min_max_elements = std::minmax_element(_pixel_buffer, _pixel_buffer + _size);
@@ -268,9 +295,16 @@ void Image::stretch()
     imp_float max_val = *(min_max_elements.second);
     imp_float range = max_val - min_val;
 
-    assert(range != 0);
+	int idx;
 
-    for (imp_uint idx = 0; idx < _size; idx++)
+    assert(range != 0);
+	
+    #pragma omp parallel for default(shared) \
+                             private(idx) \
+                             shared(min_val, range) \
+                             schedule(static) \
+                             if (use_omp)
+    for (idx = 0; idx < static_cast<int>(_size); idx++)
     {
         _pixel_buffer[idx] = (_pixel_buffer[idx] - min_val)/range;
     }
@@ -278,17 +312,17 @@ void Image::stretch()
 
 imp_uint Image::getWidth() const
 {
-    return _n_cols;
+    return _width;
 }
 
 imp_uint Image::getHeight() const
 {
-    return _n_rows;
+    return _height;
 }
 
 imp_float Image::getAspectRatio() const
 {
-    return static_cast<imp_float>(_n_cols)/static_cast<imp_float>(_n_rows);
+    return static_cast<imp_float>(_width)/static_cast<imp_float>(_height);
 }
 
 const imp_float* Image::getRawPixelArray() const
@@ -327,54 +361,9 @@ void Image::renderDepthMap(bool renormalize)
     }
 }
 
-void Image::writeToOutputBuffer()
-{
-	if (!_output_buffer)
-		_output_buffer = new output_buffer[_size];
-
-	int i, j;
-	int offset_in, offset_out;
-	int idx_in, idx_out;
-	int n_cols = static_cast<int>(_n_cols);
-	int n_rows = static_cast<int>(_n_rows);
-
-    #pragma omp parallel for default(shared) \
-                             private(i, j, offset_in, offset_out, idx_in, idx_out) \
-							 shared(n_rows, n_cols) \
-                             schedule(static) \
-                             if (use_omp)
-	for (i = 0; i < n_rows; i++)
-	{
-		offset_in = n_cols*i;
-		offset_out = n_cols*(n_rows-1 - i);
-
-		for (j = 0; j < n_cols; j++)
-		{
-			idx_in = 3*(j + offset_in);
-			idx_out = 3*(j + offset_out);
-
-			_output_buffer[idx_out]     = static_cast<output_buffer>(255*_pixel_buffer[idx_in]    );
-			_output_buffer[idx_out + 1] = static_cast<output_buffer>(255*_pixel_buffer[idx_in + 1]);
-			_output_buffer[idx_out + 2] = static_cast<output_buffer>(255*_pixel_buffer[idx_in + 2]);
-		}
-	}
-}
-
 void Image::saveAsPPM(const std::string& filename)
 {
-	FILE* image_file;
-
-	writeToOutputBuffer();
-
-	fopen_s(&image_file, filename.c_str(), "wb");
-
-	assert(image_file);
-
-	fprintf(image_file, "P6\n");
-	fprintf(image_file, "%d %d\n", _n_cols, _n_rows);
-	fprintf(image_file, "255\n");
-	fwrite(_output_buffer, sizeof(output_buffer), _size, image_file);
-	fclose(image_file);
+	_output_buffer = image_util::writePPM(filename, _pixel_buffer, _width, _height, 3, 0, _output_buffer, true);
 }
 
 } // Rendering3D

@@ -23,17 +23,18 @@ void Model::setColorTexture(const Texture* color_texture)
 	_has_texture = true;
 }
 
-void Model::setBumpMap(const Texture* bump_map)
+void Model::setNormalMap(const Texture* normal_map)
 {
 	assert(_mesh->hasVertexTangents());
-	_bump_map = bump_map;
+	_normal_map = normal_map;
 	_has_texture = true;
 }
 
-void Model::setDisplacementMap(const Texture* displacement_map)
+void Model::setDisplacementMap(const Texture* displacement_map, imp_float displacement_scale)
 {
 	assert(_mesh->hasTextureCoordinates());
 	_displacement_map = displacement_map;
+	_displacement_scale = displacement_scale;
 	_has_texture = true;
 }
 
@@ -77,9 +78,9 @@ bool Model::hasColorTexture() const
 	return _color_texture;
 }
 
-bool Model::hasBumpMap() const
+bool Model::hasNormalMap() const
 {
-	return _bump_map;
+	return _normal_map;
 }
 
 bool Model::hasDisplacementMap() const
@@ -92,14 +93,19 @@ const Texture* Model::getColorTexture() const
 	return _color_texture;
 }
 
-const Texture* Model::getBumpMap() const
+const Texture* Model::getNormalMap() const
 {
-	return _bump_map;
+	return _normal_map;
 }
 
 const Texture* Model::getDisplacementMap() const
 {
 	return _displacement_map;
+}
+
+imp_float Model::getDisplacementScale() const
+{
+	return _displacement_scale;
 }
 
 /*RenderableTriangleMesh RenderableTriangleMesh::file(const std::string& filename)

@@ -18,7 +18,7 @@ void ParticleWorld::resetForces()
 	
 	#pragma omp parallel for default(shared) \
 							 private(idx) \
-							 shared(n_particles, duration) \
+							 shared(n_particles) \
 							 schedule(static) \
 							 if (use_omp)
 	for (idx = 0; idx < n_particles; idx++)

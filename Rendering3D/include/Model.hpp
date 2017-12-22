@@ -27,8 +27,9 @@ protected:
     const Material* _material;
 	AffineTransformation _transformation;
 	const Texture* _color_texture = nullptr;
-	const Texture* _bump_map = nullptr;
+	const Texture* _normal_map = nullptr;
 	const Texture* _displacement_map = nullptr;
+	imp_float _displacement_scale;
 
 	bool _has_texture = false;
     
@@ -59,8 +60,8 @@ public:
 		  const Material* new_material);
 
 	void setColorTexture(const Texture* texture);
-	void setBumpMap(const Texture* bump_map);
-	void setDisplacementMap(const Texture* displacement_map);
+	void setNormalMap(const Texture* normal_map);
+	void setDisplacementMap(const Texture* displacement_map, imp_float displacement_scale);
 
 	void applyTransformation(const AffineTransformation& transformation);
 
@@ -75,12 +76,13 @@ public:
 
 	bool hasTexture() const;
 	bool hasColorTexture() const;
-	bool hasBumpMap() const;
+	bool hasNormalMap() const;
 	bool hasDisplacementMap() const;
 	
 	const Texture* getColorTexture() const;
-	const Texture* getBumpMap() const;
+	const Texture* getNormalMap() const;
 	const Texture* getDisplacementMap() const;
+	imp_float getDisplacementScale() const;
 };
 
 } // Rendering3D

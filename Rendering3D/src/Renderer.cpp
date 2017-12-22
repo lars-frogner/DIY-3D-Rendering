@@ -1,7 +1,10 @@
 #include "Renderer.hpp"
+#include "UniformSubpixelSampler.hpp"
+#include "StratifiedSubpixelSampler.hpp"
 #include "math_util.hpp"
 #include <cassert>
 #include <list>
+#include <forward_list>
 #include <omp.h>
 
 namespace Impact {
@@ -497,10 +500,10 @@ void Renderer::rasterize()
 				continue;
 
 			Triangle2& projected_triangle = mesh.getProjectedFace(face_idx,
-																	_image_width,
-																	_image_height,
-																	_inverse_image_width_at_unit_distance_from_camera,
-																	_inverse_image_height_at_unit_distance_from_camera);
+																  _image_width,
+																  _image_height,
+																  _inverse_image_width_at_unit_distance_from_camera,
+																  _inverse_image_height_at_unit_distance_from_camera);
 
 			const AxisAlignedRectangle& aabb = projected_triangle.getAABR(_image_lower_corner, _image_upper_corner);
 
@@ -518,7 +521,7 @@ void Renderer::rasterize()
 			{
 				mesh.getTextureCoordinates(face_idx, texture_coordinates);
 
-				if (model->hasBumpMap())
+				if (model->hasNormalMap())
 				{
 					mesh.getVertexTangentsForFace(face_idx, tangents, bitangents);
 				}
@@ -544,7 +547,7 @@ void Renderer::rasterize()
 				texture_coordinates[1] *= inverse_depths[1];
 				texture_coordinates[2] *= inverse_depths[2];
 				
-				if (model->hasBumpMap())
+				if (model->hasNormalMap())
 				{
 					tangents[0] *= inverse_depths[0];
 					tangents[1] *= inverse_depths[1];
@@ -583,12 +586,17 @@ void Renderer::rasterize()
 								surface_element.computeTextureColor();
 							}
 
-							if (surface_element.evaluateBumpMapping())
+							/*if (model->hasDisplacementMap())
+							{
+								surface_element.computeDisplacementMappedPosition();
+							}*/
+
+							if (surface_element.evaluateNormalMapping())
 							{
 								surface_element.shading.tangent = ((tangents[0]*alpha + tangents[1]*beta + tangents[2]*gamma)/interpolated_inverse_depth).getNormalized();
 								surface_element.shading.bitangent = ((bitangents[0]*alpha + bitangents[1]*beta + bitangents[2]*gamma)/interpolated_inverse_depth).getNormalized();
 
-								surface_element.computeBumpMappedNormal();
+								surface_element.computeNormalMappedNormal();
 							}
 						}
 
@@ -601,7 +609,7 @@ void Renderer::rasterize()
 							if (model->uses_direct_lighting)
 							{
 								const Radiance& radiance = getDirectlyScatteredRadianceFromLights(surface_element,
-																									displacement_to_camera/depth);
+																								  displacement_to_camera/depth);
 
 								#pragma omp critical
 								if (depth < _image->getDepth(x, y))
@@ -698,6 +706,419 @@ void Renderer::pathTrace(imp_uint n_samples)
 	_mesh_copies.clear();
 }
 
+Renderer::ImageRectangle::ImageRectangle(imp_int new_x_start, imp_int new_x_end,
+										 imp_int new_y_start, imp_int new_y_end)
+	: start{new_x_start, new_y_start},
+	  end{new_x_end, new_y_end},
+	  extent{new_x_end - new_x_start, new_y_end - new_y_start},
+	  has_smallest_extent{false, false},
+	  n_samples_accumulated(0) {}
+
+Renderer::ImageRectangle::ImageRectangle(const ImageRectangle& other)
+	: start{other.start[0], other.start[1]},
+	  end{other.end[0], other.end[1]},
+	  extent{other.extent[0], other.extent[1]},
+	  has_smallest_extent{other.has_smallest_extent[0], other.has_smallest_extent[1]},
+	  n_samples_accumulated(other.n_samples_accumulated) {}
+
+Renderer::ImageRectangle& Renderer::ImageRectangle::operator=(const ImageRectangle& other)
+{
+	start[0] = other.start[0];
+	start[1] = other.start[1];
+	end[0] = other.end[0];
+	end[1] = other.end[1];
+	extent[0] = other.extent[0];
+	extent[1] = other.extent[1];
+	has_smallest_extent[0] = other.has_smallest_extent[0];
+	has_smallest_extent[1] = other.has_smallest_extent[1];
+	n_samples_accumulated = other.n_samples_accumulated;
+	return *this;
+}
+
+Renderer::ImageRectangle::ImageRectangle(const ImageRectangle& other,
+										 imp_uint new_start_dimension, imp_int new_start)
+	: start{other.start[0], other.start[1]},
+	  end{other.end[0], other.end[1]},
+	  has_smallest_extent{false, false},
+	  n_samples_accumulated(other.n_samples_accumulated)
+{
+	start[new_start_dimension] = new_start;
+
+	extent[0] = end[0] - start[0];
+	extent[1] = end[1] - start[1];
+}
+
+void Renderer::ImageRectangle::setDimensionOfLargestExtent(imp_uint& dimension, imp_uint& other_dimension) const
+{
+	if (extent[1] > extent[0])
+	{
+		dimension = 1;
+		other_dimension = 0;
+	}
+	else
+	{
+		dimension = 0;
+		other_dimension = 1;
+	}
+}
+
+void Renderer::ImageRectangle::setEnd(imp_uint dimension, imp_int new_end)
+{
+	end[dimension] = new_end;
+	extent[dimension] = new_end - start[dimension];
+}
+
+void Renderer::pathTraceAdaptive(imp_float tolerance)
+{
+	if (!_lights_in_camera_system)
+	{
+		transformLightsToCameraSystem();
+		_lights_in_camera_system = true;
+	}
+
+	createTransformedMeshCopies(_transformation_to_camera_system);
+
+    buildMeshBVH();
+
+	printPickInfo();
+
+	_image->setBackgroundColor(bg_color);
+
+
+
+	const imp_uint n_samples_between_checks = 20;
+	assert(n_samples_between_checks % 2 == 0);
+
+	const imp_float termination_threshold = tolerance;
+	const imp_float splitting_threshold = 256.0f*termination_threshold;
+
+	const imp_int smallest_block_extent = 4;
+
+	// Create secondary image for accumulating half of the samples
+	// used in the primary image
+	Image* secondary_image = new Image(_image->getWidth(), _image->getHeight());
+	secondary_image->setBackgroundColor(bg_color);
+
+	// Create array for holding pixel errors accumulated along the
+	// horizontal or vertical direction of a block.
+	imp_float* accumulated_pixel_errors = new imp_float[(_image->getWidth() > _image->getHeight())? _image->getWidth() : _image->getHeight()];
+	imp_float accumulated_total_pixel_error, total_pixel_error;
+	imp_float block_error;
+	imp_uint n_invalid_pixels;
+	imp_float sample_norm_primary, sample_norm_secondary;
+
+	// Create linked list for storing blocks
+	std::list<ImageRectangle> blocks, new_blocks;
+	std::list<ImageRectangle>::iterator block;
+
+	// Start with one block covering the entire image
+	blocks.emplace_back(0, _image->getWidth(), 0, _image->getHeight());
+
+	imp_uint split_dimension, other_dimension;
+	
+	//private(i, j, n, idx, eye_ray_origin, ray_medium, pixel_error) 
+	//shared(n_samples_between_checks, termination_threshold, splitting_threshold, smallest_block_extent, secondary_image, accumulated_pixel_errors, accumulated_total_pixel_error, total_pixel_error, block_error, n_invalid_pixels, sample_norm_primary, sample_norm_secondary, blocks, new_blocks, block, split_dimension, other_dimension) \
+
+	//#pragma omp parallel default(shared) \
+	//if (use_omp)s
+	//{
+		
+    imp_int i, j, n, idx[2];
+	Medium ray_medium;
+	imp_float pixel_error;
+	//bool splitted;
+	
+	UniformSubpixelSampler sampler;
+	//StratifiedSubpixelSampler sampler;
+
+	while (!blocks.empty()) // Keep sampling as long as there are active blocks
+	{
+		//#pragma omp barrier
+		//#pragma omp master
+		//block = blocks.begin();
+		//#pragma omp barrier
+
+		// Iterate through the list of blocks
+		for (block = blocks.begin(); block != blocks.end();)
+		{
+			//if (block->valid == true)
+			//{
+				
+			//#pragma omp barrier
+			//#pragma omp master
+			//std::cout << "sampling" << std::endl;
+			
+			//#pragma omp barrier
+
+			/*if (block->start[0] < 0)
+			{
+				std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " << block->start[0] << std::endl;
+				throw;
+			}
+			if (block->start[1] < 0)
+			{
+				std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " << block->start[1] << std::endl;
+				throw;
+			}
+			if (block->end[0] > _image->getWidth())
+			{
+				std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " << block->end[0] << std::endl;
+				throw;
+			}
+			if (block->end[1] > _image->getHeight())
+			{
+				std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " << block->end[1] << std::endl;
+				throw;
+			}
+			if (block->end[0] <= block->start[0])
+			{
+				std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " << block->start[0] << " " << block->end[0] << std::endl;
+				throw;
+			}
+			if (block->end[1] <= block->start[1])
+			{
+				std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " << block->start[1] << " " << block->end[1] << std::endl;
+				throw;
+			}
+			if (block->extent[0] != block->end[0] - block->start[0])
+			{
+				std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " << block->extent[0] << std::endl;
+				throw;
+			}
+			if (block->extent[1] != block->end[1] - block->start[1])
+			{
+				std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " << block->extent[1] << std::endl;
+				throw;
+			}*/
+
+			sampler.initializeSampling(n_samples_between_checks);
+			
+			//#pragma omp barrier
+			// Accumulate samples for each pixel of the block
+			#pragma omp parallel for default(shared) private(i, j, n, sampler, ray_medium) schedule(dynamic)
+			for (j = block->start[1]; j < block->end[1]; j++) {
+				for (i = block->start[0]; i < block->end[0]; i++)
+				{
+					sampler.setPixel(i, j);
+
+					for (n = 0; n < n_samples_between_checks; n += 2)
+					{
+						_image->accumulateRadiance(i, j, pathTrace(getEyeRay(sampler.samplePixelPoint()), ray_medium, 0));
+
+						const Radiance& pixel_radiance = pathTrace(getEyeRay(sampler.samplePixelPoint()), ray_medium, 0);
+
+						_image->accumulateRadiance(i, j, pixel_radiance);
+
+						// Add half the samples to a separate image (needed for evaluating image variance)
+						secondary_image->accumulateRadiance(i, j, pixel_radiance);
+					}
+				}
+			}
+			
+			//#pragma omp barrier
+			//#pragma omp master
+			//{
+			// Update current number of samples accumulated for the block
+			block->n_samples_accumulated += n_samples_between_checks;
+
+			// Compute normalization factors for both images (primary and the one with only half the samples)
+			sample_norm_primary = 1.0f/block->n_samples_accumulated;
+			sample_norm_secondary = 2*sample_norm_primary;
+
+			// Find largest dimension of the block (for splitting)
+			block->setDimensionOfLargestExtent(split_dimension, other_dimension);
+			
+			// Also keep track of the number of pixels that are excluded from variance estimation
+			n_invalid_pixels = 0;
+
+			total_pixel_error = 0.0f;
+
+			//std::cout << "estimating variance" << std::endl;
+			//}
+			//#pragma omp barrier
+
+			//#pragma omp for schedule(static)
+			#pragma omp parallel for default(shared) private(i, j, n, idx, pixel_error) reduction(+:total_pixel_error) schedule(static)
+			for (n = block->start[split_dimension]; n < block->end[split_dimension]; n++)
+			{
+				idx[split_dimension] = n;
+
+				pixel_error = 0.0f;
+
+				for (idx[other_dimension] = block->start[other_dimension]; idx[other_dimension] < block->end[other_dimension]; idx[other_dimension]++)
+				{
+					i = idx[0];
+					j = idx[1];
+
+					if (_image->getRadiance(i, j).nonZero())
+					{
+						const Color& difference = _image->getApproxGammaEncodedColor(i, j, sample_norm_primary) -
+												  secondary_image->getApproxGammaEncodedColor(i, j, sample_norm_secondary);
+
+						pixel_error += (difference*difference).getTotal();
+					}
+					else
+					{
+						#pragma omp atomic
+						n_invalid_pixels++;
+					}
+				}
+
+				// Accumulate total pixel error
+				total_pixel_error += pixel_error;
+
+				// Store pixel errors accumulated over non-split dimension
+				accumulated_pixel_errors[n] = pixel_error;
+			}
+
+			//#pragma omp barrier
+			//#pragma omp master
+			//{
+			block_error = sqrt(total_pixel_error/(block->extent[0]*block->extent[1] - n_invalid_pixels));
+			std::cout << "block_error = " << block_error << std::endl;
+			//}
+			
+			//#pragma omp barrier
+			if (block_error < splitting_threshold) // Is the error small for the current block?
+			{
+				if (block_error < termination_threshold) // Is the error small enough to stop sampling in this block?
+				{
+					// Normalize samples
+					
+					//#pragma omp barrier
+					//#pragma omp master
+					std::cout << "block of size (" << block->extent[0] << ", " << block->extent[1] << ") terminated with n_samples = " << block->n_samples_accumulated << std::endl;
+					//#pragma omp barrier
+						
+					//#pragma omp barrier
+					//#pragma omp for schedule(static)
+					#pragma omp parallel for default(shared) private(i, j) schedule(static)
+					for (j = block->start[1]; j < block->end[1]; j++) {
+						for (i = block->start[0]; i < block->end[0]; i++)
+						{
+							_image->normalizeAccumulatedRadiance(i, j, sample_norm_primary);
+
+							secondary_image->setRadiance(i, j, Radiance::grey(static_cast<imp_float>(block->n_samples_accumulated)));
+						}
+					}
+					//#pragma omp barrier
+
+					// Remove the block from the list
+					//#pragma omp barrier 
+					//#pragma omp master
+					//{
+					//std::cout << "erasing block" << std::endl;
+					block = blocks.erase(block);
+					//block->valid = false;
+					//std::cout << "block erased" << std::endl;
+					//}
+					//#pragma omp barrier
+						
+					// The block iterator has now been advanced, so skip to the
+					// beginning of the next iteration of the block loop
+					continue;
+				}
+				else if (!block->has_smallest_extent[split_dimension]) // Otherwise, split the block in two along the largest dimension
+				{
+					//#pragma omp barrier
+					//#pragma omp master
+					//{
+					/*std::cout << "splitting block" << std::endl;
+
+					n = (block->start[split_dimension] + block->end[split_dimension])/2;
+						
+					if (n - block->start[split_dimension] >= smallest_block_extent &&
+						block->end[split_dimension] - n >= smallest_block_extent)
+					{
+						// Split the block in two at this position
+						ImageRectangle new_block(*block, split_dimension, n);
+						new_blocks.push_back(new_block);
+						block->setEnd(split_dimension, n);
+								
+						std::cout << "block splitted in " << ((split_dimension)? "y" : "x") << " at (" << block->start[split_dimension] << ", " << n << ", " << new_blocks.back().end[split_dimension] << ")" << std::endl;
+					}*/
+
+					const imp_float& half_of_total_pixel_error = total_pixel_error*0.5f;
+
+					//splitted = false;
+
+					accumulated_total_pixel_error = 0.0f;
+
+					// Add up accumulated errors along the split dimension of the block
+					for (n = block->start[split_dimension]; n < block->end[split_dimension]; n++)
+					{
+						accumulated_total_pixel_error += accumulated_pixel_errors[n];
+
+						// Stop when we reach the point where the total error is equal on both sides
+						if (accumulated_total_pixel_error > half_of_total_pixel_error)
+						{
+							if (n - block->start[split_dimension] >= smallest_block_extent &&
+								block->end[split_dimension] - n >= smallest_block_extent)
+							{
+								// Split the block in two at this position
+								new_blocks.emplace_back(*block, split_dimension, n);
+								block->setEnd(split_dimension, n);
+								
+								std::cout << "block splitted in " << ((split_dimension)? "y" : "x") << " at (" << block->start[split_dimension] << ", " << n << ", " << new_blocks.back().end[split_dimension] << ")" << std::endl;
+							}
+							else
+							{
+								block->has_smallest_extent[split_dimension] = true;
+							}
+							//splitted = true;
+							break;
+						}
+					}
+
+					/*if (!splitted)
+					{
+						std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! " << "not splitted" << std::endl;
+						throw;
+					}*/
+
+					//}
+					//#pragma omp barrier
+				}
+			}
+			//}
+
+			//#pragma omp barrier 
+			//#pragma omp master
+			block++;
+			//#pragma omp barrier
+		}
+
+		//#pragma omp barrier 
+		//#pragma omp master
+		//{
+		//std::cout << "appending new blocks" << std::endl;
+		if (!new_blocks.empty())
+		{
+			//for (std::vector<ImageRectangle>::const_iterator iter = new_blocks.begin(); iter != new_blocks.end(); iter++)
+			//	blocks.push_back(*iter);
+
+			//new_blocks.clear();
+			blocks.splice(blocks.end(), new_blocks);
+		}
+		std::cout << "n_blocks = " << blocks.size() << std::endl;
+		//}
+		//#pragma omp barrier
+	}
+	//}
+	
+	delete accumulated_pixel_errors;
+
+	secondary_image->stretch();
+	image_util::writePPM("data/saved_snapshots/sample_counts.ppm", secondary_image->getRawPixelArray(), secondary_image->getWidth(), secondary_image->getHeight(), 3, Texture::ValueRange::COLOR_TEXTURE);
+
+	delete secondary_image;
+	
+	if (gamma_encode)
+		_image->gammaEncodeApprox(1.0f);
+
+	_mesh_copies.clear();
+}
+
 Radiance Renderer::pathTrace(const Ray& ray, Medium& ray_medium, imp_uint scattering_count) const
 {
 	Radiance radiance = Radiance::black();
@@ -775,11 +1196,16 @@ bool Renderer::findIntersectedSurface(const Ray& ray, imp_float& distance, Surfa
 				surface_element.computeTextureColor();
 			}
 
-			if (surface_element.evaluateBumpMapping())
+			/*if (model->hasDisplacementMap())
+			{
+				surface_element.computeDisplacementMappedPosition();
+			}*/
+
+			if (surface_element.evaluateNormalMapping())
 			{
 				mesh.getInterpolatedVertexTangents(intersection_data, surface_element.shading.tangent, surface_element.shading.bitangent);
 
-				surface_element.computeBumpMappedNormal();
+				surface_element.computeNormalMappedNormal();
 			}
 		}
 		

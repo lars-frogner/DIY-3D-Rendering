@@ -1,5 +1,6 @@
 #pragma once
 #include "precision.hpp"
+#include "image_util.hpp"
 #include "Point3.hpp"
 #include "Color.hpp"
 #include <vector>
@@ -11,24 +12,21 @@ class Image {
 
 private:
 	typedef Geometry3D::Point Point;
-	typedef unsigned char output_buffer;
 
-    imp_uint _n_cols, _n_rows, _n_elements, _size;
+    imp_uint _width, _height, _n_elements, _size;
     imp_float* _pixel_buffer;
     imp_float* _depth_buffer;
-	output_buffer* _output_buffer;
+	image_util::imp_ppm_data* _output_buffer;
 
     const imp_float _eps_barycentric = -1.e-7f;
 	imp_float _depth_map_norm = 1;
 	imp_float _depth_map_min_val = -1;
 
-	void writeToOutputBuffer();
-
 public:
 
 	bool use_omp = false;
     
-    Image(imp_uint n_cols, imp_uint n_rows);
+    Image(imp_uint width, imp_uint height);
 	~Image();
 
     Image(const Image& other) = delete;
@@ -42,6 +40,9 @@ public:
     Radiance getRadiance(imp_uint x, imp_uint y) const;
     void setRadiance(imp_uint x, imp_uint y, const Radiance& radiance);
     
+	void accumulateRadiance(imp_uint x, imp_uint y, const Radiance& radiance);
+	void normalizeAccumulatedRadiance(imp_uint x, imp_uint y, imp_float normalization);
+    
     imp_float getDepth(imp_uint x, imp_uint y) const;
     void setDepth(imp_uint x, imp_uint y, imp_float depth);
     
@@ -52,6 +53,8 @@ public:
     void gammaEncode(imp_float normalization);
 	void gammaEncodeApprox(imp_float normalization);
     void stretch();
+
+	Color getApproxGammaEncodedColor(imp_uint x, imp_uint y, imp_float normalization) const;
 
     void drawLine(imp_float x0, imp_float y0, imp_float x1, imp_float y1, imp_float luminance);
     void drawTriangle(const Point& p0,

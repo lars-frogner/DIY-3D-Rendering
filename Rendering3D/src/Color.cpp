@@ -228,6 +228,11 @@ Color& Color::normalize()
     return *this;
 }
 
+imp_float Color::getComponent(imp_uint component) const
+{
+	return (component == 0)? r : ((component == 1)? g : b);
+}
+
 imp_float Color::getMin() const
 {
     return std::min(r, std::min(g, b));
@@ -238,9 +243,49 @@ imp_float Color::getMax() const
     return std::max(r, std::max(g, b));
 }
 
+imp_float Color::getMax(imp_uint& max_component) const
+{
+    if (r > g)
+	{
+		if (r > b)
+		{
+			max_component = 0;
+			return r;
+		}
+		else
+		{
+			max_component = 2;
+			return b;
+		}
+	}
+	else
+	{
+		if (g > b)
+		{
+			max_component = 1;
+			return g;
+		}
+		else
+		{
+			max_component = 2;
+			return b;
+		}
+	}
+}
+
 imp_float Color::getMean() const
 {
     return (r + g + b)/3;
+}
+
+imp_float Color::getTotal() const
+{
+    return r + g + b;
+}
+
+Color Color::getAbsolute() const
+{
+    return Color(abs(r), abs(g), abs(b));
 }
 
 bool Color::nonZero() const

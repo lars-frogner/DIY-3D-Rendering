@@ -112,15 +112,15 @@ public:
 	void clearParticleForces();
 	void clearParticleContacts();
 	
-	OmnidirectionalLight* getPointLight(imp_uint idx);
-	DirectionalLight* getDirectionalLight(imp_uint idx);
-	AreaLight* getAreaLight(imp_uint idx);
-	TriangleMesh* getMesh(imp_uint idx);
-	Model* getModel(imp_uint idx);
-	Material* getMaterial(imp_uint idx);
-	Texture* getTexture(imp_uint idx);
+	OmnidirectionalLight* getPointLight(imp_int idx);
+	DirectionalLight* getDirectionalLight(imp_int idx);
+	AreaLight* getAreaLight(imp_int idx);
+	TriangleMesh* getMesh(imp_int idx);
+	Model* getModel(imp_int idx);
+	Material* getMaterial(imp_int idx);
+	Texture* getTexture(imp_int idx);
 	
-	Particle* getParticle(imp_uint idx);
+	Particle* getParticle(imp_int idx);
 
 	imp_uint getNumberOfParticles() const;
 	imp_uint getNumberOfForceGenerators() const;
@@ -147,9 +147,8 @@ public:
 				  imp_float height,
 				  const Material* material);
 	void addBox(const Box& box, const Material* material);
-	void addSphere(const Sphere& sphere, const Material* material, imp_uint quality = 0,
-				   const AffineTransformation& transformation = AffineTransformation::identity(),
-				   const Texture* texture = nullptr, imp_uint texture_type = 0);
+	void addSphere(const Sphere& sphere, const Material* material, imp_uint quality = 0, imp_uint texture_mapping_mode = 0,
+				   const AffineTransformation& transformation = AffineTransformation::identity());
 	void addTwoSidedSphere(const Sphere& sphere, const Material* material, imp_uint quality = 0);
 	void addWindow(const RectangularAreaLight& window);
 

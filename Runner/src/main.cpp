@@ -19,11 +19,9 @@
 #include "Matrix3.hpp"
 #include "Matrix4.hpp"
 #include "AffineTransformation.hpp"
-#include "AffineTransformation.hpp"
 #include "LinearTransformation.hpp"
-#include "LinearTransformation.hpp"
-#include "AffineTransformation.hpp"
-#include "AffineTransformation.hpp"
+#include "TextureSynthesizer.hpp"
+#include "StratifiedSubpixelSampler.hpp"
 
 using namespace Impact;
 using namespace Geometry3D;
@@ -465,7 +463,7 @@ void setupCornellBox()
 	OmnidirectionalLight* light = new OmnidirectionalLight(Point(0, 3, 0),
 														   Power::grey(100.0f));
 	
-	//WORLD->addLight(light);
+	WORLD->addLight(light);
 
 	Material* white_material = new BlinnPhongMaterial(Color::white(), Color::black(), 0);
 	Material* red_material = new BlinnPhongMaterial(Color::crimson(), Color::black(), 0);
@@ -483,11 +481,13 @@ void setupCornellBox()
 	WORLD->addMaterial(glossy_material);
 	WORLD->addMaterial(white_glossy_material);
 
-	Texture* earth_map_texture = new Texture("data/1_earth_8k.ppm");
-	Texture* bump_map_texture = new Texture("data/bump_map_test.ppm");
-	
+	Texture* earth_map_texture = new Texture("data/1_earth_8k.ppm", Texture::ValueRange::COLOR_TEXTURE);
+	Texture* earth_displacement_texture = new Texture("data/GDEM-10km-BW.ppm", Texture::ValueRange::DISPLACEMENT_MAP);
+	Texture* earth_normal_texture = TextureSynthesizer::normalMapFromDisplacementMap(earth_displacement_texture, 0.003f, true, true);
+	delete earth_displacement_texture;
+
 	WORLD->addTexture(earth_map_texture);
-	WORLD->addTexture(bump_map_texture);
+	WORLD->addTexture(earth_normal_texture);
 	
 	WORLD->addSheet(Point(0, 0, 0), Vector(0, 1, 0), Vector(width, 0, 0), depth, white_material);
 	WORLD->addSheet(Point(0, height, 0), Vector(0, -1, 0), Vector(width, 0, 0), depth, white_material);
@@ -528,45 +528,105 @@ void setupCornellBox()
 	
 	imp_float sphere_2_radius = 0.7f;
 	const Point& sphere_2_position = box_1_position + Vector::unitY()*(box_1_height/2 + sphere_2_radius);
-	WORLD->addSphere(Sphere(sphere_2_position, sphere_2_radius), mirror_material, 2);
+	WORLD->addSphere(Sphere(sphere_2_position, sphere_2_radius), mirror_material, 2, 2);
 	
 	imp_float sphere_3_radius = 0.8f;
 	const Point& sphere_3_position = box_3_position + Vector::unitY()*(box_3_height/2 + sphere_3_radius) + Vector(-0.4f, 0, 0.8f);
-	WORLD->addSphere(Sphere(sphere_3_position, sphere_3_radius), white_glossy_material, 2,
-					 LinearTransformation::rotationFromZToX(IMP_PI/2)(LinearTransformation::rotationFromYToZ(-IMP_PI/2)),
-					 earth_map_texture, 0);
+	WORLD->addSphere(Sphere(sphere_3_position, sphere_3_radius), white_glossy_material, 2, 2,
+					 LinearTransformation::rotationFromZToX(IMP_PI));
+	WORLD->getModel(-1)->setColorTexture(earth_map_texture);
+	WORLD->getModel(-1)->setNormalMap(earth_normal_texture);
 }
 
 void setupTextureTest()
 {
-	imp_float width = 7.0f;
-	imp_float height = 5.0f;
-	imp_float depth = 7.0f;
+	imp_float width = 12.0f;
+	imp_float height = 8.0f;
+	imp_float depth = 12.0f;
 
-	OmnidirectionalLight* light_1 = new OmnidirectionalLight(Point(5, 5, 5),
+	OmnidirectionalLight* light_1 = new OmnidirectionalLight(Point(7, 7, 5),
 														   Power::grey(400.0f));
 
-	OmnidirectionalLight* light_2 = new OmnidirectionalLight(Point(-5, 5, 5),
+	OmnidirectionalLight* light_2 = new OmnidirectionalLight(Point(-3, 7, 5),
 														   Power::grey(400.0f));
 
 	WORLD->addLight(light_1);
 	WORLD->addLight(light_2);
 	
 	Material* white_material = new BlinnPhongMaterial(Color::white(), Color::black(), 0);
+	Material* red_material = new BlinnPhongMaterial(Color::crimson(), Color::black(), 0);
+
 	WORLD->addMaterial(white_material);
+	WORLD->addMaterial(red_material);
 
-	Texture* earth_map_texture = new Texture("data/1_earth_8k.ppm");
-	Texture* bump_map_texture = new Texture("data/bump_map_test.ppm");
-
+	/*Texture* earth_map_texture = new Texture("data/1_earth_8k.ppm", Texture::ValueRange::COLOR_TEXTURE);
+	Texture* normal_map_texture = new Texture("data/normal_map_test.ppm", Texture::ValueRange::NORMAL_MAP);
+	Texture* earth_displacement_texture = new Texture("data/GDEM-10km-BW.ppm", Texture::ValueRange::DISPLACEMENT_MAP);
+	Texture* earth_normal_texture = TextureSynthesizer::normalMapFromDisplacementMap(earth_displacement_texture, 0.003f, true, true);
+	delete earth_displacement_texture;
+	
 	WORLD->addTexture(earth_map_texture);
-	WORLD->addTexture(bump_map_texture);
+	WORLD->addTexture(normal_map_texture);
+	WORLD->addTexture(earth_normal_texture);*/
 	
 	//WORLD->addSheet(Point(0, 0, 0), Vector(0, 1, 0), Vector(width, 0, 0), depth, white_material);
-	WORLD->addGround(width, depth, white_material);
+	//WORLD->addRoom(width, height, depth, red_material);
+	//WORLD->addGround(width, depth, white_material);
 	//WORLD->getModel(0)->setColorTexture(earth_map_texture);
 	//WORLD->getModel(0)->setBumpMap(bump_map_texture);
+	
+	Box box(Point(-0.5f, -0.5f, -0.5f), Vector::unitX(), Vector::unitY(), Vector::unitZ());
 
-	WORLD->addSphere(Sphere(Point(0, 1.0f, 0), 1.0f), white_material, 3, LinearTransformation::rotationFromYToZ(-IMP_PI/2), bump_map_texture, 1);
+	TriangleMesh* original_mesh = new TriangleMesh(TriangleMesh::manifoldBox(box));
+	TriangleMesh* subdivided_mesh = new TriangleMesh(TriangleMesh::manifoldBox(box));
+	TriangleMesh* subdivided_mesh_2 = new TriangleMesh(TriangleMesh::manifoldBox(box));
+	TriangleMesh* subdivided_mesh_3 = new TriangleMesh(TriangleMesh::manifoldBox(box));
+
+	WORLD->addMesh(original_mesh);
+	WORLD->addMesh(subdivided_mesh);
+	WORLD->addMesh(subdivided_mesh_2);
+	WORLD->addMesh(subdivided_mesh_3);
+
+	Point box_1_position(-0.8f, 1.0f, 0);
+	Point box_2_position(0.8f, 1.0f, 0);
+	Point box_3_position(2.4f, 1.0f, 0);
+	Point box_4_position(4.0f, 1.0f, 0);
+
+	WORLD->addModel(new Model(original_mesh,
+							  white_material,
+							  AffineTransformation::translationTo(box_1_position)(
+							  LinearTransformation::rotationFromZToX(0.0f)(
+							  LinearTransformation::scaling(1, 1, 1)))));
+
+	WORLD->addModel(new Model(subdivided_mesh,
+							  white_material,
+							  AffineTransformation::translationTo(box_2_position)(
+							  LinearTransformation::rotationFromZToX(0.0f)(
+							  LinearTransformation::scaling(1, 1, 1)))));
+
+	WORLD->addModel(new Model(subdivided_mesh_2,
+							  white_material,
+							  AffineTransformation::translationTo(box_3_position)(
+							  LinearTransformation::rotationFromZToX(0.0f)(
+							  LinearTransformation::scaling(1, 1, 1)))));
+
+	WORLD->addModel(new Model(subdivided_mesh_3,
+							  white_material,
+							  AffineTransformation::translationTo(box_4_position)(
+							  LinearTransformation::rotationFromZToX(0.0f)(
+							  LinearTransformation::scaling(1, 1, 1)))));
+	
+	subdivided_mesh->performLoopSubdivisions(1);
+	subdivided_mesh_2->performLoopSubdivisions(2);
+	subdivided_mesh_3->performLoopSubdivisions(3);
+
+	/*WORLD->addSphere(Sphere(Point(1, 1.0f, 0), 0.9f), white_material, 3, 2, LinearTransformation::rotationFromZToX(IMP_PI));
+	WORLD->getModel(-1)->setColorTexture(earth_map_texture);
+	WORLD->getModel(-1)->setNormalMap(earth_normal_texture);
+
+	WORLD->addSphere(Sphere(Point(-1, 1.0f, 0), 0.9f), white_material, 3, 2, LinearTransformation::rotationFromZToX(IMP_PI));
+	WORLD->getModel(-1)->setColorTexture(earth_map_texture);*/
+	//WORLD->getModel(-1)->setNormalMap(earth_normal_texture);
 
 	/*Model* teapot_model = new Model(teapot_mesh, white_material, LinearTransformation::scaling(0.01f, 0.01f, 0.01f));
 	teapot_model->setTexture(texture);
@@ -576,7 +636,7 @@ void setupTextureTest()
 int main(int argc, char *argv[])
 {
 	imp_float aspect = 7.0f/5.0f;
-	imp_float width = 1400;
+	imp_float width = 600;
 	WORLD = new World(width, static_cast<imp_uint>(width/aspect));
 
 	WORLD->setCameraPointing(Point(0, 3, 11), Vector(0, -0.05f, -1));
@@ -587,8 +647,8 @@ int main(int argc, char *argv[])
 	//setupParticlesContactTest();
 	//setupParticlesGravityContactTest();
 	//setupPathTracingTest();
-	setupCornellBox();
-	//setupTextureTest();
+	//setupCornellBox();
+	setupTextureTest();
 
 	startMainLoop(argc, argv);
 }

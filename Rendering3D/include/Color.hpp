@@ -55,9 +55,13 @@ public:
 
 	Color& normalize();
     
+	imp_float getComponent(imp_uint component) const;
     imp_float getMin() const;
     imp_float getMax() const;
+    imp_float getMax(imp_uint& max_component) const;
 	imp_float getMean() const;
+	imp_float getTotal() const;
+	Color getAbsolute() const;
 
 	bool nonZero() const;
     

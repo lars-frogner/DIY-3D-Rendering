@@ -239,52 +239,60 @@ void World::clearParticleContacts()
 	_contact_generators.clear();
 }
 
-OmnidirectionalLight* World::getPointLight(imp_uint idx)
+OmnidirectionalLight* World::getPointLight(imp_int idx)
 {
-	assert(idx < static_cast<imp_uint>(_point_lights.size()));
-	return _point_lights[idx];
+	imp_int size = static_cast<imp_int>(_point_lights.size());
+	assert(idx < size && idx >= -size);
+	return _point_lights[(idx >= 0)? idx : size + idx];
 }
 
-DirectionalLight* World::getDirectionalLight(imp_uint idx)
+DirectionalLight* World::getDirectionalLight(imp_int idx)
 {
-	assert(idx < static_cast<imp_uint>(_directional_lights.size()));
-	return _directional_lights[idx];
+	imp_int size = static_cast<imp_int>(_directional_lights.size());
+	assert(idx < size && idx >= -size);
+	return _directional_lights[(idx >= 0)? idx : size + idx];
 }
 
-AreaLight* World::getAreaLight(imp_uint idx)
+AreaLight* World::getAreaLight(imp_int idx)
 {
-	assert(idx < static_cast<imp_uint>(_area_lights.size()));
-	return _area_lights[idx];
+	imp_int size = static_cast<imp_int>(_area_lights.size());
+	assert(idx < size && idx >= -size);
+	return _area_lights[(idx >= 0)? idx : size + idx];
 }
 
-Geometry3D::TriangleMesh* World::getMesh(imp_uint idx)
+Geometry3D::TriangleMesh* World::getMesh(imp_int idx)
 {
-	assert(idx < static_cast<imp_uint>(_meshes.size()));
-	return _meshes[idx];
+	imp_int size = static_cast<imp_int>(_meshes.size());
+	assert(idx < size && idx >= -size);
+	return _meshes[(idx >= 0)? idx : size + idx];
 }
 
-Model* World::getModel(imp_uint idx)
+Model* World::getModel(imp_int idx)
 {
-	assert(idx < static_cast<imp_uint>(_models.size()));
-	return _models[idx];
+	imp_int size = static_cast<imp_int>(_models.size());
+	assert(idx < size && idx >= -size);
+	return _models[(idx >= 0)? idx : size + idx];
 }
 
-Material* World::getMaterial(imp_uint idx)
+Material* World::getMaterial(imp_int idx)
 {
-	assert(idx < static_cast<imp_uint>(_materials.size()));
-	return _materials[idx];
+	imp_int size = static_cast<imp_int>(_materials.size());
+	assert(idx < size && idx >= -size);
+	return _materials[(idx >= 0)? idx : size + idx];
 }
 
-Texture* World::getTexture(imp_uint idx)
+Texture* World::getTexture(imp_int idx)
 {
-	assert(idx < static_cast<imp_uint>(_textures.size()));
-	return _textures[idx];
+	imp_int size = static_cast<imp_int>(_textures.size());
+	assert(idx < size && idx >= -size);
+	return _textures[(idx >= 0)? idx : size + idx];
 }
 
-Physics3D::Particle* World::getParticle(imp_uint idx)
+Physics3D::Particle* World::getParticle(imp_int idx)
 {
-	assert(idx < static_cast<imp_uint>(_particles.size()));
-	return _particles[idx];
+	imp_int size = static_cast<imp_int>(_particles.size());
+	assert(idx < size && idx >= -size);
+	return _particles[(idx >= 0)? idx : size + idx];
 }
 
 imp_uint World::getNumberOfParticles() const
@@ -529,27 +537,17 @@ void World::addBox(const Box& box, const Material* material)
 void World::addSphere(const Sphere& sphere,
 					  const Material* material,
 					  imp_uint quality /* = 0 */,
-					  const AffineTransformation& transformation /* = identity */,
-					  const Texture* texture /* = nullptr */,
-					  imp_uint texture_type /* = 0 */)
+					  imp_uint texture_mapping_mode /* = 0 */,
+					  const AffineTransformation& transformation /* = identity */)
 {
-	assert(quality < IMP_N_SPHERE_MESHES);
+	assert(quality < IMP_N_SPHERE_RESOLUTIONS);
+	assert(texture_mapping_mode < IMP_N_SPHERE_TEXTURE_MODES);
 
-	Model* model = new Model(Geometry3D::IMP_SPHERE_MESHES + quality,
+	Model* model = new Model(&(Geometry3D::IMP_SPHERE_MESHES[texture_mapping_mode][quality]),
 						     material,
 						     AffineTransformation::translationTo(sphere.center)(
 						     LinearTransformation::scaling(sphere.radius)(
 							 transformation)));
-
-	if (texture)
-	{
-		if (texture_type == 0)
-			model->setColorTexture(texture);
-		else if (texture_type == 1)
-			model->setBumpMap(texture);
-		else if (texture_type == 2)
-			model->setDisplacementMap(texture);
-	}
 
 	addModel(model);
 }
@@ -558,9 +556,9 @@ void World::addTwoSidedSphere(const Sphere& sphere,
 							  const Material* material,
 							  imp_uint quality /* = 0 */)
 {
-	assert(quality < IMP_N_SPHERE_MESHES);
+	assert(quality < IMP_N_SPHERE_RESOLUTIONS);
 
-	Model* model = new Model(Geometry3D::IMP_TWOSIDED_SPHERE_MESHES + quality,
+	Model* model = new Model(&(Geometry3D::IMP_TWOSIDED_SPHERE_MESHES[quality]),
 						     material,
 						     AffineTransformation::translationTo(sphere.center)(
 						     LinearTransformation::scaling(sphere.radius)));
@@ -595,9 +593,9 @@ void World::addParticle(const Point& position,
 						const Material* material,
 						imp_uint quality /* = 0 */)
 {
-	assert(quality < IMP_N_SPHERE_MESHES);
+	assert(quality < IMP_N_SPHERE_RESOLUTIONS);
 
-	ParticleModel* model = new ParticleModel(Geometry3D::IMP_SPHERE_MESHES + quality,
+	ParticleModel* model = new ParticleModel(&(Geometry3D::IMP_SPHERE_MESHES[0][quality]),
 											 material,
 											 new Particle(position,
 										 				  velocity,
