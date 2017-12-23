@@ -5,7 +5,7 @@ A rendering and physics engine written in C++.
 - 2D and 3D geometry library, including a triangle mesh class for representing arbitrary model shapes.
 - Point lights, directional lights and area lights.
 - Materials with a Phong BSDF, with support for mirror reflection and transparency.
-- Textures and normal mapping.
+- Textures, normal mapping and displacement mapping.
 - Multiple rendering methods for direct lighting: Gouraud shading, ray tracing and rasterization.
 - Global illumination and geometrical optics through path tracing.
 - Real-time animation with interactive camera control, simulation control and video recording.
