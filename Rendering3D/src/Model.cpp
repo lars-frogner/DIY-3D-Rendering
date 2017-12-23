@@ -38,6 +38,19 @@ void Model::setDisplacementMap(const Texture* displacement_map, imp_float displa
 	_has_texture = true;
 }
 
+void Model::applyDisplacementMap(TriangleMesh& mesh) const
+{
+	assert(_displacement_map);
+
+	for (imp_uint idx = 0; idx < mesh.getNumberOfVertices(); idx++)
+	{
+		mesh.displaceVertexInNormalDirection(idx, _displacement_scale*_displacement_map->getDisplacementValue(mesh.getVertexTextureCoordinate(idx)));
+	}
+
+	mesh.computeFaceNormals(true);
+	mesh.computeVertexNormals(true);
+}
+
 void Model::applyTransformation(const AffineTransformation& transformation)
 {
 	_transformation = transformation(_transformation);
@@ -45,12 +58,26 @@ void Model::applyTransformation(const AffineTransformation& transformation)
 
 Geometry3D::TriangleMesh Model::getTransformedMesh() const
 {
-	return TriangleMesh(*_mesh).applyTransformation(_transformation);
+	TriangleMesh& mesh = TriangleMesh(*_mesh);
+
+	if (_displacement_map)
+		applyDisplacementMap(mesh);
+
+	mesh.applyTransformation(_transformation);
+
+	return mesh;
 }
 
 Geometry3D::TriangleMesh Model::getTransformedMesh(const AffineTransformation& additional_transformation) const
 {
-	return TriangleMesh(*_mesh).applyTransformation(additional_transformation(_transformation));
+	TriangleMesh& mesh = TriangleMesh(*_mesh);
+
+	if (_displacement_map)
+		applyDisplacementMap(mesh);
+
+	mesh.applyTransformation(additional_transformation(_transformation));
+
+	return mesh;
 }
 
 const Geometry3D::TriangleMesh* Model::getMesh() const

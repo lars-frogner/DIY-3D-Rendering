@@ -32,6 +32,8 @@ protected:
 	imp_float _displacement_scale;
 
 	bool _has_texture = false;
+
+	void applyDisplacementMap(TriangleMesh& mesh) const;
     
     //static std::vector<BlinnPhongMaterial> SceneObject::_getMtlFileData(const std::string& filename);
 

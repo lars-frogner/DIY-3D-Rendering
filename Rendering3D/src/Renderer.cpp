@@ -351,7 +351,7 @@ void Renderer::renderDirect()
 		}
 			
 		if (draw_edges)
-			drawEdges(mesh, edge_brightness);
+			drawEdgesInImageSpace(mesh, edge_brightness);
 	}
 
 	_mesh_copies.clear();
@@ -404,6 +404,17 @@ void Renderer::rayTrace()
 
 	if (gamma_encode)
 		_image->gammaEncodeApprox(1.0f);
+
+	if (draw_edges)
+	{
+		for (imp_uint obj_idx = 0; obj_idx < static_cast<imp_uint>(_models->size()); obj_idx++)
+		{
+			Model* model = _models->operator[](obj_idx);
+			const TriangleMesh& mesh = _mesh_copies[obj_idx];
+			
+			drawEdgesInCameraSpace(mesh, edge_brightness);
+		}
+	}
 
 	_mesh_copies.clear();
 }
@@ -639,6 +650,17 @@ void Renderer::rasterize()
 	if (render_depth_map)
 		_image->renderDepthMap(renormalize_depth_map);
 
+	if (draw_edges)
+	{
+		for (obj_idx = 0; obj_idx < n_models; obj_idx++)
+		{
+			Model* model = _models->operator[](obj_idx);
+			const TriangleMesh& mesh = _mesh_copies[obj_idx];
+			
+			drawEdgesInCameraSpace(mesh, edge_brightness);
+		}
+	}
+
 	_mesh_copies.clear();
 }
 
@@ -702,6 +724,17 @@ void Renderer::pathTrace(imp_uint n_samples)
 
 	if (gamma_encode)
 		_image->gammaEncodeApprox(1.0f);
+
+	if (draw_edges)
+	{
+		for (imp_uint obj_idx = 0; obj_idx < static_cast<imp_uint>(_models->size()); obj_idx++)
+		{
+			Model* model = _models->operator[](obj_idx);
+			const TriangleMesh& mesh = _mesh_copies[obj_idx];
+			
+			drawEdgesInCameraSpace(mesh, edge_brightness);
+		}
+	}
 
 	_mesh_copies.clear();
 }
@@ -783,8 +816,6 @@ void Renderer::pathTraceAdaptive(imp_float tolerance)
 	printPickInfo();
 
 	_image->setBackgroundColor(bg_color);
-
-
 
 	const imp_uint n_samples_between_checks = 20;
 	assert(n_samples_between_checks % 2 == 0);
@@ -1419,12 +1450,21 @@ bool Renderer::sourceIsVisible(const Point& surface_point,
 							   const Vector& direction_to_source,
 						 	   imp_float distance_to_source) const
 {   
-	imp_uint n_models = static_cast<imp_uint>(_models->size());
 	Geometry3D::MeshIntersectionData intersection_data;
 
     Ray shadow_ray(surface_point, direction_to_source, distance_to_source);
 
 	return _mesh_BVH.evaluateRayIntersection(_mesh_copies, shadow_ray.nudge(_ray_origin_offset), intersection_data) >= distance_to_source || !(_models->operator[](intersection_data.mesh_id)->casts_shadows);
+}
+
+bool Renderer::clearLineOfSightTo(const Point& point) const
+{   
+	Geometry3D::MeshIntersectionData intersection_data;
+
+	const Vector& direction = point - Point::origin();
+	const imp_float max_distance = direction.getLength();
+
+	return _mesh_BVH.evaluateRayIntersection(_mesh_copies, Ray(Point::origin(), direction/max_distance, max_distance), intersection_data) >= max_distance;
 }
 
 /*
@@ -1610,7 +1650,7 @@ void Renderer::drawFaces(const TriangleMesh& mesh, Color color) const
     }
 }
 
-void Renderer::drawEdges(const TriangleMesh& mesh, float luminance) const
+void Renderer::drawEdgesInImageSpace(const TriangleMesh& mesh, imp_float luminance) const
 {
     assert(mesh.isHomogenized());
 
@@ -1622,13 +1662,74 @@ void Renderer::drawEdges(const TriangleMesh& mesh, float luminance) const
 		mesh.getFaceVertices(face_idx, face_vertices);
 
         _image->drawLine(face_vertices[0].x, face_vertices[0].y,
-                        face_vertices[1].x, face_vertices[1].y, luminance);
+                         face_vertices[1].x, face_vertices[1].y, luminance);
 
         _image->drawLine(face_vertices[1].x, face_vertices[1].y,
-                        face_vertices[2].x, face_vertices[2].y, luminance);
+                         face_vertices[2].x, face_vertices[2].y, luminance);
         
         _image->drawLine(face_vertices[2].x, face_vertices[2].y,
-                        face_vertices[0].x, face_vertices[0].y, luminance);
+                         face_vertices[0].x, face_vertices[0].y, luminance);
+    }
+}
+
+void Renderer::drawEdgesInCameraSpace(const TriangleMesh& mesh, imp_float luminance) const
+{
+    imp_uint n_faces = mesh.getNumberOfFaces();
+	Point face_vertices[3];
+	bool vertex_1_visible, vertex_2_visible, vertex_3_visible;
+
+    for (imp_uint face_idx = 0; face_idx < n_faces; face_idx++)
+    {
+		mesh.getFaceVertices(face_idx, face_vertices);
+
+		const Vector& bump = mesh.getFaceNormal(face_idx)*2*_ray_origin_offset;
+
+		vertex_1_visible = clearLineOfSightTo(face_vertices[0] + bump);
+		vertex_2_visible = clearLineOfSightTo(face_vertices[1] + bump);
+		vertex_3_visible = clearLineOfSightTo(face_vertices[2] + bump);
+
+		if (vertex_1_visible + vertex_2_visible + vertex_3_visible <= 1)
+			continue;
+
+		const Triangle2& face = mesh.getProjectedFace(face_idx,
+													  _image_width,
+													  _image_height,
+													  _inverse_image_width_at_unit_distance_from_camera,
+													  _inverse_image_height_at_unit_distance_from_camera);
+
+		const Point2 vertex_1 = face.getPointA();
+		const Point2 vertex_2 = face.getPointB();
+		const Point2 vertex_3 = face.getPointC();
+
+		vertex_1_visible = vertex_1_visible &&
+						   vertex_1.x >= 0 && vertex_1.x < _image_width &&
+						   vertex_1.y >= 0 && vertex_1.y < _image_height;
+
+		vertex_2_visible = vertex_2_visible &&
+						   vertex_2.x >= 0 && vertex_2.x < _image_width &&
+						   vertex_2.y >= 0 && vertex_2.y < _image_height;
+
+		vertex_3_visible = vertex_3_visible &&
+						   vertex_3.x >= 0 && vertex_3.x < _image_width &&
+						   vertex_3.y >= 0 && vertex_3.y < _image_height;
+
+		if (vertex_1_visible && vertex_2_visible)
+		{
+			_image->drawLine(vertex_1.x, vertex_1.y,
+							 vertex_2.x, vertex_2.y, luminance);
+		}
+		
+		if (vertex_2_visible && vertex_3_visible)
+		{
+			_image->drawLine(vertex_2.x, vertex_2.y,
+							 vertex_3.x, vertex_3.y, luminance);
+		}
+        
+		if (vertex_3_visible && vertex_1_visible)
+		{
+			_image->drawLine(vertex_3.x, vertex_3.y,
+							 vertex_1.x, vertex_1.y, luminance);
+		}
     }
 }
 

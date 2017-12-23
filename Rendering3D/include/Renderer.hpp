@@ -158,6 +158,8 @@ protected:
 						 const Vector& direction_to_source,
 					     imp_float distance_to_source) const;
 
+	bool clearLineOfSightTo(const Point& point) const;
+
 	/*bool clearLineOfSightBetween(const SurfaceElement& surface_element,
 								 const Point& end_point) const;
 
@@ -175,7 +177,8 @@ protected:
 	void drawFaces(const TriangleMesh& mesh) const;
 	void drawFaces(const TriangleMesh& mesh, Color color) const;
 
-	void drawEdges(const TriangleMesh& mesh, float luminance) const;
+	void drawEdgesInImageSpace(const TriangleMesh& mesh, imp_float luminance) const;
+	void drawEdgesInCameraSpace(const TriangleMesh& mesh, imp_float luminance) const;
 	
 	void printPickInfo();
 

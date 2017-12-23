@@ -48,7 +48,6 @@ public:
 
 	void computeTextureColor();
 	void computeNormalMappedNormal();
-	void computeDisplacementMappedPosition();
 
 	bool evaluateNormalMapping();
 };

@@ -186,7 +186,7 @@ void Animator::updateFrame()
 	}
 	else if (_rendering_mode == 4)
 	{
-		_renderer->pathTraceAdaptive(0.02f);
+		_renderer->pathTraceAdaptive(_adaptive_path_tracing_tolerance);
 	}
 	else
 	{

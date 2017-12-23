@@ -44,7 +44,7 @@ private:
 
 	const imp_float _minimum_simulation_timestep = 1e-6f;
 
-	int _rendering_mode = 0;
+	int _rendering_mode = 2;
 	bool _physics_active = false;
 	bool _camera_active = false;
 	bool _simulate_realtime = true;
@@ -66,6 +66,7 @@ private:
 	imp_float _camera_rotation_speed = 0.001f;
 
 	imp_uint _n_path_tracing_samples = 1;
+	imp_float _adaptive_path_tracing_tolerance = 0.012f;
 
 	std::map<unsigned char, bool> _keys_pressed;
 	bool _camera_moved = false;

@@ -17,11 +17,6 @@ void SurfaceElement::computeNormalMappedNormal()
 		shading.normal = normal/length;
 }
 
-void SurfaceElement::computeDisplacementMappedPosition()
-{
-	shading.position += shading.normal*(model->getDisplacementScale())*(model->getDisplacementMap()->getDisplacementValue(shading.texture_coordinate));
-}
-
 bool SurfaceElement::evaluateNormalMapping()
 {
 	if (model->hasNormalMap())
