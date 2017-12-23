@@ -5,6 +5,7 @@
 #include <string>
 #include <map>
 #include <utility>
+#include <list>
 
 namespace Impact {
 namespace Geometry3D {
@@ -51,6 +52,8 @@ public:
 	void getTextureCoordinateIndices(imp_uint face_idx,
 									 imp_uint& l, imp_uint& m, imp_uint& n) const;
 
+	imp_uint getTextureCoordinateIndexForVertexIndex(imp_uint face_idx, imp_uint vertex_idx) const;
+
 	void setNextFace(imp_uint i, imp_uint j, imp_uint k);
 
 	void setNextFace(imp_uint i, imp_uint j, imp_uint k,
@@ -77,11 +80,19 @@ public:
 
 	void generateAdjacencyData(imp_uint n_vertices);
 
-	void getNeighbourVertices(imp_uint vertex_idx, std::vector<imp_uint>& neighbour_vertices) const;
+	imp_uint findConnectedVertices(imp_uint vertex_idx,
+								   std::list<imp_uint>& neighbour_vertices) const;
 
-	void getOppositeFacesAndVertices(imp_uint face_idx,
-									 imp_uint opposite_faces[3],
-									 imp_uint opposite_vertices[3]) const;
+	void findConnectedFacesAndVertices(imp_uint vertex_idx,
+									   std::list<imp_uint>& neighbour_faces,
+									   std::list<imp_uint>& neighbour_vertices) const;
+
+	void findAdjacentFaces(imp_uint face_idx,
+			 			   imp_uint adjacent_faces[3]) const;
+
+	void findAdjacentFaces(imp_uint face_idx,
+						   imp_uint adjacent_faces[3],
+						   imp_uint opposite_vertices[3]) const;
 
 	void invalidateAdjacencyData();
 

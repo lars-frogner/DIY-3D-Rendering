@@ -47,6 +47,7 @@ protected:
     arma::Mat<imp_float> _vertex_normals;
     arma::Mat<imp_float> _face_normals;
 	std::vector<Point2> _texture_coordinates;
+	std::vector<imp_uint> _vertex_texture_coordinate_indices;
 	arma::Mat<imp_float> _vertex_tangents;
     arma::Mat<imp_float> _vertex_data_3;
 
@@ -60,6 +61,7 @@ protected:
     bool _has_vertex_normals;
     bool _has_face_normals;
 	bool _has_texture_coordinates;
+	bool _has_vertex_texture_coordinate_indices;
 	bool _has_vertex_tangents;
 	bool _has_vertex_data_3;
     bool _has_aabb;
@@ -89,19 +91,32 @@ public:
     TriangleMesh();
     
     static TriangleMesh file(const std::string& filename, string_vec& = string_vec(), string_vec& = string_vec());
+
     static TriangleMesh triangle(const Triangle& triangle_obj);
+
     static TriangleMesh box(const Box& box_obj);
+
     static TriangleMesh manifoldBox(const Box& box_obj);
+
     static TriangleMesh room(const Box& box_obj);
+
     static TriangleMesh sheet(const Point& center,
 							  const Vector& normal,
 							  const Vector& width_vector,
 							  imp_float height);
+
+    static TriangleMesh symmetricSheet(const Point& center,
+									   const Vector& normal,
+									   const Vector& width_vector,
+									   imp_float height);
+
     static TriangleMesh twoSidedSheet(const Point& center,
 									  const Vector& normal,
 									  const Vector& width_vector,
 									  imp_float height);
+
     static TriangleMesh sphere(const Sphere& sphere_obj, imp_uint resolution, imp_uint texture_mapping_mode = 0);
+
     static TriangleMesh twoSidedSphere(const Sphere& sphere_obj, imp_uint resolution);
 
 	void initializeVertexData3();
@@ -119,9 +134,11 @@ public:
     void removeVertex(imp_uint idx);
     void removeFace(imp_uint idx);
 
-	void performLoopSubdivisions(imp_uint n_subdivisions);
+	void performLoopSubdivisions(imp_uint n_subdivisions,
+								 imp_uint boundary_interpolation_mode = 0);
 
-    void splitFaces(imp_uint n_times);
+	void performCatmullClarkSubdivisions(imp_uint n_subdivisions,
+										 imp_uint boundary_interpolation_mode = 0);
 
     void clipNearPlaneAt(imp_float z_near);
     void clipLeftPlane();
@@ -142,9 +159,10 @@ public:
 									  imp_float inverse_image_width_at_unit_distance_from_camera,
 									  imp_float inverse_image_height_at_unit_distance_from_camera);
     
-    void computeFaceNormals();
-    void computeVertexNormals();
-	void computeTangentVectors();
+    void computeFaceNormals(bool force = false);
+    void computeVertexNormals(bool force = false);
+	void computeTangentVectors(bool force = false);
+	void computeVertexTextureCoordinateIndices(bool force = false);
 
     void homogenizeVertices();
 
@@ -157,6 +175,8 @@ public:
     TriangleMesh& applyTransformation(const AffineTransformation& transformation);
     TriangleMesh& applyTransformation(const ProjectiveTransformation& transformation);
     TriangleMesh& applyWindowingTransformation(const AffineTransformation& transformation);
+
+	void displaceVertexInNormalDirection(imp_uint idx, imp_float displacement_distance);
 
     Point getVertex(imp_uint idx) const;
 
@@ -172,6 +192,8 @@ public:
 						imp_float& data_0,
 						imp_float& data_1,
 						imp_float& data_2) const;
+
+	const Point2& getVertexTextureCoordinate(imp_uint idx) const;
 
     Triangle getFace(imp_uint face_idx) const;
 

@@ -4,7 +4,7 @@
 namespace Impact {
 namespace Geometry3D {
 
-#define IMP_N_SPHERE_RESOLUTIONS 5
+#define IMP_N_SPHERE_RESOLUTIONS 6
 #define IMP_N_SPHERE_TEXTURE_MODES 3
 
 extern const TriangleMesh IMP_ROOM_MESH;

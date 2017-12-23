@@ -20,7 +20,7 @@ void MeshTopology::reserveAdditionalFaces(imp_uint n_additional_faces)
 {
 	arma::Mat<imp_uint> additional_faces(_faces.n_rows, n_additional_faces);
 	
-	_face_idx = _faces.n_cols;
+	_face_idx = static_cast<imp_uint>(_faces.n_cols);
 
 	_faces = arma::join_rows(_faces, additional_faces);
 }
@@ -72,6 +72,20 @@ void MeshTopology::getTextureCoordinateIndices(imp_uint face_idx,
 	l = _faces(3, face_idx);
 	m = _faces(4, face_idx);
 	n = _faces(5, face_idx);
+}
+
+imp_uint MeshTopology::getTextureCoordinateIndexForVertexIndex(imp_uint face_idx, imp_uint vertex_idx) const
+{
+	assert(face_idx < _faces.n_cols && _faces.n_rows == 6);
+
+	if (vertex_idx == _faces(0, face_idx))
+		return _faces(3, face_idx);
+	else if (vertex_idx == _faces(1, face_idx))
+		return _faces(4, face_idx);
+	else if (vertex_idx == _faces(2, face_idx))
+		return _faces(5, face_idx);
+	else
+		throw;
 }
 
 void MeshTopology::setNextFace(imp_uint i, imp_uint j, imp_uint k)
@@ -293,11 +307,16 @@ void MeshTopology::generateAdjacencyData(imp_uint n_vertices)
 	_has_adjacency_data = true;
 }
 
-void MeshTopology::getNeighbourVertices(imp_uint vertex_idx, std::vector<imp_uint>& neighbour_vertices) const
+imp_uint MeshTopology::findConnectedVertices(imp_uint vertex_idx,
+											 std::list<imp_uint>& connected_vertices) const
 {
 	assert(_has_adjacency_data);
 
 	// Note that all neighbouring vertices cannot be detected if the mesh is not a manifold mesh
+
+	// The connected vertices are ordered in the clockwise direction around the original vertex
+
+	imp_uint n_connected_faces = 0;
 
 	HalfEdge* original_half_edge = _outgoing_half_edges[vertex_idx];
 	HalfEdge* outgoing_half_edge = original_half_edge;
@@ -306,7 +325,77 @@ void MeshTopology::getNeighbourVertices(imp_uint vertex_idx, std::vector<imp_uin
 	while (true)
 	{
 		// Add vertex at the end of outgoing half edge
-		neighbour_vertices.push_back(outgoing_half_edge->vertex_at_end_idx);
+		connected_vertices.push_back(outgoing_half_edge->vertex_at_end_idx);
+		n_connected_faces++;
+
+		if (outgoing_half_edge->adjacent_half_edge) // Is there another connected half edge in the clockwise direction?
+		{
+			// Move to next outgoing half edge in the clockwise direction
+			outgoing_half_edge = outgoing_half_edge->adjacent_half_edge->next_half_edge;
+
+			// Exit if we have made it all the way around the vertex
+			if (outgoing_half_edge == original_half_edge)
+				return n_connected_faces;
+		}
+		else
+		{
+			// Move to the first outgoing half-edge in the counter-clockwise direction from the original half edge
+			outgoing_half_edge = original_half_edge->next_half_edge->next_half_edge->adjacent_half_edge;
+
+			// If this half edge doesn't exist, we are done
+			if (!outgoing_half_edge)
+			{
+				// Make sure to include the final vertex (which is only connected by an incoming half edge)
+				connected_vertices.push_front(original_half_edge->next_half_edge->vertex_at_end_idx);
+				return n_connected_faces;
+			}
+
+			// Move to counter-clockwise loop
+			break;
+		}
+	}
+
+	// Counter-clockwise direction
+	while (true)
+	{
+		// Add vertex at the end of outgoing half edge
+		connected_vertices.push_front(outgoing_half_edge->vertex_at_end_idx);
+		n_connected_faces++;
+		
+		// If the next outgoing half-edge in the counter-clockwise direction doesn't exist, we are done
+		if (!outgoing_half_edge->next_half_edge->next_half_edge->adjacent_half_edge)
+		{
+			// Make sure to include the final vertex (which is only connected by an incoming half edge)
+			connected_vertices.push_front(outgoing_half_edge->next_half_edge->vertex_at_end_idx);
+			return n_connected_faces;
+		}
+		
+		// Otherwise, move to this half edge
+		outgoing_half_edge = outgoing_half_edge->next_half_edge->next_half_edge->adjacent_half_edge;
+	}
+}
+
+void MeshTopology::findConnectedFacesAndVertices(imp_uint vertex_idx,
+												 std::list<imp_uint>& connected_faces,
+												 std::list<imp_uint>& connected_vertices) const
+{
+	assert(_has_adjacency_data);
+
+	// Note that all neighbouring faces cannot be detected if the mesh is not a manifold mesh
+	
+	// The connected faces and vertices are ordered in the clockwise direction around the original vertex
+
+	HalfEdge* original_half_edge = _outgoing_half_edges[vertex_idx];
+	HalfEdge* outgoing_half_edge = original_half_edge;
+
+	// Clockwise direction
+	while (true)
+	{
+		// Add face bordered by the outgoing half edge
+		connected_faces.push_back(outgoing_half_edge->bordered_face_idx);
+
+		// Add vertex at the end of outgoing half edge
+		connected_vertices.push_back(outgoing_half_edge->vertex_at_end_idx);
 
 		if (outgoing_half_edge->adjacent_half_edge) // Is there another connected half edge in the clockwise direction?
 		{
@@ -324,7 +413,11 @@ void MeshTopology::getNeighbourVertices(imp_uint vertex_idx, std::vector<imp_uin
 
 			// If this half edge doesn't exist, we are done
 			if (!outgoing_half_edge)
+			{
+				// Make sure to include the final vertex (which is only connected by an incoming half edge)
+				connected_vertices.push_front(original_half_edge->next_half_edge->vertex_at_end_idx);
 				return;
+			}
 
 			// Move to counter-clockwise loop
 			break;
@@ -334,61 +427,110 @@ void MeshTopology::getNeighbourVertices(imp_uint vertex_idx, std::vector<imp_uin
 	// Counter-clockwise direction
 	while (true)
 	{
+		// Add face bordered by outgoing half edge
+		connected_faces.push_front(outgoing_half_edge->bordered_face_idx);
+
 		// Add vertex at the end of outgoing half edge
-		neighbour_vertices.push_back(outgoing_half_edge->vertex_at_end_idx);
+		connected_vertices.push_front(outgoing_half_edge->vertex_at_end_idx);
 		
-		// Move to the next outgoing half-edge in the counter-clockwise direction
-		outgoing_half_edge = outgoing_half_edge->next_half_edge->next_half_edge->adjacent_half_edge;
-		
-		// If this half edge doesn't exist, we are done
-		if (!outgoing_half_edge)
+		// If the next outgoing half-edge in the counter-clockwise direction doesn't exist, we are done
+		if (!outgoing_half_edge->next_half_edge->next_half_edge->adjacent_half_edge)
+		{
+			// Make sure to include the final vertex (which is only connected by an incoming half edge)
+			connected_vertices.push_front(outgoing_half_edge->next_half_edge->vertex_at_end_idx);
 			return;
+		}
+		
+		// Otherwise, move to this half edge
+		outgoing_half_edge = outgoing_half_edge->next_half_edge->next_half_edge->adjacent_half_edge;
 	}
 }
 
-void MeshTopology::getOppositeFacesAndVertices(imp_uint face_idx,
-											   imp_uint opposite_faces[3],
-											   imp_uint opposite_vertices[3]) const
+void MeshTopology::findAdjacentFaces(imp_uint face_idx,
+									 imp_uint adjacent_faces[3]) const
 {
 	assert(_has_adjacency_data);
 
-	// Note that opposite_faces[*] is set to face_idx if the relevant opposite face doesn't exist
+	// Note that adjacent_faces[*] is set to face_idx if the relevant adjacent face doesn't exist
 
 	const HalfEdge* i_j_half_edge = _first_bordering_half_edges[face_idx];
 	const HalfEdge* adjacent_half_edge = i_j_half_edge->adjacent_half_edge;
 
 	if (adjacent_half_edge)
 	{
-		opposite_faces[0] = adjacent_half_edge->bordered_face_idx;
-		opposite_vertices[0] = adjacent_half_edge->next_half_edge->vertex_at_end_idx;
+		adjacent_faces[0] = adjacent_half_edge->bordered_face_idx;
 	}
 	else
 	{
-		opposite_faces[0] = face_idx;
+		adjacent_faces[0] = face_idx;
 	}
 
 	adjacent_half_edge = i_j_half_edge->next_half_edge->adjacent_half_edge;
 
 	if (adjacent_half_edge)
 	{
-		opposite_faces[1] = adjacent_half_edge->bordered_face_idx;
-		opposite_vertices[1] = adjacent_half_edge->next_half_edge->vertex_at_end_idx;
+		adjacent_faces[1] = adjacent_half_edge->bordered_face_idx;
 	}
 	else
 	{
-		opposite_faces[1] = face_idx;
+		adjacent_faces[1] = face_idx;
 	}
 
 	adjacent_half_edge = i_j_half_edge->next_half_edge->next_half_edge->adjacent_half_edge;
 
 	if (adjacent_half_edge)
 	{
-		opposite_faces[2] = adjacent_half_edge->bordered_face_idx;
+		adjacent_faces[2] = adjacent_half_edge->bordered_face_idx;
+	}
+	else
+	{
+		adjacent_faces[2] = face_idx;
+	}
+}
+
+void MeshTopology::findAdjacentFaces(imp_uint face_idx,
+									 imp_uint adjacent_faces[3],
+									 imp_uint opposite_vertices[3]) const
+{
+	assert(_has_adjacency_data);
+
+	// Note that adjacent_faces[*] is set to face_idx if the relevant opposite face doesn't exist
+
+	const HalfEdge* i_j_half_edge = _first_bordering_half_edges[face_idx];
+	const HalfEdge* adjacent_half_edge = i_j_half_edge->adjacent_half_edge;
+
+	if (adjacent_half_edge)
+	{
+		adjacent_faces[0] = adjacent_half_edge->bordered_face_idx;
+		opposite_vertices[0] = adjacent_half_edge->next_half_edge->vertex_at_end_idx;
+	}
+	else
+	{
+		adjacent_faces[0] = face_idx;
+	}
+
+	adjacent_half_edge = i_j_half_edge->next_half_edge->adjacent_half_edge;
+
+	if (adjacent_half_edge)
+	{
+		adjacent_faces[1] = adjacent_half_edge->bordered_face_idx;
+		opposite_vertices[1] = adjacent_half_edge->next_half_edge->vertex_at_end_idx;
+	}
+	else
+	{
+		adjacent_faces[1] = face_idx;
+	}
+
+	adjacent_half_edge = i_j_half_edge->next_half_edge->next_half_edge->adjacent_half_edge;
+
+	if (adjacent_half_edge)
+	{
+		adjacent_faces[2] = adjacent_half_edge->bordered_face_idx;
 		opposite_vertices[2] = adjacent_half_edge->next_half_edge->vertex_at_end_idx;
 	}
 	else
 	{
-		opposite_faces[2] = face_idx;
+		adjacent_faces[2] = face_idx;
 	}
 }
 

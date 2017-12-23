@@ -15,6 +15,7 @@ TriangleMesh::TriangleMesh()
       _has_vertex_normals(false),
       _has_face_normals(false),
 	  _has_texture_coordinates(false),
+	  _has_vertex_texture_coordinate_indices(false),
 	  _has_vertex_tangents(false),
 	  _has_vertex_data_3(false),
       _has_aabb(false) {}
@@ -576,8 +577,8 @@ TriangleMesh TriangleMesh::sheet(const Point& center, const Vector& normal, cons
 {
     TriangleMesh sheet_mesh;
 
-	const Vector& nnormal = normal.getNormalized();
-	const Vector& height_vector = nnormal.getUnitNormalWith(width_vector)*height;
+	const Vector& new_normal = normal.getNormalized();
+	const Vector& height_vector = new_normal.getUnitNormalWith(width_vector)*height;
 	const Point& origin = center - width_vector*0.5f - height_vector*0.5f;
 
     const Point& corner_1 = origin;
@@ -593,13 +594,13 @@ TriangleMesh TriangleMesh::sheet(const Point& center, const Vector& normal, cons
 	sheet_mesh._topology.addFace(1, 2, 0);
 	sheet_mesh._topology.addFace(0, 2, 3);
 
-	sheet_mesh._face_normals = {{nnormal.x, nnormal.x},
-								{nnormal.y, nnormal.y},
-								{nnormal.z, nnormal.z}};
+	sheet_mesh._face_normals = {{new_normal.x, new_normal.x},
+								{new_normal.y, new_normal.y},
+								{new_normal.z, new_normal.z}};
 
-	sheet_mesh._vertex_normals = {{nnormal.x, nnormal.x, nnormal.x, nnormal.x},
-								  {nnormal.y, nnormal.y, nnormal.y, nnormal.y},
-								  {nnormal.z, nnormal.z, nnormal.z, nnormal.z}};
+	sheet_mesh._vertex_normals = {{new_normal.x, new_normal.x, new_normal.x, new_normal.x},
+								  {new_normal.y, new_normal.y, new_normal.y, new_normal.y},
+								  {new_normal.z, new_normal.z, new_normal.z, new_normal.z}};
 	
 	sheet_mesh._has_face_normals = true;
 	sheet_mesh._has_vertex_normals = true;
@@ -608,6 +609,53 @@ TriangleMesh TriangleMesh::sheet(const Point& center, const Vector& normal, cons
 
     sheet_mesh._topology.duplicateFaceIndicesForTextureCoordinates();
 	sheet_mesh._has_texture_coordinates = true;
+	sheet_mesh.computeVertexTextureCoordinateIndices();
+
+	sheet_mesh.computeTangentVectors();
+
+    return sheet_mesh;
+}
+
+TriangleMesh TriangleMesh::symmetricSheet(const Point& center, const Vector& normal, const Vector& width_vector, imp_float height)
+{
+    TriangleMesh sheet_mesh;
+
+	const Vector& new_normal = normal.getNormalized();
+	const Vector& height_vector = new_normal.getUnitNormalWith(width_vector)*height;
+	const Point& origin = center - width_vector*0.5f - height_vector*0.5f;
+
+    const Point& corner_1 = origin;
+    const Point& corner_2 = corner_1 + width_vector;
+    const Point& corner_3 = corner_2 + height_vector;
+    const Point& corner_4 = corner_1 + height_vector;
+	const Point& midpoint = origin + width_vector*0.5f + height_vector*0.5f;
+
+    sheet_mesh._vertices = {{corner_1.x, corner_2.x, corner_3.x, corner_4.x, midpoint.x},
+                            {corner_1.y, corner_2.y, corner_3.y, corner_4.y, midpoint.y},
+                            {corner_1.z, corner_2.z, corner_3.z, corner_4.z, midpoint.z},
+                            {         1,          1,          1,          1,		  1}};
+	
+	sheet_mesh._topology.addFace(4, 0, 1);
+	sheet_mesh._topology.addFace(4, 1, 2);
+	sheet_mesh._topology.addFace(4, 2, 3);
+	sheet_mesh._topology.addFace(4, 3, 0);
+
+	sheet_mesh._face_normals = {{new_normal.x, new_normal.x, new_normal.x, new_normal.x},
+								{new_normal.y, new_normal.y, new_normal.y, new_normal.y},
+								{new_normal.z, new_normal.z, new_normal.z, new_normal.z}};
+
+	sheet_mesh._vertex_normals = {{new_normal.x, new_normal.x, new_normal.x, new_normal.x, new_normal.x},
+								  {new_normal.y, new_normal.y, new_normal.y, new_normal.y, new_normal.y},
+								  {new_normal.z, new_normal.z, new_normal.z, new_normal.z, new_normal.z}};
+	
+	sheet_mesh._has_face_normals = true;
+	sheet_mesh._has_vertex_normals = true;
+
+	sheet_mesh._texture_coordinates = {Point2(0, 0), Point2(1, 0), Point2(1, 1), Point2(0, 1), Point2(0.5f, 0.5f)};
+
+    sheet_mesh._topology.duplicateFaceIndicesForTextureCoordinates();
+	sheet_mesh._has_texture_coordinates = true;
+	sheet_mesh.computeVertexTextureCoordinateIndices();
 
 	sheet_mesh.computeTangentVectors();
 
@@ -618,8 +666,8 @@ TriangleMesh TriangleMesh::twoSidedSheet(const Point& center, const Vector& norm
 {
     TriangleMesh sheet_mesh;
 
-	const Vector& nnormal = normal.getNormalized();
-	const Vector& height_vector = nnormal.getUnitNormalWith(width_vector)*height;
+	const Vector& new_normal = normal.getNormalized();
+	const Vector& height_vector = new_normal.getUnitNormalWith(width_vector)*height;
 	const Point& origin = center - width_vector*0.5f - height_vector*0.5f;
 
     const Point& corner_1 = origin;
@@ -637,13 +685,13 @@ TriangleMesh TriangleMesh::twoSidedSheet(const Point& center, const Vector& norm
 	sheet_mesh._topology.addFace(1, 0, 2);
 	sheet_mesh._topology.addFace(2, 0, 3);
 
-	sheet_mesh._face_normals = {{nnormal.x, nnormal.x, nnormal.x, nnormal.x},
-								{nnormal.y, nnormal.y, nnormal.y, nnormal.y},
-								{nnormal.z, nnormal.z, nnormal.z, nnormal.z}};
+	sheet_mesh._face_normals = {{new_normal.x, new_normal.x, new_normal.x, new_normal.x},
+								{new_normal.y, new_normal.y, new_normal.y, new_normal.y},
+								{new_normal.z, new_normal.z, new_normal.z, new_normal.z}};
 
-	sheet_mesh._vertex_normals = {{nnormal.x, nnormal.x, nnormal.x, nnormal.x},
-								  {nnormal.y, nnormal.y, nnormal.y, nnormal.y},
-								  {nnormal.z, nnormal.z, nnormal.z, nnormal.z}};
+	sheet_mesh._vertex_normals = {{new_normal.x, new_normal.x, new_normal.x, new_normal.x},
+								  {new_normal.y, new_normal.y, new_normal.y, new_normal.y},
+								  {new_normal.z, new_normal.z, new_normal.z, new_normal.z}};
 	
 	sheet_mesh._has_face_normals = true;
 	sheet_mesh._has_vertex_normals = true;
@@ -779,6 +827,20 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution,
 		}
 
 		sphere_mesh._texture_coordinates.emplace_back(1.0f, 0.0f);
+		
+		for (j = 0; j < n_lon; j++)
+		{
+			phi = j*dphi;
+				
+			sphere_mesh._texture_coordinates.emplace_back(phi/IMP_TWO_PI, 1.0f);
+		}
+		
+		for (j = 0; j < n_lon; j++)
+		{
+			phi = j*dphi;
+				
+			sphere_mesh._texture_coordinates.emplace_back(phi/IMP_TWO_PI, 0.0f);
+		}
 
 		sphere_mesh._has_texture_coordinates = true;
 	}
@@ -793,10 +855,10 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution,
     for (j = 1; j < n_lon; j++)
     {
         sphere_mesh._topology.setNextFace(j, j + 1, 0,
-										  j, j + 1, 0);
+										  j, j + 1, m + n_lat + j - 1);
     }
     sphere_mesh._topology.setNextFace(n_lon, 1,  0,
-									  n_lon, m + 1,  m);
+									  n_lon, m + 1,  m + n_lat + n_lon - 1);
 	m++;
     
     for (i = 1; i < n_lat-2; i++)
@@ -838,10 +900,10 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution,
     for (j = 0; j < n_lon-1; j++)
     {
         sphere_mesh._topology.setNextFace(offset + j + 1, offset + j, n_vertices - 1,
-										  offset + j + 1, offset + j, n_vertices - 1);
+										  offset + j + 1, offset + j, m + 2 + n_lon + j);
     }
     sphere_mesh._topology.setNextFace(offset, offset + n_lon - 1, n_vertices - 1,
-									  offset, m, m + 1);
+									  m, offset + n_lon - 1, m + 2 + n_lon + n_lon - 1);
 
 	if (!sphere_mesh._has_texture_coordinates)
 		sphere_mesh._topology.removeTextureCoordinateIndices();
@@ -849,7 +911,10 @@ TriangleMesh TriangleMesh::sphere(const Sphere& sphere_obj, imp_uint resolution,
 	sphere_mesh.computeFaceNormals();
 
 	if (sphere_mesh._has_texture_coordinates)
+	{
+		sphere_mesh.computeVertexTextureCoordinateIndices();
 		sphere_mesh.computeTangentVectors();
+	}
 
     return sphere_mesh;
 }
@@ -1005,6 +1070,7 @@ void TriangleMesh::addVertex(imp_float x, imp_float y, imp_float z)
     _has_vertex_tangents = false;
     _has_aabb = false;
 	_has_vertex_data_3 = false;
+	_has_vertex_texture_coordinate_indices = false;
 	_topology.invalidateAdjacencyData();
 }
 
@@ -1052,6 +1118,7 @@ void TriangleMesh::removeVertex(imp_uint idx)
 	if (_has_vertex_data_3)
 		_vertex_data_3.shed_col(idx);
 	
+	_has_vertex_texture_coordinate_indices = false;
     _has_aabb = false;
 	_topology.invalidateAdjacencyData();
 }
@@ -1066,46 +1133,68 @@ void TriangleMesh::removeFace(imp_uint idx)
 	_topology.invalidateAdjacencyData();
 }
 
-void TriangleMesh::performLoopSubdivisions(imp_uint n_subdivisions)
+void TriangleMesh::performLoopSubdivisions(imp_uint n_subdivisions,
+										   imp_uint boundary_interpolation_mode /* = 0 */)
 {
 	assert(_is_homogenized);
 	assert(!_has_vertex_data_3);
-	assert(!_has_texture_coordinates);
 
 	imp_uint n_vertices;
 	imp_uint vertex_idx;
-	
+	imp_uint n_texture_coordinates;
+
 	arma::Mat<imp_float> new_vertices;
 	imp_uint approx_n_new_vertices;
 	imp_uint added_vertex_idx;
+	imp_uint added_texture_coordinate_idx;
 	imp_uint edge_vertex_1, edge_vertex_2, edge_vertex_3;
-	std::map<std::pair<imp_uint, imp_uint>, imp_uint> _added_edge_vertices;
+	imp_uint edge_texture_coordinate_idx_1, edge_texture_coordinate_idx_2, edge_texture_coordinate_idx_3;
+	std::map<std::pair<imp_uint, imp_uint>, imp_uint> added_edge_vertices, added_texture_coordinate_indices;
 
-	std::vector<imp_uint> neighbour_vertices;
-	std::vector<imp_uint>::const_iterator neighbour_vertex;
+	std::list<imp_uint> neighbour_vertices;
+	std::list<imp_uint>::const_iterator neighbour_vertex;
 	imp_uint n_neighbour_vertices;
+	imp_uint n_adjacent_faces;
 	imp_float neighbour_weight, self_weight;
 	
 	imp_uint n_faces;
 	imp_uint face_idx;
-	imp_uint opposite_faces[3];
+	imp_uint adjacent_faces[3];
 	imp_uint opposite_vertices[3];
 	imp_uint i, j, k;
+	imp_uint l, m, n;
+	imp_uint l_adjacent, m_adjacent, n_adjacent;
+
+	assert(boundary_interpolation_mode == 0 || boundary_interpolation_mode == 1);
+	
+	const imp_float boundary_neighbour_weight = (boundary_interpolation_mode)? 0.0f : 1.0f/8.0f;
+	const imp_float boundary_self_weight	  = (boundary_interpolation_mode)? 1.0f : 6.0f/8.0f;
 
 	for (imp_uint subdivision_i = 0; subdivision_i < n_subdivisions; subdivision_i++)
 	{
 		n_vertices = getNumberOfVertices();
 		n_faces = getNumberOfFaces();
+		n_texture_coordinates = getNumberOfTextureCoordinates();
 
-		// Number of new vertices that will be created (assuming closed mesh with no free vertices)
-		// (Armadillo may complain about out of bounds indexing if this assumption fails)
-		approx_n_new_vertices = 3*n_faces/2;
+		// Set upper bound on the number of new vertices to create.
+		// A vertex is created for each edge, and there are (3 - avg_neighbours/2)*n_faces edges,
+		// where avg_neighbours (between 0 and 3) is the average number of faces adjacent to a
+		// face in the mesh. Setting avg_neighbours = 1 and adding a safety padding of 3 should
+		// be a safe limit.
+		approx_n_new_vertices = 5*n_faces/2 + 3;
 
 		// Temporary storage of modified and new vertices
-		new_vertices.set_size(4, n_vertices + approx_n_new_vertices);
+		new_vertices.set_size(3, n_vertices + approx_n_new_vertices);
+
+		// Increase capacity of texture coordinate list
+		if (_has_texture_coordinates)
+			_texture_coordinates.reserve(n_texture_coordinates + approx_n_new_vertices);
 
 		// Counter for keeping track of next available vertex index
 		added_vertex_idx = n_vertices;
+		
+		// Counter for keeping track of next available texture coordinate index
+		added_texture_coordinate_idx = n_texture_coordinates;
 
 		// Make sure the mesh has adjacency data
 		_topology.generateAdjacencyData(n_vertices);
@@ -1114,15 +1203,17 @@ void TriangleMesh::performLoopSubdivisions(imp_uint n_subdivisions)
 		for (vertex_idx = 0; vertex_idx < n_vertices; vertex_idx++)
 		{
 			// Get a list of vertices that are connected to the current vertex by a single edge
-			_topology.getNeighbourVertices(vertex_idx, neighbour_vertices);
+			n_adjacent_faces = _topology.findConnectedVertices(vertex_idx, neighbour_vertices);
 
 			n_neighbour_vertices = static_cast<imp_uint>(neighbour_vertices.size());
-	
-			// Compute new vertex coordinates from a weighted sum of neighbour coordinates
-			if (n_neighbour_vertices > 3)
+
+			if (n_neighbour_vertices == n_adjacent_faces)
 			{
-				neighbour_weight = 0.375f/n_neighbour_vertices; // 3/(8*n_neighbour_vertices)
-				self_weight = 0.625f; // Equivalent to (1 - n_neighbour_vertices*neighbour_weight)
+				// The vertex is in the interior of the surface
+				
+				// Compute new vertex coordinates from a weighted sum of neighbour coordinates
+				neighbour_weight = (n_neighbour_vertices > 3)? 0.375f/n_neighbour_vertices : 0.1875f; // 3/(8*n_neighbour_vertices) : 3/16
+				self_weight = 1 - n_neighbour_vertices*neighbour_weight;
 
 				new_vertices(0, vertex_idx) = self_weight*_vertices(0, vertex_idx);
 				new_vertices(1, vertex_idx) = self_weight*_vertices(1, vertex_idx);
@@ -1135,25 +1226,14 @@ void TriangleMesh::performLoopSubdivisions(imp_uint n_subdivisions)
 					new_vertices(2, vertex_idx) += neighbour_weight*_vertices(2, *neighbour_vertex);
 				}
 			}
-			else if (n_neighbour_vertices == 3)
+			else
 			{
-				neighbour_weight = 0.1875f; // 3/16
-				self_weight = 0.4375f; // Equivalent to (1 - n_neighbour_vertices*neighbour_weight)
-
-				new_vertices(0, vertex_idx) = self_weight*_vertices(0, vertex_idx) + neighbour_weight*(_vertices(0, neighbour_vertices[0]) + _vertices(0, neighbour_vertices[1]) + _vertices(0, neighbour_vertices[2]));
-				new_vertices(1, vertex_idx) = self_weight*_vertices(1, vertex_idx) + neighbour_weight*(_vertices(1, neighbour_vertices[0]) + _vertices(1, neighbour_vertices[1]) + _vertices(1, neighbour_vertices[2]));
-				new_vertices(2, vertex_idx) = self_weight*_vertices(2, vertex_idx) + neighbour_weight*(_vertices(2, neighbour_vertices[0]) + _vertices(2, neighbour_vertices[1]) + _vertices(2, neighbour_vertices[2]));
-			}
-			else if (n_neighbour_vertices == 2) // Boundary vertex
-			{
-				neighbour_weight = 0.125f; // 1/8
-				self_weight = 0.75f; // 3/4
+				// The vertex is on the boundary of the surface
 	
-				new_vertices(0, vertex_idx) = self_weight*_vertices(0, vertex_idx) + neighbour_weight*(_vertices(0, neighbour_vertices[0]) + _vertices(0, neighbour_vertices[1]));
-				new_vertices(1, vertex_idx) = self_weight*_vertices(1, vertex_idx) + neighbour_weight*(_vertices(1, neighbour_vertices[0]) + _vertices(1, neighbour_vertices[1]));
-				new_vertices(2, vertex_idx) = self_weight*_vertices(2, vertex_idx) + neighbour_weight*(_vertices(2, neighbour_vertices[0]) + _vertices(2, neighbour_vertices[1]));
+				new_vertices(0, vertex_idx) = boundary_self_weight*_vertices(0, vertex_idx) + boundary_neighbour_weight*(_vertices(0, neighbour_vertices.front()) + _vertices(0, neighbour_vertices.back()));
+				new_vertices(1, vertex_idx) = boundary_self_weight*_vertices(1, vertex_idx) + boundary_neighbour_weight*(_vertices(1, neighbour_vertices.front()) + _vertices(1, neighbour_vertices.back()));
+				new_vertices(2, vertex_idx) = boundary_self_weight*_vertices(2, vertex_idx) + boundary_neighbour_weight*(_vertices(2, neighbour_vertices.front()) + _vertices(2, neighbour_vertices.back()));
 			}
-			// Otherwise improperly connected vertex, which is ignored
 		
 			// Empty list of neighbour vertices
 			neighbour_vertices.clear();
@@ -1168,155 +1248,267 @@ void TriangleMesh::performLoopSubdivisions(imp_uint n_subdivisions)
 			// Get indices of face vertices
 			_topology.getFace(face_idx, i, j, k);
 
+			// Get texture coordinate indices if they exist
+			if (_has_texture_coordinates)
+				_topology.getTextureCoordinateIndices(face_idx, l, m, n);
+
 			// Find faces adjacent to the current face, along with their
 			// vertex that is not common with the vertices for the current face
-			_topology.getOppositeFacesAndVertices(face_idx, opposite_faces, opposite_vertices);
+			_topology.findAdjacentFaces(face_idx, adjacent_faces, opposite_vertices);
 
 			// For each of the three face edges, add a new vertex if it
 			// hasn't already been created in an earlier loop iteration
 
 			// Edge i <-> j
-			if (opposite_faces[0] > face_idx)
+			if (adjacent_faces[0] >= face_idx)
 			{
 				// New vertex has not been created for this edge
 			
 				edge_vertex_1 = added_vertex_idx;
 
-				self_weight = 0.375f; // 3/8
-				neighbour_weight = 0.125f; // 1/8
+				if (adjacent_faces[0] > face_idx)
+				{
+					self_weight = 0.375f; // 3/8
+					neighbour_weight = 0.125f; // 1/8
 
-				new_vertices(0, edge_vertex_1) = self_weight*(_vertices(0, i) + _vertices(0, j)) + neighbour_weight*(_vertices(0, k) + _vertices(0, opposite_vertices[0]));
-				new_vertices(1, edge_vertex_1) = self_weight*(_vertices(1, i) + _vertices(1, j)) + neighbour_weight*(_vertices(1, k) + _vertices(1, opposite_vertices[0]));
-				new_vertices(2, edge_vertex_1) = self_weight*(_vertices(2, i) + _vertices(2, j)) + neighbour_weight*(_vertices(2, k) + _vertices(2, opposite_vertices[0]));
-		
+					new_vertices(0, edge_vertex_1) = self_weight*(_vertices(0, i) + _vertices(0, j)) + neighbour_weight*(_vertices(0, k) + _vertices(0, opposite_vertices[0]));
+					new_vertices(1, edge_vertex_1) = self_weight*(_vertices(1, i) + _vertices(1, j)) + neighbour_weight*(_vertices(1, k) + _vertices(1, opposite_vertices[0]));
+					new_vertices(2, edge_vertex_1) = self_weight*(_vertices(2, i) + _vertices(2, j)) + neighbour_weight*(_vertices(2, k) + _vertices(2, opposite_vertices[0]));
+				}
+				else // Boundary edge
+				{
+					self_weight = 0.5f;
+
+					new_vertices(0, edge_vertex_1) = self_weight*(_vertices(0, i) + _vertices(0, j));
+					new_vertices(1, edge_vertex_1) = self_weight*(_vertices(1, i) + _vertices(1, j));
+					new_vertices(2, edge_vertex_1) = self_weight*(_vertices(2, i) + _vertices(2, j));
+				}
+
 				 // Store index of the new vertex
-				_added_edge_vertices[std::make_pair(i, j)] = edge_vertex_1;
+				added_edge_vertices[std::make_pair(i, j)] = edge_vertex_1;
 
 				added_vertex_idx++;
+
+				if (_has_texture_coordinates)
+				{
+					edge_texture_coordinate_idx_1 = added_texture_coordinate_idx;
+					
+					// Create new texture coordinate
+					_texture_coordinates.push_back(_texture_coordinates[l] + (_texture_coordinates[m] - _texture_coordinates[l])*0.5f);
+
+					added_texture_coordinate_idx++;
+					
+					// Find corresponding texture coordinate indices for the adjacent face
+					l_adjacent = _topology.getTextureCoordinateIndexForVertexIndex(adjacent_faces[0], i);
+					m_adjacent = _topology.getTextureCoordinateIndexForVertexIndex(adjacent_faces[0], j);
+
+					// If both texture coordinates differ, the edge is part of a seam
+					if (l != l_adjacent && m != m_adjacent)
+					{
+						// Create texture coordinate for the opposite side of the seam
+						_texture_coordinates.push_back(_texture_coordinates[l_adjacent] + (_texture_coordinates[m_adjacent] - _texture_coordinates[l_adjacent])*0.5f);
+
+						// Store index of the new texture coordinate for the adjacent face
+						added_texture_coordinate_indices[std::make_pair(i, j)] = added_texture_coordinate_idx;
+						
+						added_texture_coordinate_idx++;
+					}
+					else
+					{
+						// Store index of the new (common) texture coordinate
+						added_texture_coordinate_indices[std::make_pair(i, j)] = edge_texture_coordinate_idx_1;
+					}
+				}
 			}
-			else if (opposite_faces[0] < face_idx)
+			else
 			{
 				// New vertex has already been created for this edge
 
 				// Get index of the new edge vertex
-				edge_vertex_1 = _added_edge_vertices.find(std::make_pair(j, i))->second;
-			}
-			else
-			{
-				// Boundary edge
-			
-				edge_vertex_1 = added_vertex_idx;
+				edge_vertex_1 = added_edge_vertices.find(std::make_pair(j, i))->second;
 
-				self_weight = 0.5f;
-
-				new_vertices(0, edge_vertex_1) = self_weight*(_vertices(0, i) + _vertices(0, j));
-				new_vertices(1, edge_vertex_1) = self_weight*(_vertices(1, i) + _vertices(1, j));
-				new_vertices(2, edge_vertex_1) = self_weight*(_vertices(2, i) + _vertices(2, j));
-			
-				 // Store index of the new vertex
-				_added_edge_vertices[std::make_pair(i, j)] = edge_vertex_1;
-
-				added_vertex_idx++;
+				if (_has_texture_coordinates)
+				{
+					// Get index of the new texture coordinate
+					edge_texture_coordinate_idx_1 = added_texture_coordinate_indices.find(std::make_pair(j, i))->second;
+				}
 			}
 
 			// Edge j <-> k
-			if (opposite_faces[1] > face_idx)
+			if (adjacent_faces[1] >= face_idx)
 			{
 				// New vertex has not been created for this edge
 			
 				edge_vertex_2 = added_vertex_idx;
 
-				self_weight = 0.375f; // 3/8
-				neighbour_weight = 0.125f; // 1/8
+				if (adjacent_faces[1] > face_idx)
+				{
+					self_weight = 0.375f; // 3/8
+					neighbour_weight = 0.125f; // 1/8
+					
+					new_vertices(0, edge_vertex_2) = self_weight*(_vertices(0, j) + _vertices(0, k)) + neighbour_weight*(_vertices(0, i) + _vertices(0, opposite_vertices[1]));
+					new_vertices(1, edge_vertex_2) = self_weight*(_vertices(1, j) + _vertices(1, k)) + neighbour_weight*(_vertices(1, i) + _vertices(1, opposite_vertices[1]));
+					new_vertices(2, edge_vertex_2) = self_weight*(_vertices(2, j) + _vertices(2, k)) + neighbour_weight*(_vertices(2, i) + _vertices(2, opposite_vertices[1]));
+				}
+				else // Boundary edge
+				{
+					self_weight = 0.5f;
 
-				new_vertices(0, edge_vertex_2) = self_weight*(_vertices(0, j) + _vertices(0, k)) + neighbour_weight*(_vertices(0, i) + _vertices(0, opposite_vertices[1]));
-				new_vertices(1, edge_vertex_2) = self_weight*(_vertices(1, j) + _vertices(1, k)) + neighbour_weight*(_vertices(1, i) + _vertices(1, opposite_vertices[1]));
-				new_vertices(2, edge_vertex_2) = self_weight*(_vertices(2, j) + _vertices(2, k)) + neighbour_weight*(_vertices(2, i) + _vertices(2, opposite_vertices[1]));
-		
+					new_vertices(0, edge_vertex_2) = self_weight*(_vertices(0, j) + _vertices(0, k));
+					new_vertices(1, edge_vertex_2) = self_weight*(_vertices(1, j) + _vertices(1, k));
+					new_vertices(2, edge_vertex_2) = self_weight*(_vertices(2, j) + _vertices(2, k));
+				}
+
 				 // Store index of the new vertex
-				_added_edge_vertices[std::make_pair(j, k)] = edge_vertex_2;
+				added_edge_vertices[std::make_pair(j, k)] = edge_vertex_2;
 
 				added_vertex_idx++;
+
+				if (_has_texture_coordinates)
+				{
+					edge_texture_coordinate_idx_2 = added_texture_coordinate_idx;
+					
+					// Create new texture coordinate
+					_texture_coordinates.push_back(_texture_coordinates[m] + (_texture_coordinates[n] - _texture_coordinates[m])*0.5f);
+
+					added_texture_coordinate_idx++;
+					
+					// Find corresponding texture coordinate indices for the adjacent face
+					m_adjacent = _topology.getTextureCoordinateIndexForVertexIndex(adjacent_faces[1], j);
+					n_adjacent = _topology.getTextureCoordinateIndexForVertexIndex(adjacent_faces[1], k);
+
+					// If both texture coordinates differ, the edge is part of a seam
+					if (m != m_adjacent && n != n_adjacent)
+					{
+						// Create texture coordinate for the opposite side of the seam
+						_texture_coordinates.push_back(_texture_coordinates[m_adjacent] + (_texture_coordinates[n_adjacent] - _texture_coordinates[m_adjacent])*0.5f);
+
+						// Store index of the new texture coordinate for the adjacent face
+						added_texture_coordinate_indices[std::make_pair(j, k)] = added_texture_coordinate_idx;
+						
+						added_texture_coordinate_idx++;
+					}
+					else
+					{
+						// Store index of the new (common) texture coordinate
+						added_texture_coordinate_indices[std::make_pair(j, k)] = edge_texture_coordinate_idx_2;
+					}
+				}
 			}
-			else if (opposite_faces[1] < face_idx)
+			else
 			{
 				// New vertex has already been created for this edge
 				
 				// Get index of the new edge vertex
-				edge_vertex_2 = _added_edge_vertices.find(std::make_pair(k, j))->second;
-			}
-			else
-			{
-				// Boundary edge
-			
-				edge_vertex_2 = added_vertex_idx;
+				edge_vertex_2 = added_edge_vertices.find(std::make_pair(k, j))->second;
 
-				self_weight = 0.5f;
-
-				new_vertices(0, edge_vertex_2) = self_weight*(_vertices(0, j) + _vertices(0, k));
-				new_vertices(1, edge_vertex_2) = self_weight*(_vertices(1, j) + _vertices(1, k));
-				new_vertices(2, edge_vertex_2) = self_weight*(_vertices(2, j) + _vertices(2, k));
-			
-				 // Store index of the new vertex
-				_added_edge_vertices[std::make_pair(j, k)] = edge_vertex_2;
-
-				added_vertex_idx++;
+				if (_has_texture_coordinates)
+				{
+					// Get index of the new texture coordinate
+					edge_texture_coordinate_idx_2 = added_texture_coordinate_indices.find(std::make_pair(k, j))->second;
+				}
 			}
 
 			// Edge k <-> i
-			if (opposite_faces[2] > face_idx)
+			if (adjacent_faces[2] >= face_idx)
 			{
 				// New vertex has not been created for this edge
 			
 				edge_vertex_3 = added_vertex_idx;
 
-				self_weight = 0.375f; // 3/8
-				neighbour_weight = 0.125f; // 1/8
+				if (adjacent_faces[2] > face_idx)
+				{
+					self_weight = 0.375f; // 3/8
+					neighbour_weight = 0.125f; // 1/8
 
-				new_vertices(0, edge_vertex_3) = self_weight*(_vertices(0, k) + _vertices(0, i)) + neighbour_weight*(_vertices(0, j) + _vertices(0, opposite_vertices[2]));
-				new_vertices(1, edge_vertex_3) = self_weight*(_vertices(1, k) + _vertices(1, i)) + neighbour_weight*(_vertices(1, j) + _vertices(1, opposite_vertices[2]));
-				new_vertices(2, edge_vertex_3) = self_weight*(_vertices(2, k) + _vertices(2, i)) + neighbour_weight*(_vertices(2, j) + _vertices(2, opposite_vertices[2]));
-		
+					new_vertices(0, edge_vertex_3) = self_weight*(_vertices(0, k) + _vertices(0, i)) + neighbour_weight*(_vertices(0, j) + _vertices(0, opposite_vertices[2]));
+					new_vertices(1, edge_vertex_3) = self_weight*(_vertices(1, k) + _vertices(1, i)) + neighbour_weight*(_vertices(1, j) + _vertices(1, opposite_vertices[2]));
+					new_vertices(2, edge_vertex_3) = self_weight*(_vertices(2, k) + _vertices(2, i)) + neighbour_weight*(_vertices(2, j) + _vertices(2, opposite_vertices[2]));
+				}
+				else
+				{
+					self_weight = 0.5f;
+
+					new_vertices(0, edge_vertex_3) = self_weight*(_vertices(0, k) + _vertices(0, i));
+					new_vertices(1, edge_vertex_3) = self_weight*(_vertices(1, k) + _vertices(1, i));
+					new_vertices(2, edge_vertex_3) = self_weight*(_vertices(2, k) + _vertices(2, i));
+				}
+
 				 // Store index of the new vertex
-				_added_edge_vertices[std::make_pair(k, i)] = edge_vertex_3;
+				added_edge_vertices[std::make_pair(k, i)] = edge_vertex_3;
 
 				added_vertex_idx++;
+
+				if (_has_texture_coordinates)
+				{
+					edge_texture_coordinate_idx_3 = added_texture_coordinate_idx;
+					
+					// Create new texture coordinate
+					_texture_coordinates.push_back(_texture_coordinates[n] + (_texture_coordinates[l] - _texture_coordinates[n])*0.5f);
+
+					added_texture_coordinate_idx++;
+					
+					// Find corresponding texture coordinate indices for the adjacent face
+					n_adjacent = _topology.getTextureCoordinateIndexForVertexIndex(adjacent_faces[2], k);
+					l_adjacent = _topology.getTextureCoordinateIndexForVertexIndex(adjacent_faces[2], i);
+
+					// If both texture coordinates differ, the edge is part of a seam
+					if (n != n_adjacent && l != l_adjacent)
+					{
+						// Create texture coordinate for the opposite side of the seam
+						_texture_coordinates.push_back(_texture_coordinates[n_adjacent] + (_texture_coordinates[l_adjacent] - _texture_coordinates[n_adjacent])*0.5f);
+
+						// Store index of the new texture coordinate for the adjacent face
+						added_texture_coordinate_indices[std::make_pair(k, i)] = added_texture_coordinate_idx;
+						
+						added_texture_coordinate_idx++;
+					}
+					else
+					{
+						// Store index of the new (common) texture coordinate
+						added_texture_coordinate_indices[std::make_pair(k, i)] = edge_texture_coordinate_idx_3;
+					}
+				}
 			}
-			else if (opposite_faces[2] < face_idx)
+			else
 			{
 				// New vertex has already been created for this edge
 				
 				// Get index of the new edge vertex
-				edge_vertex_3 = _added_edge_vertices.find(std::make_pair(i, k))->second;
+				edge_vertex_3 = added_edge_vertices.find(std::make_pair(i, k))->second;
+
+				if (_has_texture_coordinates)
+				{
+					// Get index of the new texture coordinate
+					edge_texture_coordinate_idx_3 = added_texture_coordinate_indices.find(std::make_pair(i, k))->second;
+				}
+			}
+			
+			// Construct sub-faces (modifies the current face, but it will not be needed anymore anyway)
+			if (_has_texture_coordinates)
+			{
+				_topology.setFace(face_idx, i, edge_vertex_1, edge_vertex_3, l, edge_texture_coordinate_idx_1, edge_texture_coordinate_idx_3);
+				_topology.setNextFace(edge_vertex_1, j, edge_vertex_2, edge_texture_coordinate_idx_1, m, edge_texture_coordinate_idx_2);
+				_topology.setNextFace(edge_vertex_1, edge_vertex_2, edge_vertex_3, edge_texture_coordinate_idx_1, edge_texture_coordinate_idx_2, edge_texture_coordinate_idx_3);
+				_topology.setNextFace(edge_vertex_3, edge_vertex_2, k, edge_texture_coordinate_idx_3, edge_texture_coordinate_idx_2, n);
 			}
 			else
 			{
-				// Boundary edge
-			
-				edge_vertex_3 = added_vertex_idx;
-
-				self_weight = 0.5f;
-
-				new_vertices(0, edge_vertex_3) = self_weight*(_vertices(0, k) + _vertices(0, i));
-				new_vertices(1, edge_vertex_3) = self_weight*(_vertices(1, k) + _vertices(1, i));
-				new_vertices(2, edge_vertex_3) = self_weight*(_vertices(2, k) + _vertices(2, i));
-			
-				 // Store index of the new vertex
-				_added_edge_vertices[std::make_pair(k, i)] = edge_vertex_3;
-
-				added_vertex_idx++;
+				_topology.setFace(face_idx, i, edge_vertex_1, edge_vertex_3);
+				_topology.setNextFace(edge_vertex_1, j, edge_vertex_2);
+				_topology.setNextFace(edge_vertex_1, edge_vertex_2, edge_vertex_3);
+				_topology.setNextFace(edge_vertex_3, edge_vertex_2, k);
 			}
-
-			// Construct sub-faces (modifies the current face, but it will not be needed anymore anyway)
-			_topology.setFace(face_idx, i, edge_vertex_1, edge_vertex_3);
-			_topology.setNextFace(edge_vertex_1, j, edge_vertex_2);
-			_topology.setNextFace(edge_vertex_1, edge_vertex_2, edge_vertex_3);
-			_topology.setNextFace(edge_vertex_3, edge_vertex_2, k);
 		}
 
-		_added_edge_vertices.clear();
+		added_edge_vertices.clear();
+		added_texture_coordinate_indices.clear();
+
+		// Remove redundant vertex entries
+		new_vertices.shed_cols(added_vertex_idx, new_vertices.n_cols-1);
 
 		// Set homogeneous coordinates
+		new_vertices.insert_rows(3, 1);
 		new_vertices.row(3).ones();
 
 		// Replace old vertices with the new ones
@@ -1341,7 +1533,13 @@ void TriangleMesh::performLoopSubdivisions(imp_uint n_subdivisions)
 		computeVertexNormals();
 	}
 	
-	if (_has_vertex_tangents && _has_texture_coordinates)
+	if (_has_texture_coordinates)
+	{
+		_has_vertex_texture_coordinate_indices = false;
+		computeVertexTextureCoordinateIndices();
+	}
+
+	if (_has_vertex_tangents)
 	{
 		_has_vertex_tangents = false;
 		computeTangentVectors();
@@ -1350,62 +1548,354 @@ void TriangleMesh::performLoopSubdivisions(imp_uint n_subdivisions)
 	_has_aabb = false;
 }
 
-void TriangleMesh::splitFaces(imp_uint n_times)
+void TriangleMesh::performCatmullClarkSubdivisions(imp_uint n_subdivisions,
+												   imp_uint boundary_interpolation_mode /* = 0 */)
 {
-    imp_uint n_faces;
-    imp_uint idx, i, j, k;
-    Point A, B, C;
-    imp_float AB_length, AC_length, BC_length;
-    bool AB_exceeds_AC, AB_exceeds_BC, AC_exceeds_BC;
-    imp_uint last_vertex_idx = getNumberOfVertices() - 1;
+	assert(_is_homogenized);
+	assert(!_has_vertex_data_3);
+	assert(!_has_texture_coordinates);
 
-    for (imp_uint n = 0; n < n_times; n++)
-    {
-        n_faces = getNumberOfFaces();
+	imp_uint n_vertices;
+	imp_uint n_faces;
+	imp_uint vertex_idx;
+	imp_uint face_idx;
+	
+	arma::Mat<imp_float> new_vertices;
+	imp_uint approx_n_new_vertices;
+	imp_uint added_vertex_idx;
+	imp_uint added_texture_coordinate_idx;
 
-        for (idx = 0; idx < n_faces; idx++)
-        {
-			_topology.getFace(idx, i, j, k);
+	std::list<imp_uint> adjacent_face_list;
+	std::list<imp_uint> neighbour_vertex_list;
+	std::list<imp_uint>::const_iterator neighbour_vertex, adjacent_face;
+	imp_uint n_neighbour_vertices;
+	imp_uint n_adjacent_faces;
+	imp_float neighbour_weight, self_weight;
+	arma::Col<imp_float> average_face_point(3);
+	arma::Col<imp_float> average_edge_midpoint(3);
+	
+	imp_uint i, j, k;
+	imp_uint l, m, n;
+	imp_uint l_adjacent, m_adjacent, n_adjacent;
+	imp_uint adjacent_faces[3];
+	imp_uint face_vertex, adjacent_face_vertex;
+	imp_uint edge_vertex_1, edge_vertex_2, edge_vertex_3;
+	std::map<std::pair<imp_uint, imp_uint>, imp_uint> added_edge_vertices;
 
-            A.x = _vertices(0, i); A.y = _vertices(1, i); A.z = _vertices(2, i);
-            B.x = _vertices(0, j); B.y = _vertices(1, j); B.z = _vertices(2, j);
-            C.x = _vertices(0, k); C.y = _vertices(1, k); C.z = _vertices(2, k);
+	assert(boundary_interpolation_mode == 0 || boundary_interpolation_mode == 1);
+	
+	const imp_float boundary_neighbour_weight = (boundary_interpolation_mode)? 0.0f : 1.0f/8.0f;
+	const imp_float boundary_self_weight	  = (boundary_interpolation_mode)? 1.0f : 6.0f/8.0f;
 
-            const Vector& AB = B - A;
-            const Vector& AC = C - A;
-            const Vector& BC = C - B;
+	for (imp_uint subdivision_i = 0; subdivision_i < n_subdivisions; subdivision_i++)
+	{
+		n_vertices = getNumberOfVertices();
+		n_faces = getNumberOfFaces();
+		
+		// Set upper bound on the number of new vertices to create.
+		// A vertex is created for each face and each edge, and there are (3 - avg_neighbours/2)*n_faces
+		// edges, where avg_neighbours (between 0 and 3) is the average number of faces adjacent to a
+		// face in the mesh. Setting avg_neighbours = 1 and adding a safety padding of 3 should
+		// be a safe limit.
+		approx_n_new_vertices = n_faces + 5*n_faces/2 + 3;
 
-            AB_length = AB.getLength();
-            AC_length = AC.getLength();
-            BC_length = BC.getLength();
+		// Temporary storage of modified and new vertices
+		new_vertices.set_size(3, n_vertices + approx_n_new_vertices);
 
-            AB_exceeds_AC = AB_length > AC_length;
-            AB_exceeds_BC = AB_length > BC_length;
-            AC_exceeds_BC = AC_length > BC_length;
 
-            if (AB_exceeds_AC && AB_exceeds_BC)
-            {
-                addVertex(A + AB*0.5);
-                last_vertex_idx++;
-				_topology.setFaceComponent(1, idx, last_vertex_idx);
-                addFace(last_vertex_idx, j, k);
-            }
-            else if (AC_exceeds_BC)
-            {
-                addVertex(A + AC*0.5);
-                last_vertex_idx++;
-				_topology.setFaceComponent(2, idx, last_vertex_idx);
-                addFace(last_vertex_idx, j, k);
-            }
-            else
-            {
-                addVertex(B + BC*0.5);
-                last_vertex_idx++;
-				_topology.setFaceComponent(2, idx, last_vertex_idx);
-                addFace(last_vertex_idx, k, i);
-            }
-        }
-    }
+
+		// Counter for keeping track of next available vertex index
+		added_vertex_idx = n_vertices;
+		
+		// Counter for keeping track of next available texture coordinate index
+		added_texture_coordinate_idx = getNumberOfTextureCoordinates();
+
+		// Make sure the mesh has adjacency data
+		_topology.generateAdjacencyData(n_vertices);
+
+		// Loop through all faces
+		for (face_idx = 0; face_idx < n_faces; face_idx++)
+		{
+			// Create new vertex as the average of the three face vertices
+
+			_topology.getFace(face_idx, i, j, k);
+
+			self_weight = 1.0f/3.0f;
+
+			new_vertices(0, added_vertex_idx) = self_weight*(_vertices(0, i) + _vertices(0, j) + _vertices(0, k));
+			new_vertices(1, added_vertex_idx) = self_weight*(_vertices(1, i) + _vertices(1, j) + _vertices(1, k));
+			new_vertices(2, added_vertex_idx) = self_weight*(_vertices(2, i) + _vertices(2, j) + _vertices(2, k));
+
+			added_vertex_idx++;
+		}
+
+		// Create modified versions of existing vertices
+		for (vertex_idx = 0; vertex_idx < n_vertices; vertex_idx++)
+		{
+			// Get a list of faces that are touching - and vertices that are connected to - the current vertex
+			_topology.findConnectedFacesAndVertices(vertex_idx, adjacent_face_list, neighbour_vertex_list);
+
+			n_adjacent_faces = static_cast<imp_uint>(adjacent_face_list.size());
+			n_neighbour_vertices = static_cast<imp_uint>(neighbour_vertex_list.size());
+
+			if (n_neighbour_vertices == n_adjacent_faces)
+			{
+				// The vertex is in the interior of the surface
+				
+				const arma::Col<imp_float>& vertex_point = _vertices.col(vertex_idx).subvec(0, 2);
+				const imp_float& norm = 1.0f/n_neighbour_vertices;
+
+				// Compute the average of the surrounding face points created by the previous loop,
+				// as well as the average midpoint of all edges connected to the vertex
+
+				average_face_point.zeros();
+				average_edge_midpoint.zeros();
+
+				adjacent_face = adjacent_face_list.begin();
+				neighbour_vertex = neighbour_vertex_list.begin();
+
+				while (adjacent_face != adjacent_face_list.end())
+				{
+					average_face_point += new_vertices.col(n_vertices + *adjacent_face);
+					average_edge_midpoint += (vertex_point + _vertices.col(*neighbour_vertex).subvec(0, 2))*0.5f;
+				
+					adjacent_face++;
+					neighbour_vertex++;
+				}
+
+				average_face_point *= norm;
+				average_edge_midpoint *= norm;
+
+				// Compute new vertex position
+				new_vertices.col(vertex_idx) = (average_face_point + 2.0f*average_edge_midpoint + (n_neighbour_vertices - 3.0f)*vertex_point)*norm;
+			}
+			else
+			{
+				// The vertex is on the boundary of the surface
+	
+				new_vertices(0, vertex_idx) = boundary_self_weight*_vertices(0, vertex_idx) + boundary_neighbour_weight*(_vertices(0, neighbour_vertex_list.front()) + _vertices(0, neighbour_vertex_list.back()));
+				new_vertices(1, vertex_idx) = boundary_self_weight*_vertices(1, vertex_idx) + boundary_neighbour_weight*(_vertices(1, neighbour_vertex_list.front()) + _vertices(1, neighbour_vertex_list.back()));
+				new_vertices(2, vertex_idx) = boundary_self_weight*_vertices(2, vertex_idx) + boundary_neighbour_weight*(_vertices(2, neighbour_vertex_list.front()) + _vertices(2, neighbour_vertex_list.back()));
+			}
+		
+			// Empty list of adjacent faces and neighbour vertices
+			adjacent_face_list.clear();
+			neighbour_vertex_list.clear();
+		}
+
+		// Make room for the required number of new faces
+		_topology.reserveAdditionalFaces(5*n_faces);
+
+		// Loop through all faces
+		for (face_idx = 0; face_idx < n_faces; face_idx++)
+		{
+			// Get indices of face vertices
+			_topology.getFace(face_idx, i, j, k);
+
+			// Get texture coordinate indices if they exist
+			if (_topology.hasTextureCoordinateIndices())
+				_topology.getTextureCoordinateIndices(face_idx, l, m, n);
+
+			// Find faces adjacent to the current face
+			_topology.findAdjacentFaces(face_idx, adjacent_faces);
+
+			// Index of the face vertex for this face added by the first face loop
+			face_vertex = n_vertices + face_idx;
+
+			// For each of the three face edges, add a new vertex if it
+			// hasn't already been created in an earlier loop iteration
+
+			// Edge i <-> j
+			if (adjacent_faces[0] > face_idx)
+			{
+				// New vertex has not been created for this edge
+			
+				edge_vertex_1 = added_vertex_idx;
+
+				self_weight = 0.25f; // 1/4
+				neighbour_weight = 0.25f; // 1/4
+
+				adjacent_face_vertex = n_vertices + adjacent_faces[0];
+
+				new_vertices(0, edge_vertex_1) = self_weight*(_vertices(0, i) + _vertices(0, j)) + neighbour_weight*(new_vertices(0, face_vertex) + new_vertices(0, adjacent_face_vertex));
+				new_vertices(1, edge_vertex_1) = self_weight*(_vertices(1, i) + _vertices(1, j)) + neighbour_weight*(new_vertices(1, face_vertex) + new_vertices(1, adjacent_face_vertex));
+				new_vertices(2, edge_vertex_1) = self_weight*(_vertices(2, i) + _vertices(2, j)) + neighbour_weight*(new_vertices(2, face_vertex) + new_vertices(2, adjacent_face_vertex));
+		
+				 // Store index of the new vertex
+				added_edge_vertices[std::make_pair(i, j)] = edge_vertex_1;
+
+				added_vertex_idx++;
+			}
+			else if (adjacent_faces[0] < face_idx)
+			{
+				// New vertex has already been created for this edge
+
+				// Get index of the new edge vertex
+				edge_vertex_1 = added_edge_vertices.find(std::make_pair(j, i))->second;
+			}
+			else
+			{
+				// Boundary edge
+			
+				edge_vertex_1 = added_vertex_idx;
+
+				self_weight = 0.5f;
+
+				new_vertices(0, edge_vertex_1) = self_weight*(_vertices(0, i) + _vertices(0, j));
+				new_vertices(1, edge_vertex_1) = self_weight*(_vertices(1, i) + _vertices(1, j));
+				new_vertices(2, edge_vertex_1) = self_weight*(_vertices(2, i) + _vertices(2, j));
+			
+				 // Store index of the new vertex
+				added_edge_vertices[std::make_pair(i, j)] = edge_vertex_1;
+
+				added_vertex_idx++;
+			}
+
+			// Edge j <-> k
+			if (adjacent_faces[1] > face_idx)
+			{
+				// New vertex has not been created for this edge
+			
+				edge_vertex_2 = added_vertex_idx;
+
+				self_weight = 0.25f; // 1/4
+				neighbour_weight = 0.25f; // 1/4
+
+				adjacent_face_vertex = n_vertices + adjacent_faces[1];
+
+				new_vertices(0, edge_vertex_2) = self_weight*(_vertices(0, j) + _vertices(0, k)) + neighbour_weight*(new_vertices(0, face_vertex) + new_vertices(0, adjacent_face_vertex));
+				new_vertices(1, edge_vertex_2) = self_weight*(_vertices(1, j) + _vertices(1, k)) + neighbour_weight*(new_vertices(1, face_vertex) + new_vertices(1, adjacent_face_vertex));
+				new_vertices(2, edge_vertex_2) = self_weight*(_vertices(2, j) + _vertices(2, k)) + neighbour_weight*(new_vertices(2, face_vertex) + new_vertices(2, adjacent_face_vertex));
+		
+				 // Store index of the new vertex
+				added_edge_vertices[std::make_pair(j, k)] = edge_vertex_2;
+
+				added_vertex_idx++;
+			}
+			else if (adjacent_faces[1] < face_idx)
+			{
+				// New vertex has already been created for this edge
+				
+				// Get index of the new edge vertex
+				edge_vertex_2 = added_edge_vertices.find(std::make_pair(k, j))->second;
+			}
+			else
+			{
+				// Boundary edge
+			
+				edge_vertex_2 = added_vertex_idx;
+
+				self_weight = 0.5f;
+
+				new_vertices(0, edge_vertex_2) = self_weight*(_vertices(0, j) + _vertices(0, k));
+				new_vertices(1, edge_vertex_2) = self_weight*(_vertices(1, j) + _vertices(1, k));
+				new_vertices(2, edge_vertex_2) = self_weight*(_vertices(2, j) + _vertices(2, k));
+			
+				 // Store index of the new vertex
+				added_edge_vertices[std::make_pair(j, k)] = edge_vertex_2;
+
+				added_vertex_idx++;
+			}
+
+			// Edge k <-> i
+			if (adjacent_faces[2] > face_idx)
+			{
+				// New vertex has not been created for this edge
+			
+				edge_vertex_3 = added_vertex_idx;
+
+				self_weight = 0.25f; // 1/4
+				neighbour_weight = 0.25f; // 1/4
+
+				adjacent_face_vertex = n_vertices + adjacent_faces[2];
+
+				new_vertices(0, edge_vertex_3) = self_weight*(_vertices(0, k) + _vertices(0, i)) + neighbour_weight*(new_vertices(0, face_vertex) + new_vertices(0, adjacent_face_vertex));
+				new_vertices(1, edge_vertex_3) = self_weight*(_vertices(1, k) + _vertices(1, i)) + neighbour_weight*(new_vertices(1, face_vertex) + new_vertices(1, adjacent_face_vertex));
+				new_vertices(2, edge_vertex_3) = self_weight*(_vertices(2, k) + _vertices(2, i)) + neighbour_weight*(new_vertices(2, face_vertex) + new_vertices(2, adjacent_face_vertex));
+		
+				 // Store index of the new vertex
+				added_edge_vertices[std::make_pair(k, i)] = edge_vertex_3;
+
+				added_vertex_idx++;
+			}
+			else if (adjacent_faces[2] < face_idx)
+			{
+				// New vertex has already been created for this edge
+				
+				// Get index of the new edge vertex
+				edge_vertex_3 = added_edge_vertices.find(std::make_pair(i, k))->second;
+			}
+			else
+			{
+				// Boundary edge
+			
+				edge_vertex_3 = added_vertex_idx;
+
+				self_weight = 0.5f;
+
+				new_vertices(0, edge_vertex_3) = self_weight*(_vertices(0, k) + _vertices(0, i));
+				new_vertices(1, edge_vertex_3) = self_weight*(_vertices(1, k) + _vertices(1, i));
+				new_vertices(2, edge_vertex_3) = self_weight*(_vertices(2, k) + _vertices(2, i));
+			
+				 // Store index of the new vertex
+				added_edge_vertices[std::make_pair(k, i)] = edge_vertex_3;
+
+				added_vertex_idx++;
+			}
+
+			// Construct sub-faces (modifies the current face, but it will not be needed anymore anyway)
+			_topology.setFace(face_idx, face_vertex, i, edge_vertex_1);
+			_topology.setNextFace(face_vertex, edge_vertex_1, j);
+			_topology.setNextFace(face_vertex, j, edge_vertex_2);
+			_topology.setNextFace(face_vertex, edge_vertex_2, k);
+			_topology.setNextFace(face_vertex, k, edge_vertex_3);
+			_topology.setNextFace(face_vertex, edge_vertex_3, i);
+		}
+
+		added_edge_vertices.clear();
+
+		// Remove redundant vertex entries
+		new_vertices.shed_cols(added_vertex_idx, new_vertices.n_cols-1);
+
+		// Set homogeneous coordinates
+		new_vertices.insert_rows(3, 1);
+		new_vertices.row(3).ones();
+
+		// Replace old vertices with the new ones
+		_vertices.swap(new_vertices);
+		new_vertices.clear();
+
+		// The adjacency data is now invalid
+		_topology.invalidateAdjacencyData();
+	}
+
+	// Recompute mesh attributes
+
+	if (_has_face_normals)
+	{
+		_has_face_normals = false;
+		computeFaceNormals();
+	}
+
+	if (_has_vertex_normals)
+	{
+		_has_vertex_normals = false;
+		computeVertexNormals();
+	}
+	
+	if (_has_texture_coordinates)
+	{
+		_has_vertex_texture_coordinate_indices = false;
+		computeVertexTextureCoordinateIndices();
+	}
+	
+	if (_has_vertex_tangents)
+	{
+		_has_vertex_tangents = false;
+		computeTangentVectors();
+	}
+
+	_has_aabb = false;
 }
 
 void TriangleMesh::clipNearPlaneAt(imp_float z_near)
@@ -1865,9 +2355,9 @@ void TriangleMesh::computeBoundingAreaHierarchy(imp_float image_width,
     objects.clear();
 }
 
-void TriangleMesh::computeFaceNormals()
+void TriangleMesh::computeFaceNormals(bool force /* = false */)
 {
-    if (_has_face_normals)
+    if (_has_face_normals && !force)
 		return;
     
     imp_uint n_faces = getNumberOfFaces();
@@ -1891,9 +2381,9 @@ void TriangleMesh::computeFaceNormals()
     _has_face_normals = true;
 }
 
-void TriangleMesh::computeVertexNormals()
+void TriangleMesh::computeVertexNormals(bool force /* = false */)
 {
-    if (_has_vertex_normals)
+    if (_has_vertex_normals && !force)
 		return;
 
 	assert(_has_face_normals);
@@ -1917,9 +2407,9 @@ void TriangleMesh::computeVertexNormals()
     _has_vertex_normals = true;
 }
 
-void TriangleMesh::computeTangentVectors()
+void TriangleMesh::computeTangentVectors(bool force /* = false */)
 {
-    if (_has_vertex_tangents)
+    if (_has_vertex_tangents && !force)
 		return;
 
 	assert(_has_vertex_normals);
@@ -1990,6 +2480,37 @@ void TriangleMesh::computeTangentVectors()
 	bitangents.clear();
     
     _has_vertex_tangents = true;
+}
+
+void TriangleMesh::computeVertexTextureCoordinateIndices(bool force /* = false */)
+{
+	if (_has_vertex_texture_coordinate_indices && !force)
+		return;
+	
+	assert(_has_texture_coordinates);
+	
+	imp_uint i, j, k;
+	imp_uint l, m, n;
+	imp_uint invalid_index = getNumberOfTextureCoordinates() + 1;
+
+	_vertex_texture_coordinate_indices.clear();
+	_vertex_texture_coordinate_indices.resize(getNumberOfVertices(), invalid_index);
+	
+    for (imp_uint face_idx = 0; face_idx < getNumberOfFaces(); face_idx++)
+    {
+		_topology.getFace(face_idx, i, j, k, m, n, l);
+
+		if (_vertex_texture_coordinate_indices[i] == invalid_index)
+			_vertex_texture_coordinate_indices[i] = l;
+
+		if (_vertex_texture_coordinate_indices[j] == invalid_index)
+			_vertex_texture_coordinate_indices[j] = m;
+
+		if (_vertex_texture_coordinate_indices[k] == invalid_index)
+			_vertex_texture_coordinate_indices[k] = n;
+	}
+
+	_has_vertex_texture_coordinate_indices = true;
 }
 
 void TriangleMesh::homogenizeVertices()
@@ -2143,20 +2664,6 @@ TriangleMesh& TriangleMesh::applyTransformation(const AffineTransformation& tran
 	return *this;
 }
 
-TriangleMesh& TriangleMesh::applyWindowingTransformation(const AffineTransformation& transformation)
-{
-    assert(_is_homogenized);
-
-    _vertices.rows(0, 1) = transformation.getMatrix().toArma4x4Matrix().submat(0, 0, 1, 3)*_vertices;
-	
-    _has_vertex_normals = false;
-    _has_vertex_tangents = false;
-    _has_face_normals = false;
-    _has_aabb = false;
-
-	return *this;
-}
-
 TriangleMesh& TriangleMesh::applyTransformation(const ProjectiveTransformation& transformation)
 {
     _vertices = transformation.getMatrix()*_vertices;
@@ -2165,6 +2672,29 @@ TriangleMesh& TriangleMesh::applyTransformation(const ProjectiveTransformation& 
 	_vertex_normals.clear();
 
     _is_homogenized = false;
+    _has_vertex_normals = false;
+    _has_vertex_tangents = false;
+    _has_face_normals = false;
+    _has_aabb = false;
+
+	return *this;
+}
+
+void TriangleMesh::displaceVertexInNormalDirection(imp_uint idx, imp_float displacement_distance)
+{
+	assert(_has_vertex_normals);
+
+	_vertices(0, idx) += _vertex_normals(0, idx)*displacement_distance;
+	_vertices(1, idx) += _vertex_normals(1, idx)*displacement_distance;
+	_vertices(2, idx) += _vertex_normals(2, idx)*displacement_distance;
+}
+
+TriangleMesh& TriangleMesh::applyWindowingTransformation(const AffineTransformation& transformation)
+{
+    assert(_is_homogenized);
+
+    _vertices.rows(0, 1) = transformation.getMatrix().toArma4x4Matrix().submat(0, 0, 1, 3)*_vertices;
+	
     _has_vertex_normals = false;
     _has_vertex_tangents = false;
     _has_face_normals = false;
@@ -2228,6 +2758,14 @@ void TriangleMesh::getVertexData3(imp_uint idx,
     data_0 = _vertex_data_3(0, idx);
     data_1 = _vertex_data_3(1, idx);
     data_2 = _vertex_data_3(2, idx);
+}
+
+const Geometry2D::Point& TriangleMesh::getVertexTextureCoordinate(imp_uint idx) const
+{
+	assert(_has_texture_coordinates);
+	assert(_has_vertex_texture_coordinate_indices);
+
+	return _texture_coordinates[_vertex_texture_coordinate_indices[idx]];
 }
 
 Triangle TriangleMesh::getFace(imp_uint face_idx) const

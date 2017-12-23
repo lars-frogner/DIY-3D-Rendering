@@ -15,17 +15,20 @@ extern const TriangleMesh IMP_SPHERE_MESHES[IMP_N_SPHERE_TEXTURE_MODES][IMP_N_SP
 	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  16, 0),
 	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  32, 0),
 	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  64, 0),
-	  TriangleMesh::sphere(Sphere(Point::origin(), 1), 128, 0)},
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1), 128, 0),
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1), 256, 0)},
 	 {TriangleMesh::sphere(Sphere(Point::origin(), 1),   8, 1),
 	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  16, 1),
 	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  32, 1),
 	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  64, 1),
-	  TriangleMesh::sphere(Sphere(Point::origin(), 1), 128, 1)},
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1), 128, 1),
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1), 256, 1)},
 	 {TriangleMesh::sphere(Sphere(Point::origin(), 1),   8, 2),
 	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  16, 2),
 	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  32, 2),
 	  TriangleMesh::sphere(Sphere(Point::origin(), 1),  64, 2),
-	  TriangleMesh::sphere(Sphere(Point::origin(), 1), 128, 2)}};
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1), 128, 2),
+	  TriangleMesh::sphere(Sphere(Point::origin(), 1), 256, 2)}};
 
 extern const TriangleMesh IMP_TWOSIDED_SPHERE_MESHES[IMP_N_SPHERE_RESOLUTIONS] = {TriangleMesh::twoSidedSphere(Sphere(Point::origin(), 1), 8),
 																				  TriangleMesh::twoSidedSphere(Sphere(Point::origin(), 1), 16),
